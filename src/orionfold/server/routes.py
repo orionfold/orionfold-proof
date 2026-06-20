@@ -218,7 +218,9 @@ _FORMATS = {
 
 
 @router.get("/runs/{run_id}/receipt.{fmt}")
-def download_receipt(request: Request, run_id: str, fmt: str) -> Response:
+def download_receipt(
+    request: Request, run_id: str, fmt: str, inline: bool = False
+) -> Response:
     if fmt not in _FORMATS:
         raise HTTPException(status_code=404, detail="Unknown receipt format")
     conn = _conn(request)
@@ -232,7 +234,9 @@ def download_receipt(request: Request, run_id: str, fmt: str) -> Response:
     render, media_type = _FORMATS[fmt]
     body = render(report)
     filename = f"proof-receipt-{report.run.config_hash}.{fmt}"
-    headers = {"Content-Disposition": f'attachment; filename="{filename}"'}
+    # inline=1 lets the cockpit render the receipt in an iframe; the default download is unchanged.
+    disposition = "inline" if inline else "attachment"
+    headers = {"Content-Disposition": f'{disposition}; filename="{filename}"'}
     if fmt == "html":
         return Response(content=body, media_type=media_type, headers=headers)
     return PlainTextResponse(content=body, media_type=media_type, headers=headers)

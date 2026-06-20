@@ -60,6 +60,32 @@ def test_full_loop_run_leaderboard_failure_and_receipts(client):
         assert "attachment" in resp.headers["content-disposition"]
 
 
+def test_html_receipt_can_be_served_inline_for_preview(client):
+    run_id = client.post(
+        "/api/runs",
+        json={
+            "dataset_id": "investment-memo-summarization",
+            "candidate_ids": ["mock_good", "mock_bad"],
+            "brief": {
+                "task_name": "Memo summarization",
+                "decision_question": "Which model to trust?",
+                "success_criteria": "",
+            },
+        },
+    ).json()["run"]["id"]
+
+    inline = client.get(f"/api/runs/{run_id}/receipt.html?inline=1")
+    assert inline.status_code == 200
+    assert inline.headers["content-type"].startswith("text/html")
+    assert "inline" in inline.headers["content-disposition"]
+    assert "attachment" not in inline.headers["content-disposition"]
+
+    # Default stays a download, and the inline body is byte-identical.
+    download = client.get(f"/api/runs/{run_id}/receipt.html")
+    assert "attachment" in download.headers["content-disposition"]
+    assert inline.text == download.text
+
+
 def test_unknown_dataset_is_rejected(client):
     resp = client.post(
         "/api/runs",
