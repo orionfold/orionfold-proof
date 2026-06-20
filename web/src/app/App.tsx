@@ -94,7 +94,11 @@ function LeftRail({ view, onNavigate }: { view: View; onNavigate: (view: View) =
   return (
     <aside
       aria-label="Navigation"
-      className="flex flex-col gap-6 border-b border-(--color-panel-line) bg-(--color-rail) px-4 py-5 lg:h-full lg:border-b-0 lg:border-r"
+      // On desktop the rail pins to the viewport (sticky + full screen height) so the footer —
+      // Settings and the engine-status pill — stays above the fold no matter how far the main
+      // pane scrolls. overflow-y-auto lets the rail scroll internally on a short viewport rather
+      // than clipping the footer. On mobile it's a normal stacked block.
+      className="flex flex-col gap-6 border-b border-(--color-panel-line) bg-(--color-rail) px-4 py-5 lg:sticky lg:top-0 lg:h-screen lg:overflow-y-auto lg:border-b-0 lg:border-r"
     >
       <div className="flex items-center gap-2">
         <span aria-hidden className="h-4 w-4 rounded-sm bg-(--color-accent)" />
