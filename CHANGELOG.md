@@ -4,6 +4,27 @@ All notable changes to **Orionfold Proof** (`orionfold-proof`) are recorded here
 format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); this project aims
 for [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Light theme + theme switcher.** A three-state **System / Light / Dark** control in the
+  rail footer (replacing the old "Settings · soon" marker). The choice persists
+  (`localStorage`), "System" follows the OS and tracks live changes, and a pre-paint script
+  applies it before first paint (no flash). The exported **Proof Receipt is themed too**:
+  a downloaded receipt follows the reader's OS via `@media (prefers-color-scheme)`, while the
+  in-app preview is pinned to the cockpit's theme. Every light token meets WCAG 2.2 AA.
+
+### Changed
+
+- **Proof Run Task name auto-syncs to the selected dataset** until you edit it, so an imported
+  dataset's receipt heading no longer inherits the bundled dataset's name.
+
+### Fixed
+
+- **Rail footer stays pinned.** The left rail is now viewport-height and sticky on desktop, so
+  the theme switcher and engine-status pill no longer scroll away on long run pages.
+
 ## [0.1.0] — 2026-06-19
 
 First v0 ship candidate. The complete Proof Receipt loop runs locally — keyless by default,
