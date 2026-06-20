@@ -8,7 +8,7 @@ test("renders the receipt artifact in a sandboxed iframe with downloads", () => 
   render(<ReceiptDetailView report={SAMPLE_REPORT} onBack={() => {}} onExplore={() => {}} />);
 
   const frame = screen.getByTitle("Proof Receipt preview");
-  expect(frame).toHaveAttribute("src", "/api/runs/run_abc123def456/receipt.html?inline=1");
+  expect(frame.getAttribute("src")).toContain("/api/runs/run_abc123def456/receipt.html?inline=1");
   expect(frame).toHaveAttribute("sandbox");
 
   for (const label of ["Markdown", "HTML", "JSON"]) {
@@ -17,6 +17,12 @@ test("renders the receipt artifact in a sandboxed iframe with downloads", () => 
       expect.stringContaining("/api/runs/run_abc123def456/receipt."),
     );
   }
+});
+
+test("the preview iframe pins the cockpit's resolved theme", () => {
+  render(<ReceiptDetailView report={SAMPLE_REPORT} onBack={() => {}} onExplore={() => {}} />);
+  const frame = screen.getByTitle("Proof Receipt preview");
+  expect(frame.getAttribute("src")).toContain("theme=light");
 });
 
 test("fires onExplore and onBack from the nav buttons", () => {

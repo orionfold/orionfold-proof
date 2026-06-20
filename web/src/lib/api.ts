@@ -190,8 +190,10 @@ export function receiptUrl(runId: string, fmt: "md" | "html" | "json"): string {
 }
 
 // Same receipt, served for rendering (Content-Disposition: inline) so the cockpit can embed it.
-export function receiptPreviewUrl(runId: string): string {
-  return `/api/runs/${runId}/receipt.html?inline=1`;
+// `theme` pins the iframe to the cockpit's resolved theme (overrides the receipt's OS media query).
+export function receiptPreviewUrl(runId: string, theme?: "light" | "dark"): string {
+  const t = theme ? `&theme=${theme}` : "";
+  return `/api/runs/${runId}/receipt.html?inline=1${t}`;
 }
 
 // --- Streaming run (Server-Sent Events) ---------------------------------------------------

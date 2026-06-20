@@ -1,6 +1,7 @@
 import { ArrowLeft, Download, ExternalLink } from "lucide-react";
 
 import { receiptPreviewUrl, receiptUrl, type ProofReport } from "../../lib/api";
+import { useTheme } from "../../lib/theme";
 
 const FORMATS: { fmt: "md" | "html" | "json"; label: string }[] = [
   { fmt: "md", label: "Markdown" },
@@ -20,6 +21,7 @@ export function ReceiptDetailView({
   onBack: () => void;
   onExplore: (report: ProofReport) => void;
 }) {
+  const { resolved } = useTheme();
   const { run } = report;
   const heading = run.brief.decision_question || run.brief.task_name;
 
@@ -54,7 +56,7 @@ export function ReceiptDetailView({
 
       <iframe
         title="Proof Receipt preview"
-        src={receiptPreviewUrl(run.id)}
+        src={receiptPreviewUrl(run.id, resolved)}
         sandbox=""
         className="min-h-[60vh] w-full rounded-xl border border-(--color-panel-line) bg-(--color-panel-card)"
       />

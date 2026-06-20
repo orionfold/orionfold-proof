@@ -222,3 +222,22 @@ def test_create_zero_valid_is_422(client):
         "/api/datasets", json={"name": "Empty", "format": "jsonl", "text": "\n"}
     )
     assert resp.status_code == 422
+
+
+def test_inline_receipt_theme_param_injects_data_theme(client):
+    run_id = client.post(
+        "/api/runs",
+        json={
+            "dataset_id": "investment-memo-summarization",
+            "candidate_ids": ["mock_good", "mock_bad"],
+            "brief": {"task_name": "Memo", "decision_question": "Which?", "success_criteria": ""},
+        },
+    ).json()["run"]["id"]
+
+    light = client.get(f"/api/runs/{run_id}/receipt.html?inline=1&theme=light")
+    assert light.status_code == 200
+    assert 'data-theme="light"' in light.text
+
+    # A plain download pins no theme (it self-adapts via prefers-color-scheme).
+    download = client.get(f"/api/runs/{run_id}/receipt.html")
+    assert "data-theme=" not in download.text.split("<head>")[0]
