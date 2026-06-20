@@ -6,21 +6,19 @@
 > To resume: in a fresh session say **"read from handoff"** (or "continue from last
 > session"), or `/clear` and paste the prompt below.
 
-_Last updated: 2026-06-19 · Gate 5 (vertical slice) built, verified, reviewed & **committed** (`3fea82a` on branch `gate-5-vertical-slice`; not pushed; ready to merge to `main`) · next: **Gate 6 (provider integration)**_
+_Last updated: 2026-06-19 · Gate 5 (vertical slice) built, verified, reviewed & **merged to `main`** (`3fea82a` feat + doc commits, HEAD `d6344ed`; **not pushed**) · next: **Gate 6 (provider integration)**_
 
 ## Paste prompt for the next session
 
 ```text
 Use the context-refresh skill to load current state from docs/ (release charter, ADR-0001,
 and the latest docs/worklog entry, 2026-06-19-gate5-vertical-slice). Gate 5 is built,
-verified, reviewed, and committed on branch `gate-5-vertical-slice` (NOT pushed; not yet
-merged to `main`). The mock-only proof loop works end-to-end (dataset → run → leaderboard →
-failure case → receipt md/html/json, schema v2 with config hash + timestamp + verdict +
-repro), on SQLite with append-only migrations. Tests: 30 pytest, 3 vitest, 1 Playwright;
-ruff + pyright clean. Both review skills + diff-reviewer/security-reviewer passed.
-
-FIRST: confirm with the operator whether to merge `gate-5-vertical-slice` into `main`
-before starting (fast-forward; nothing has been pushed).
+verified, reviewed, and MERGED to `main` (HEAD `d6344ed`; NOT pushed). The mock-only proof
+loop works end-to-end (dataset → run → leaderboard → failure case → receipt md/html/json,
+schema v2 with config hash + timestamp + verdict + repro), on SQLite with append-only
+migrations. Tests: 30 pytest, 3 vitest, 1 Playwright; ruff + pyright clean. Both review
+skills + diff-reviewer/security-reviewer passed. (Merged branch `gate-5-vertical-slice` is
+local-only and can be deleted.)
 
 NOTE: the Gate 5 cockpit UI is functional SCAFFOLDING, not the documented design system
 (docs/ux/product-design-system.md — three-pane layout + Decision→Verdict results hierarchy
