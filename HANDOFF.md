@@ -6,7 +6,7 @@
 > To resume: in a fresh session say **"read from handoff"** (or "continue from last
 > session"), or `/clear` and paste the prompt below.
 
-_Last updated: 2026-06-19 · Gate 4 (skeleton) complete & verified · next: **Gate 5 (vertical slice)**_
+_Last updated: 2026-06-19 · Gate 4 (skeleton) complete, verified & committed (`cb2476d` on `main`, worktree clean) · next: **Gate 5 (vertical slice)**_
 
 ## Paste prompt for the next session
 
