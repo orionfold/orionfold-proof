@@ -16,7 +16,18 @@ client-side (`FileReader`) so the server stays JSON-only; create RE-parses serve
 truth. NO schema migration (existing `datasets` table). Built brainstorm → spec → plan →
 subagent-driven (6 TDD tasks, per-task + Opus whole-branch review: **ready to merge**). 91 backend +
 16 frontend + 2 e2e green. Commits on `main` (NOT pushed): 1001a60 03290fb 1f8864a f83e4fb 26673b6
-9184f93 6f4ac9f ca7d69c 71855ae (+ spec 2d67e25, plan 38f6ec8). The other backlog findings remain._
+9184f93 6f4ac9f ca7d69c 71855ae (+ spec 2d67e25, plan 38f6ec8). **Operator-evaluated live in the
+browser** against the real embedded build: full loop confirmed end-to-end — pasted JSONL (with a bad
+line) → preview "3 examples parsed" + "Line 3 skipped" → froze "Client memo summaries v1" → it's
+selectable in Proof Run → ran keyless mocks → leaderboard (Mock·good 3/3 recommended) → failure-case
+drill-down on the imported input/expected → in-app receipt artifact (verdict Ship, names the dataset
++ slug + config hash, schema v3). The other backlog findings remain._
+
+> **Quick follow-up surfaced during the live eval (optional, ~1-line):** the receipt's *subtitle*
+> uses the Proof Run **Task name** field, which defaults to the bundled dataset's name ("Investment
+> memo summarization") even when a different dataset is selected — so a receipt for an imported set
+> can show a mismatched heading. Consider defaulting/auto-syncing Task name to the selected dataset's
+> name. Cosmetic, not a bug; the receipt's *Dataset* line is always correct.
 
 ## Paste prompt for the next session
 
