@@ -34,6 +34,18 @@ Then build GATE 6 — PROVIDER INTEGRATION:
 - Keys read from env/config ONLY; never logged, never written to receipts. Exercise the
   redaction path in providers/base.py (safe_generate → redact_secrets) against REAL provider
   error messages.
+- OPERATOR INSTRUCTION (2026-06-19): modify the Gate 6 SPEC and IMPLEMENTATION to resolve
+  provider API keys by checking BOTH the system environment AND a repo-root `.env.local`
+  file, for each of: OPENAI_API_KEY, GEMINI_API_KEY, OPENROUTER_API_KEY, ANTHROPIC_API_KEY.
+  Notes: (1) precedence — decide and document (suggest system env overrides .env.local, or
+  vice-versa; pick one and note it in the ADR/spec). (2) `.env.local` is ALREADY gitignored
+  (`.env.*` in .gitignore) — keep it that way; never commit it, never log/echo a key, never
+  write a key into any receipt. (3) loading `.env.local`: prefer a tiny stdlib parser (no new
+  dep) over python-dotenv unless the operator approves the dep. (4) this implies provider
+  profiles beyond the charter's named two — OPENROUTER rides `openai_compatible`; OpenAI rides
+  it too; GEMINI and ANTHROPIC are their own profiles. Confirm scope with the operator in plan
+  mode before building (the charter v0 named mock + ollama + openai_compatible; this expands
+  it). (5) real-provider tests still SKIP gracefully when a given key is absent.
 - Mock path stays the keyless default; real-provider tests SKIP gracefully without creds
   (pytest skipif on env vars).
 - Register the new providers in providers/registry.py so they appear as candidates with no
