@@ -42,7 +42,15 @@ blank-canvas chore) into "pick the decision you're making" — which is the prod
 
 ## Status
 
-- **#8 Receipt preview — SHIPPED (this session).** Built via brainstorm → spec → plan →
+- **#9 Dataset import — SHIPPED (2026-06-20).** The one real v0 charter *acceptance* gap: the
+  whole import layer was absent (no parser, no `POST /api/datasets`, read-only Datasets view). Built
+  full-stack via brainstorm → spec → plan → subagent-driven execution (6 TDD tasks, Opus
+  whole-branch review: ready to merge). Parser (JSONL/CSV/**heading-delimited** Markdown) → name-unique
+  `save_dataset` → preview/create routes (422 empty, 409 dup) → inline `DatasetImportPanel`
+  (preview → confirm → freeze; file read client-side, server JSON-only). 91 backend + 16 frontend +
+  2 e2e green. Commits `1001a60`..`71855ae`. Design:
+  `docs/superpowers/specs/2026-06-20-dataset-import-design.md`.
+- **#8 Receipt preview — SHIPPED (prior session).** Built via brainstorm → spec → plan →
   subagent-driven execution. A dedicated artifact-first Receipt detail view renders the real
   generated HTML in a sandboxed iframe (`?inline=1` + CSP `sandbox` + `nosniff`); clicking a
   receipt opens it, with "Explore in cockpit" as the secondary path. Commits `780daee` (inline
@@ -53,8 +61,10 @@ blank-canvas chore) into "pick the decision you're making" — which is the prod
 
 ## Next steps (prioritized backlog from this review)
 
-1. **#2 Sticky rail footer** — cheap P1 layout fix (Settings/Connected pin via full-height rail).
-2. **#9 Dataset import UI** — Tier-1 charter gap (paste/JSONL/CSV/MD in the Datasets view).
+1. ~~**#9 Dataset import UI**~~ — **SHIPPED 2026-06-20** (the only real v0 charter *acceptance* gap;
+   the whole import layer was absent, built full-stack). See
+   `docs/worklog/2026-06-20-dataset-import.md`.
+2. **#2 Sticky rail footer** — cheap P1 layout fix (Settings/Connected pin via full-height rail).
 3. **#5 + #7 + #4 Decision recipes** — the strategic bet; own brainstorm/spec. Named comparison
    presets that bundle a candidate panel + starter decision question.
 4. **#1 Light theme + switcher** — sizable; token audit + persisted toggle in the rail footer.
