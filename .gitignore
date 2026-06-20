@@ -53,3 +53,6 @@ samples/receipts/*.generated.*
 
 # Obsidian (this repo is also a vault) — personal UI state, not shared config
 .obsidian/
+
+# Playwright MCP scratch (screenshots, snapshots, console logs)
+.playwright-mcp/

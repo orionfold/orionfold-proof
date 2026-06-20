@@ -2,51 +2,61 @@ import { useState } from "react";
 
 import type { ProofReport, ResultRow } from "../../lib/api";
 
-// Failure cases are where trust is won or lost. The user picks a candidate and inspects the
-// exact examples it got wrong — including provider errors, surfaced, never swallowed.
-export function FailureCases({ report }: { report: ProofReport }) {
+const rowKey = (r: ResultRow) => `${r.candidate_id}-${r.example_index}`;
+
+// Failure cases are where trust is won or lost. The user picks a candidate, then a case; the
+// full input/expected/output opens in the inspector. Provider errors are surfaced, never
+// swallowed.
+export function FailureCases({
+  report,
+  selected,
+  onSelect,
+}: {
+  report: ProofReport;
+  selected: ResultRow | null;
+  onSelect: (row: ResultRow) => void;
+}) {
   const failures = report.results.filter((r) => !r.passed);
   const candidateIds = [...new Set(failures.map((f) => f.candidate_id))];
-  const [selected, setSelected] = useState<string | null>(candidateIds[0] ?? null);
+  const [active, setActive] = useState<string | null>(candidateIds[0] ?? null);
 
-  const labelFor = (id: string) =>
-    report.run.candidates.find((c) => c.id === id)?.label ?? id;
+  const labelFor = (id: string) => report.run.candidates.find((c) => c.id === id)?.label ?? id;
 
   if (failures.length === 0) {
     return (
       <section aria-label="Failure cases" className="w-full">
-        <h2 className="mb-3 text-sm font-medium uppercase tracking-wide text-[--color-ink-muted]">
+        <h2 className="mb-3 text-sm font-medium uppercase tracking-wide text-(--color-ink-muted)">
           Failure cases
         </h2>
-        <p className="text-[--color-ink-muted]">
+        <p className="text-(--color-ink-muted)">
           No failures — every candidate passed every example.
         </p>
       </section>
     );
   }
 
-  const shown = failures.filter((f) => f.candidate_id === selected);
+  const shown = failures.filter((f) => f.candidate_id === active);
 
   return (
     <section aria-label="Failure cases" className="w-full">
-      <h2 className="mb-3 text-sm font-medium uppercase tracking-wide text-[--color-ink-muted]">
+      <h2 className="mb-3 text-sm font-medium uppercase tracking-wide text-(--color-ink-muted)">
         Failure cases ({failures.length})
       </h2>
       <div className="mb-4 flex flex-wrap gap-2">
         {candidateIds.map((id) => {
           const count = failures.filter((f) => f.candidate_id === id).length;
-          const active = id === selected;
+          const isActive = id === active;
           return (
             <button
               key={id}
               type="button"
-              onClick={() => setSelected(id)}
-              aria-pressed={active}
+              onClick={() => setActive(id)}
+              aria-pressed={isActive}
               className={
                 "rounded-full border px-3 py-1 text-sm transition-colors " +
-                (active
-                  ? "border-emerald-400 bg-emerald-500/15 text-[--color-ink]"
-                  : "border-[--color-panel-line] text-[--color-ink-muted] hover:text-[--color-ink]")
+                (isActive
+                  ? "border-(--color-accent)/50 bg-(--color-accent)/10 text-(--color-ink)"
+                  : "border-(--color-panel-line) text-(--color-ink-muted) hover:text-(--color-ink)")
               }
             >
               {labelFor(id)} · {count}
@@ -54,38 +64,54 @@ export function FailureCases({ report }: { report: ProofReport }) {
           );
         })}
       </div>
-      <ul className="flex flex-col gap-3">
+      <ul className="flex flex-col gap-2">
         {shown.map((row) => (
-          <FailureRow key={`${row.candidate_id}-${row.example_index}`} row={row} />
+          <FailureRow
+            key={rowKey(row)}
+            row={row}
+            isSelected={selected != null && rowKey(selected) === rowKey(row)}
+            onSelect={() => onSelect(row)}
+          />
         ))}
       </ul>
     </section>
   );
 }
 
-function FailureRow({ row }: { row: ResultRow }) {
+function FailureRow({
+  row,
+  isSelected,
+  onSelect,
+}: {
+  row: ResultRow;
+  isSelected: boolean;
+  onSelect: () => void;
+}) {
   return (
-    <li className="rounded-xl border border-[--color-panel-line] bg-[--color-panel-card] p-4">
-      <div className="mb-2 flex items-center gap-2 text-sm">
-        <span className="text-[--color-ink-muted]">Example {row.example_index + 1}</span>
+    <li>
+      <button
+        type="button"
+        onClick={onSelect}
+        aria-pressed={isSelected}
+        className={
+          "flex w-full items-center gap-3 rounded-lg border px-4 py-3 text-left text-sm transition-colors " +
+          (isSelected
+            ? "border-(--color-accent)/50 bg-(--color-panel-card)"
+            : "border-(--color-panel-line) bg-(--color-panel-card) hover:border-(--color-panel-line-strong)")
+        }
+      >
+        <span className="shrink-0 text-(--color-ink-faint)">Example {row.example_index + 1}</span>
+        <span className="min-w-0 flex-1 truncate text-(--color-ink-muted)">{row.input_text}</span>
         {row.error ? (
-          <span className="rounded-full bg-rose-500/15 px-2 py-0.5 text-xs text-rose-300">
+          <span className="shrink-0 rounded-full border border-rose-400/40 bg-rose-500/10 px-2 py-0.5 text-[11px] text-rose-300">
             error: {row.error}
           </span>
         ) : (
-          <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-xs text-amber-300">
-            score {row.score.toFixed(2)}
+          <span className="shrink-0 rounded-full border border-amber-400/40 bg-amber-500/10 px-2 py-0.5 text-[11px] text-amber-300">
+            Fail · score {row.score.toFixed(2)}
           </span>
         )}
-      </div>
-      <dl className="grid grid-cols-[5rem_1fr] gap-x-3 gap-y-1 text-sm">
-        <dt className="text-[--color-ink-muted]">Input</dt>
-        <dd className="text-[--color-ink]">{row.input_text}</dd>
-        <dt className="text-[--color-ink-muted]">Expected</dt>
-        <dd className="text-[--color-ink]">{row.expected_text}</dd>
-        <dt className="text-[--color-ink-muted]">Output</dt>
-        <dd className="text-[--color-ink]">{row.output_text || "—"}</dd>
-      </dl>
+      </button>
     </li>
   );
 }

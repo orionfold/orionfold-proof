@@ -1,5 +1,14 @@
 # Sample screenshots
 
+- **`design-system-empty.png`** — the three-pane cockpit at rest (empty state): quiet left
+  rail (Proof Run active; Datasets/Candidates/Receipts marked _soon_), the main workspace with
+  the setup card and a guided "No proof run yet" empty state, and the right inspector awaiting a
+  run. Keyless mock pair pre-selected.
+- **`design-system-populated.png`** — after a keyless mock run: the decision → recommended
+  winner band, the leaderboard, and the failure-case list in the main workspace, with run
+  config, the Proof Receipt exports, and config hash in the right inspector.
+- **`design-system-inspector.png`** — the right inspector with a failure case selected
+  (input / expected / output detail). No key material appears anywhere.
 - **`real-provider-leaderboard.png`** — the cockpit after a real proof run comparing the two
   deterministic mocks against a live **OpenRouter** cloud candidate
   (`openai/gpt-4o-mini`). Shows the full loop: candidate selection (local + cloud), the

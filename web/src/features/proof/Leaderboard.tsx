@@ -1,19 +1,20 @@
 import type { LeaderboardEntry } from "../../lib/api";
+import { ProviderTag } from "./badges";
 
 // The leaderboard is the verdict: who to trust, ranked. The recommended row is highlighted
 // so the decision reads at a glance — a calm instrument panel, not a wall of metrics.
 export function Leaderboard({ entries }: { entries: LeaderboardEntry[] }) {
   return (
     <section aria-label="Leaderboard" className="w-full">
-      <h2 className="mb-3 text-sm font-medium uppercase tracking-wide text-[--color-ink-muted]">
+      <h2 className="mb-3 text-sm font-medium uppercase tracking-wide text-(--color-ink-muted)">
         Leaderboard
       </h2>
-      <div className="overflow-hidden rounded-xl border border-[--color-panel-line]">
+      <div className="overflow-x-auto rounded-xl border border-(--color-panel-line)">
         <table className="w-full border-collapse text-sm">
           <thead>
-            <tr className="text-left text-[--color-ink-muted]">
+            <tr className="text-left text-(--color-ink-faint)">
               <th className="p-3 font-medium">Candidate</th>
-              <th className="p-3 font-medium">Privacy</th>
+              <th className="p-3 font-medium">Provider</th>
               <th className="p-3 font-medium">Pass rate</th>
               <th className="p-3 font-medium">Avg score</th>
               <th className="p-3 font-medium">Avg latency</th>
@@ -26,19 +27,21 @@ export function Leaderboard({ entries }: { entries: LeaderboardEntry[] }) {
               <tr
                 key={e.candidate_id}
                 className={
-                  "border-t border-[--color-panel-line] " +
-                  (e.recommended ? "bg-emerald-500/10" : "")
+                  "border-t border-(--color-panel-line) " +
+                  (e.recommended ? "bg-(--color-accent)/[0.08]" : "")
                 }
               >
                 <td className="p-3">
                   {e.label}
                   {e.recommended && (
-                    <span className="ml-2 rounded-full bg-emerald-500/20 px-2 py-0.5 text-xs text-emerald-300">
+                    <span className="ml-2 rounded-full bg-(--color-accent)/20 px-2 py-0.5 text-xs text-(--color-accent)">
                       Recommended
                     </span>
                   )}
                 </td>
-                <td className="p-3 text-[--color-ink-muted]">{e.privacy}</td>
+                <td className="p-3">
+                  <ProviderTag candidate={e} />
+                </td>
                 <td className="p-3">
                   {Math.round(e.pass_rate * 100)}% ({e.pass_count}/{e.total})
                 </td>

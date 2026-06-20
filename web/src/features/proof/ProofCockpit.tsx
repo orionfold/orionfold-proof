@@ -5,12 +5,15 @@ import {
   createRun,
   getCandidates,
   getDatasets,
+  type LeaderboardEntry,
   type ProofBrief,
   type ProofReport,
+  type ResultRow,
 } from "../../lib/api";
+import { ProviderTag } from "./badges";
 import { FailureCases } from "./FailureCases";
+import { Inspector } from "./Inspector";
 import { Leaderboard } from "./Leaderboard";
-import { ReceiptExport } from "./ReceiptExport";
 import { RunSetup } from "./RunSetup";
 
 const DEFAULT_BRIEF: ProofBrief = {
@@ -19,7 +22,8 @@ const DEFAULT_BRIEF: ProofBrief = {
   success_criteria: "",
 };
 
-// Orchestrates the one core loop: setup → run → leaderboard → failure cases → receipt.
+// Orchestrates the core loop across two panes: the main workspace (setup → decision →
+// leaderboard → failure cases) and the right inspector (config, receipt, selected failure).
 // Server state (datasets, candidates) comes through TanStack Query; the run is a mutation.
 export function ProofCockpit() {
   const datasets = useQuery({ queryKey: ["datasets"], queryFn: getDatasets });
@@ -29,11 +33,12 @@ export function ProofCockpit() {
   const [selected, setSelected] = useState<string[]>([]);
   const [brief, setBrief] = useState<ProofBrief>(DEFAULT_BRIEF);
   const [report, setReport] = useState<ProofReport | null>(null);
+  const [openFailure, setOpenFailure] = useState<ResultRow | null>(null);
 
   // Sensible defaults once the server data lands: first dataset, and only the keyless,
-  // instant candidates (the mocks — the ones with no pinned model) pre-selected. Real
-  // providers cost money / latency, so the user opts into them explicitly rather than having
-  // "Run proof" fire cloud calls on first click. Falls back to all if there are no mocks.
+  // instant candidates (the mocks — no pinned model) pre-selected. Real providers cost money
+  // / latency, so the user opts into them explicitly rather than having "Run proof" fire cloud
+  // calls on first click. Falls back to all if there are no mocks.
   const resolvedDatasetId = datasetId || datasets.data?.[0]?.id || "";
   const resolvedSelected = useMemo(() => {
     if (selected.length > 0) return selected;
@@ -44,7 +49,10 @@ export function ProofCockpit() {
 
   const runMutation = useMutation({
     mutationFn: createRun,
-    onSuccess: setReport,
+    onSuccess: (r) => {
+      setReport(r);
+      setOpenFailure(null);
+    },
   });
 
   const toggleCandidate = (id: string) => {
@@ -53,41 +61,137 @@ export function ProofCockpit() {
   };
 
   if (datasets.isLoading || candidates.isLoading) {
-    return <p className="text-[--color-ink-muted]">Loading the local engine…</p>;
+    return (
+      <CenteredNotice>
+        <p className="text-(--color-ink-muted)">Loading the local engine…</p>
+      </CenteredNotice>
+    );
   }
   if (datasets.isError || candidates.isError || !datasets.data || !candidates.data) {
-    return <p className="text-rose-300">Could not reach the local engine.</p>;
+    return (
+      <CenteredNotice>
+        <p className="text-rose-300">Could not reach the local engine.</p>
+        <p className="text-sm text-(--color-ink-muted)">
+          Start it with <code>orionfold up</code>, then reload this page.
+        </p>
+      </CenteredNotice>
+    );
   }
 
   return (
-    <div className="flex w-full max-w-3xl flex-col gap-8">
-      <RunSetup
-        datasets={datasets.data}
-        candidates={candidates.data}
-        datasetId={resolvedDatasetId}
-        onDatasetChange={setDatasetId}
-        selectedCandidates={resolvedSelected}
-        onToggleCandidate={toggleCandidate}
-        brief={brief}
-        onBriefChange={setBrief}
-        isRunning={runMutation.isPending}
-        error={runMutation.isError ? (runMutation.error as Error).message : null}
-        onRun={() =>
-          runMutation.mutate({
-            dataset_id: resolvedDatasetId,
-            candidate_ids: resolvedSelected,
-            brief,
-          })
-        }
-      />
+    <div className="grid min-h-full grid-rows-[auto_auto] lg:grid-cols-[minmax(0,1fr)_22rem] lg:grid-rows-1">
+      <main className="flex flex-col gap-8 px-6 py-8 lg:px-10">
+        <header className="flex flex-col gap-1">
+          <h2 className="text-xl font-semibold tracking-tight text-(--color-ink)">Proof Run</h2>
+          <p className="text-sm text-(--color-ink-muted)">
+            Prove which AI model, prompt, or workflow is worth trusting — privately, with a
+            repeatable receipt.
+          </p>
+        </header>
 
-      {report && (
-        <>
-          <Leaderboard entries={report.leaderboard} />
-          <FailureCases report={report} />
-          <ReceiptExport report={report} />
-        </>
-      )}
+        <RunSetup
+          datasets={datasets.data}
+          candidates={candidates.data}
+          datasetId={resolvedDatasetId}
+          onDatasetChange={setDatasetId}
+          selectedCandidates={resolvedSelected}
+          onToggleCandidate={toggleCandidate}
+          brief={brief}
+          onBriefChange={setBrief}
+          isRunning={runMutation.isPending}
+          error={runMutation.isError ? (runMutation.error as Error).message : null}
+          hasRun={report !== null}
+          onRun={() =>
+            runMutation.mutate({
+              dataset_id: resolvedDatasetId,
+              candidate_ids: resolvedSelected,
+              brief,
+            })
+          }
+        />
+
+        {report ? (
+          <>
+            <DecisionSummary brief={report.run.brief} leaderboard={report.leaderboard} />
+            <Leaderboard entries={report.leaderboard} />
+            <FailureCases report={report} selected={openFailure} onSelect={setOpenFailure} />
+          </>
+        ) : (
+          <EmptyResults running={runMutation.isPending} />
+        )}
+      </main>
+
+      <Inspector report={report} selected={openFailure} />
     </div>
+  );
+}
+
+// A full-height padded block for engine loading/error notices, so they sit calmly in the
+// workspace rather than crowding the top-left corner.
+function CenteredNotice({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex min-h-full items-center justify-center px-6 py-12">
+      <div className="grid max-w-sm gap-2 text-center">{children}</div>
+    </div>
+  );
+}
+
+// Top of every results view: the decision, then the recommendation — readable before any
+// table. The winner is the one place besides the primary CTA that earns the accent.
+function DecisionSummary({
+  brief,
+  leaderboard,
+}: {
+  brief: ProofBrief;
+  leaderboard: LeaderboardEntry[];
+}) {
+  const winner = leaderboard.find((e) => e.recommended) ?? leaderboard[0];
+  if (!winner) return null;
+  return (
+    <section aria-label="Decision" className="grid gap-3">
+      <p className="text-sm text-(--color-ink-muted)">
+        {brief.decision_question || brief.task_name}
+      </p>
+      <div className="rounded-xl border border-(--color-accent)/40 bg-(--color-accent)/[0.08] p-5">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs uppercase tracking-wide text-(--color-accent)">Recommended</span>
+          <span className="text-lg font-semibold text-(--color-ink)">{winner.label}</span>
+          <ProviderTag candidate={winner} />
+        </div>
+        <p className="mt-2 text-sm text-(--color-ink-muted)">
+          Passed {winner.pass_count}/{winner.total} examples ({Math.round(winner.pass_rate * 100)}
+          %) · avg score {winner.avg_score.toFixed(2)} · {winner.avg_latency_ms}ms avg · $
+          {winner.total_estimated_cost_usd.toFixed(2)} est.
+        </p>
+      </div>
+    </section>
+  );
+}
+
+function EmptyResults({ running }: { running: boolean }) {
+  if (running) {
+    return (
+      <section aria-label="Proof run progress" aria-busy="true" className="grid gap-2">
+        <p className="flex items-center gap-2 text-sm text-(--color-ink)">
+          <span aria-hidden className="inline-block h-2 w-2 animate-pulse rounded-full bg-(--color-accent)" />
+          Running the proof across every candidate and example…
+        </p>
+        <p className="text-sm text-(--color-ink-muted)">
+          Each candidate runs on the same frozen examples. Results appear here when the run
+          completes.
+        </p>
+      </section>
+    );
+  }
+  return (
+    <section aria-label="Results" className="rounded-xl border border-dashed border-(--color-panel-line) p-6">
+      <h3 className="text-sm font-medium text-(--color-ink)">No proof run yet</h3>
+      <p className="mt-1 max-w-prose text-sm text-(--color-ink-muted)">
+        A Proof Run compares your candidates on the same frozen examples so you can decide what
+        to trust. The sample dataset and both mock providers are pre-selected — press{" "}
+        <span className="text-(--color-ink)">Run proof</span> to get a leaderboard, failure
+        cases, and a shareable receipt without any API keys.
+      </p>
+    </section>
   );
 }

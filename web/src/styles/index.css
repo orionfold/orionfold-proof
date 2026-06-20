@@ -1,12 +1,29 @@
 @import "tailwindcss";
 
-/* Calm instrument-panel base. Detailed tokens land with the design system in Gate 5. */
+/* Calm instrument-panel tokens. A lab bench plus a signed receipt: restrained neutral
+   surfaces, one confident accent, semantic color reserved for status, and a distinct
+   hue per provider boundary. See docs/ux/product-design-system.md. */
 @theme {
-  --color-panel: #0b0f14;
-  --color-panel-card: #161b22;
-  --color-panel-line: #232b36;
+  /* Surfaces — three planes of the panel, quietly separated by lightness, not borders. */
+  --color-panel: #0b0f14; /* app background */
+  --color-rail: #0c1016; /* left rail (quietest) */
+  --color-inspector: #0e131a; /* right inspector (secondary) */
+  --color-panel-card: #161b22; /* raised surface: cards, inputs */
+  --color-panel-line: #232b36; /* hairline borders */
+  --color-panel-line-strong: #313c4a; /* emphasized borders */
+
+  /* Ink */
   --color-ink: #e6edf3;
   --color-ink-muted: #9fb0c0;
+  --color-ink-faint: #7c8b9b;
+
+  /* Accent — the single confident accent. CTA + winner highlight ONLY. */
+  --color-accent: #34d399;
+  --color-accent-strong: #10b981;
+  --color-accent-ink: #022c22; /* text on a filled accent surface */
+
+  /* Focus ring — one visible ring across all controls. */
+  --color-focus: #5eead4;
 }
 
 html,
@@ -20,4 +37,32 @@ body {
   background: var(--color-panel);
   color: var(--color-ink);
   font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  /* Generous line height; readability over density (design system: type). */
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Monospace for hashes, IDs, and config — the "signed receipt" half of the metaphor. */
+code,
+.mono {
+  font-family: ui-monospace, "SFMono-Regular", "JetBrains Mono", "Menlo", monospace;
+  font-size: 0.875em;
+}
+
+/* One consistent, visible focus ring for keyboard users (accessibility checklist). */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Motion is minimal and functional; honor the user's reduced-motion preference. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
