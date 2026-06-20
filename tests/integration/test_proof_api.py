@@ -5,6 +5,7 @@ import json
 import pytest
 from fastapi.testclient import TestClient
 
+from orionfold.catalog.models import ModelCatalog
 from orionfold.server.app import create_app
 
 
@@ -267,8 +268,6 @@ def test_catalog_endpoint_returns_validated_catalog(client):
     body = resp.json()
 
     # Parses back into the schema (shape contract).
-    from orionfold.catalog.models import ModelCatalog
-
     catalog = ModelCatalog.model_validate(body)
     assert catalog.version >= 1
 
