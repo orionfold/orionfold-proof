@@ -1,0 +1,23 @@
+@import "tailwindcss";
+
+/* Calm instrument-panel base. Detailed tokens land with the design system in Gate 5. */
+@theme {
+  --color-panel: #0b0f14;
+  --color-panel-card: #161b22;
+  --color-panel-line: #232b36;
+  --color-ink: #e6edf3;
+  --color-ink-muted: #9fb0c0;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-panel);
+  color: var(--color-ink);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}

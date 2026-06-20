@@ -11,11 +11,41 @@ they are here to decide what AI to trust.
 
 ---
 
-## Status: scaffolded — pre-implementation
+## Status: Gate 4 — skeleton
 
-This repository currently contains the **Claude Code operating setup and docs context
-system only**. No product code has been written yet, by design: the workflow requires an
-operator interview and an approved release charter before implementation begins.
+The runnable skeleton is in place: a Typer CLI, a FastAPI local server with a health
+endpoint, and a Vite/React cockpit shell that reports the live engine. **No proof logic,
+providers, datasets, or receipts yet** — those land in Gates 5–6.
+
+## Quickstart
+
+Prerequisites: Python 3.12+, [`uv`](https://docs.astral.sh/uv/), and
+[`pnpm`](https://pnpm.io/) (build-time only).
+
+**Develop** (API with reload + Vite dev server with `/api` proxy):
+
+```bash
+uv sync                       # backend env
+pnpm --dir web install        # cockpit deps
+uv run orionfold dev          # API at http://127.0.0.1:8787 (reload)
+pnpm --dir web dev            # cockpit at http://localhost:5173 (proxies /api)
+```
+
+**Run the embedded build** (cockpit served by FastAPI — the install-time experience):
+
+```bash
+bash scripts/build.sh         # build cockpit -> embed -> build wheel
+uv run orionfold up           # open http://localhost:8787
+```
+
+**Test:**
+
+```bash
+uv run pytest                 # backend
+pnpm --dir web test           # cockpit (Vitest)
+```
+
+Target install (post-v0): `uv tool install orionfold-proof && orionfold up`.
 
 ## How development is structured
 
@@ -72,7 +102,7 @@ src/ web/ samples/ tests/ e2e/ scripts/   Empty target dirs for the approved bui
 - **Testing:** pytest, Vitest, Playwright (visual + e2e), deterministic mock providers.
 
 Target install (post-v0): `uv tool install orionfold-proof && orionfold up` → `http://localhost:8787`.
-Dev: `uv sync && pnpm install && uv run orionfold dev`.
+Dev: `uv sync && pnpm --dir web install && uv run orionfold dev` (see Quickstart above).
 
 PyPI distribution name: `orionfold-proof` (CLI command `orionfold`). The brand names
 `orionfold` and `orionfold-arena` are reserved as placeholders for future products.
