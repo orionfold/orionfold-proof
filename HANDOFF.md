@@ -11,7 +11,7 @@ Long runs now show a live determinate bar + "now running" cell (SSE); added a Co
 stepper, first-run CTA nudge, inline field helpers, and a calm result reveal. ADR-0003 written
 (streaming architecture + path to the deferred idle timeout). All tests green; browser-verified.
 This session's commits on `main` (not pushed): `0015f23` rail views · `a9eda42` icons+rail-foot
-polish · `<this>` streamed progress + orientation. Next OWED: ADR-0003's follow-up — the
+polish · `05dd651` streamed progress + orientation. Next OWED: ADR-0003's follow-up — the
 progress-based idle timeout itself._
 
 ## Paste prompt for the next session
@@ -25,7 +25,7 @@ RECENT WORK (all committed to main this session, not pushed):
   row reopens that run in the cockpit). ProofCockpit is CONTROLLED (report lifted to App).
 - a9eda42 — Lucide iconography (functional, calm) + rail-foot polish (EngineStatus 2-line,
   Settings as disabled "soon"). Icons are aria-hidden; ProviderTag/StatusBadge in badges.tsx.
-- <this commit> — STREAMED RUN PROGRESS + orientation. Backend: engine.iter_matrix() +
+- 05dd651 — STREAMED RUN PROGRESS + orientation. Backend: engine.iter_matrix() +
   POST /api/runs/stream (SSE: start/progress/report) beside the unchanged batch POST /api/runs.
   Frontend: lib/api.ts createRunStream (fetch + ReadableStream); ProofCockpit holds {start,done}
   progress state; RunProgress.tsx (determinate bar + "Now running {cand}·example x/n", derived
