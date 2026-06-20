@@ -32,6 +32,17 @@ is stale or missing, fetch current guidance (Context7 MCP or web), then log it i
 - Ruff — https://docs.astral.sh/ruff/
 - pytest — https://docs.pytest.org/
 
+## Provider HTTP APIs (Gate 6)
+
+- Ollama REST — https://docs.ollama.com/api/chat
+  - Use for: local `/api/chat` (`stream:false`); `message.content`, `prompt_eval_count`, `eval_count`.
+- Gemini REST — https://ai.google.dev/gemini-api/docs/api-overview
+  - Use for: `generateContent`, `x-goog-api-key` header, `candidates[].content.parts[].text`, `usageMetadata`.
+- OpenAI Chat Completions — https://platform.openai.com/docs/api-reference/chat
+  - Use for: OpenAI-compatible profile (OpenAI / OpenRouter / LM Studio); `choices[].message.content`, `usage`.
+- Anthropic Messages — `claude-api` skill (bundled); https://platform.claude.com/docs/en/api
+  - Use for: native Anthropic profile; `x-api-key` + `anthropic-version`, `content[].text`, `usage.{input,output}_tokens`; current model IDs.
+
 ## Frontend
 
 - React — https://react.dev/learn

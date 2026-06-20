@@ -4,14 +4,14 @@
 
 _2 candidate(s) × 5 example(s) · rubric similarity ≥ 0.8_
 
-- **Decision:** Which model should I trust for client memo summaries?
+- **Decision:** Which model should I trust for client memos?
 - **Task:** Investment memo summarization
 - **Dataset:** Investment memo summarization (`investment-memo-summarization`)
 - **Rubric:** similarity ≥ 0.8
 - **Run id:** `run_sampledemo01`
-- **Config hash:** `e40b0301de03`
+- **Config hash:** `b7b5b150bb67`
 - **Generated:** 2026-06-19T12:00:00Z
-- **Receipt schema:** v2
+- **Receipt schema:** v3
 
 ## Leaderboard
 
@@ -46,6 +46,6 @@ _2 candidate(s) × 5 example(s) · rubric similarity ≥ 0.8_
 ## Repro
 
 - **Run id:** `run_sampledemo01`
-- **Config hash:** `e40b0301de03` (identical inputs reproduce this hash)
+- **Config hash:** `b7b5b150bb67` (identical inputs reproduce this hash)
 - **Generated:** 2026-06-19T12:00:00Z
 - **Rerun:** `POST /api/runs {"dataset_id": "investment-memo-summarization", "candidate_ids": ['mock_good', 'mock_bad']}`

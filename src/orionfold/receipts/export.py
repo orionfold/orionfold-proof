@@ -13,9 +13,10 @@ import json
 
 from orionfold.domain.models import LeaderboardEntry, ProofReport, ResultRow
 
-# v2: added verdict, summary, and a repro section (run id + rerun command). Bump on any
-# schema change so downstream consumers can detect drift.
-RECEIPT_VERSION = 2
+# v2: added verdict, summary, and a repro section (run id + rerun command).
+# v3: leaderboard entries carry a `model` field (the candidate's model for real providers).
+# Bump on any schema change so downstream consumers can detect drift.
+RECEIPT_VERSION = 3
 
 
 def _verdict(top: LeaderboardEntry) -> str:

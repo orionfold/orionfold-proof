@@ -1,11 +1,11 @@
 {
-  "receipt_version": 2,
+  "receipt_version": 3,
   "run_id": "run_sampledemo01",
-  "config_hash": "e40b0301de03",
+  "config_hash": "b7b5b150bb67",
   "created_at": "2026-06-19T12:00:00Z",
   "brief": {
     "task_name": "Investment memo summarization",
-    "decision_question": "Which model should I trust for client memo summaries?",
+    "decision_question": "Which model should I trust for client memos?",
     "success_criteria": "At least 80% similarity to the analyst summary."
   },
   "dataset": {
@@ -26,6 +26,7 @@
       "label": "Mock · good",
       "provider_id": "mock_good",
       "privacy": "local",
+      "model": null,
       "total": 5,
       "pass_count": 5,
       "pass_rate": 1.0,
@@ -40,6 +41,7 @@
       "label": "Mock · bad",
       "provider_id": "mock_bad",
       "privacy": "local",
+      "model": null,
       "total": 5,
       "pass_count": 0,
       "pass_rate": 0.0,
@@ -119,7 +121,7 @@
   ],
   "repro": {
     "run_id": "run_sampledemo01",
-    "config_hash": "e40b0301de03",
+    "config_hash": "b7b5b150bb67",
     "created_at": "2026-06-19T12:00:00Z",
     "dataset_id": "investment-memo-summarization",
     "candidate_ids": [

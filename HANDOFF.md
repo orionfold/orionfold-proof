@@ -6,71 +6,89 @@
 > To resume: in a fresh session say **"read from handoff"** (or "continue from last
 > session"), or `/clear` and paste the prompt below.
 
-_Last updated: 2026-06-19 · Gate 5 (vertical slice) built, verified, reviewed & **merged to `main`** (`3fea82a` feat + doc commits, HEAD `d6344ed`; **not pushed**) · next: **Gate 6 (provider integration)**_
+_Last updated: 2026-06-19 · Gate 6 (provider integration) built, verified (incl. live real
+runs), reviewed (security + receipt), **committed directly to `main`** (`f6c035d`; not pushed)
+· next: **Gate 7 (ship candidate)** · pending: OpenRouter live smoke test once its key resolves_
 
 ## Paste prompt for the next session
 
 ```text
-Use the context-refresh skill to load current state from docs/ (release charter, ADR-0001,
-and the latest docs/worklog entry, 2026-06-19-gate5-vertical-slice). Gate 5 is built,
-verified, reviewed, and MERGED to `main` (HEAD `d6344ed`; NOT pushed). The mock-only proof
-loop works end-to-end (dataset → run → leaderboard → failure case → receipt md/html/json,
-schema v2 with config hash + timestamp + verdict + repro), on SQLite with append-only
-migrations. Tests: 30 pytest, 3 vitest, 1 Playwright; ruff + pyright clean. Both review
-skills + diff-reviewer/security-reviewer passed. (Merged branch `gate-5-vertical-slice` is
-local-only and can be deleted.)
+Use the context-refresh skill to load current state from docs/ (release charter, ADR-0001 +
+ADR-0002, and the latest docs/worklog entry, 2026-06-19-gate6-provider-integration). Gate 6 is
+built, verified, and **committed directly to `main`** (`f6c035d`, not pushed). Tests: 64 pytest
+passed / 1 skipped, 3 vitest, 1 Playwright; ruff + pyright clean. Rebuild the wheel before
+shipping (the committed wheel predates the max-tokens/timeout knobs — `bash scripts/build.sh`;
+RECEIPT_VERSION=3). NOTE: this project commits straight to `main` (solo, single instance) — no
+per-gate feature branches.
 
-NOTE: the Gate 5 cockpit UI is functional SCAFFOLDING, not the documented design system
-(docs/ux/product-design-system.md — three-pane layout + Decision→Verdict results hierarchy
-are NOT yet implemented). A dedicated design-system polish pass is owed; notify the operator
-when it lands.
+WHAT GATE 6 DELIVERED (additive — engine/scorer/leaderboard/receipt untouched):
+- Four httpx provider profiles behind the same ProviderResult boundary: ollama (local),
+  openai_compatible (openai/openrouter/lmstudio), gemini (x-goog-api-key header), anthropic
+  (native Messages API, default claude-haiku-4-5). No SDK deps. See ADR-0002.
+- config/keys.py: resolve_key checks system env THEN repo-root .env.local (system wins).
+  Keys for OPENAI/GEMINI/OPENROUTER/ANTHROPIC. Tiny stdlib parser, bounded upward search.
+- Dynamic registry: mocks + ollama + lmstudio always; cloud profiles gated on key presence.
+  Candidate.model + LeaderboardEntry.model added; model is in config_hash. Receipt v2→v3.
+- Redaction is now load-bearing: _SECRET_PATTERN covers AIza…/sk-proj-…/sk-ant-…, and
+  providers/http.py::_scrub_error_body also removes the literal in-flight key value.
+- Frontend: ProofCockpit defaults to keyless candidates only (mocks) so "Run proof" doesn't
+  fire paid cloud calls on first click. Additive model Zod field.
+- VERIFIED LIVE: gemini + anthropic genuinely succeeded end-to-end (real output, real
+  estimated cost, no key leak); ollama succeeded; bad-key 401 returns a clean key-free error.
+  NOTE: real models show pass=0/5 because the bundled rubric is mock-tuned (similarity ≥ 0.8) —
+  expected, the integration is what's proven, not rubric pass rate.
 
-Then build GATE 6 — PROVIDER INTEGRATION:
-- Add `ollama` (local) and `openai_compatible` (hosted; LM Studio rides this profile) behind
-  the SAME ProviderResult boundary (errors returned, not raised; privacy="cloud" for hosted).
-- Use httpx (already a dep). Run `current-docs-check` before wiring the HTTP clients.
-- Keys read from env/config ONLY; never logged, never written to receipts. Exercise the
-  redaction path in providers/base.py (safe_generate → redact_secrets) against REAL provider
-  error messages.
-- OPERATOR INSTRUCTION (2026-06-19): modify the Gate 6 SPEC and IMPLEMENTATION to resolve
-  provider API keys by checking BOTH the system environment AND a repo-root `.env.local`
-  file, for each of: OPENAI_API_KEY, GEMINI_API_KEY, OPENROUTER_API_KEY, ANTHROPIC_API_KEY.
-  Notes: (1) precedence — decide and document (suggest system env overrides .env.local, or
-  vice-versa; pick one and note it in the ADR/spec). (2) `.env.local` is ALREADY gitignored
-  (`.env.*` in .gitignore) — keep it that way; never commit it, never log/echo a key, never
-  write a key into any receipt. (3) loading `.env.local`: prefer a tiny stdlib parser (no new
-  dep) over python-dotenv unless the operator approves the dep. (4) this implies provider
-  profiles beyond the charter's named two — OPENROUTER rides `openai_compatible`; OpenAI rides
-  it too; GEMINI and ANTHROPIC are their own profiles. Confirm scope with the operator in plan
-  mode before building (the charter v0 named mock + ollama + openai_compatible; this expands
-  it). (5) real-provider tests still SKIP gracefully when a given key is absent.
-- Mock path stays the keyless default; real-provider tests SKIP gracefully without creds
-  (pytest skipif on env vars).
-- Register the new providers in providers/registry.py so they appear as candidates with no
-  engine/leaderboard/receipt changes. Re-confirm all three receipt formats.
-Start in plan mode. Verify with uv run pytest, pnpm --dir web test, the Playwright happy
-path, a browser check, and the security-secrets-review skill (focus: real-key handling).
-Open any review-bound markdown in Obsidian one at a time. Append a docs/worklog entry and
-overwrite HANDOFF.md when done.
+OPEN ITEMS / NOTES:
+- PENDING — OPENROUTER LIVE TEST: openrouter is the only profile not yet exercised live (6/7
+  done). Its key is in the operator's `.zshrc`, which non-interactive shells don't source, so
+  it didn't resolve. Operator is restarting the CLI from an interactive shell (or will add
+  OPENROUTER_API_KEY to .env.local). Once `has_key("OPENROUTER_API_KEY")` is true, confirm the
+  openrouter candidate appears and run a live no-leak smoke test to close the table at 7/7.
+- .env.local at repo root holds the operator's real keys (ANTHROPIC in .env.local; OPENAI +
+  GEMINI in system env; OPENROUTER pending — see above). It is gitignored (.env.*) and
+  untracked — KEEP IT THAT WAY; never commit, log, echo, or write a key into any receipt.
+- LM Studio is installed but needs a one-time GUI launch + a downloaded model + `lms server
+  start` (~/.lmstudio/bin/lms) before the lmstudio candidate works. No code owed — same
+  proven openai_compatible path.
+- Real-provider tests are lenient (a clean 401 passes the no-leak check), so green ≠ proven
+  success; rely on the worklog's manual real-run evidence.
+- The Gate-5 cockpit is still functional scaffolding, not the documented three-pane design
+  system (docs/ux/product-design-system.md). A design-system polish pass is still OWED —
+  notify the operator when it lands.
+
+THEN build GATE 7 — SHIP CANDIDATE:
+- README/quickstart: how to configure providers via .env.local (document the four keys, the
+  env-over-.env.local precedence, and the ORIONFOLD_<PROFILE>_MODEL / *_BASE_URL overrides).
+- Release notes, demo script (with a real-provider screenshot + sample receipts), clean-install
+  check from the wheel, clean worktree.
+Start in plan mode. Verify with uv run pytest, pnpm --dir web test, the Playwright happy path,
+a browser check, and the security/receipt review skills. Open any review-bound markdown in
+Obsidian one at a time. Append a docs/worklog entry and overwrite HANDOFF.md when done.
 ```
 
 ## Where to look (durable context)
 
-- `docs/release-charter.md` — v0 scope, journey, acceptance criteria (Accepted)
-- `docs/adr/0001-local-first-proof-receipt-architecture.md` — architecture (Accepted)
-- `docs/worklog/2026-06-19-gate5-vertical-slice.md` — what Gate 5 delivered + risks
-- `.claude/rules/{providers,receipts,storage}.md` — enforced constraints for Gate 6
-- `CLAUDE.md` — operating guide and release gates
+- `docs/release-charter.md` — v0 scope, journey, acceptance criteria (Accepted; provider scope
+  expanded by Gate 6 note).
+- `docs/adr/0001-local-first-proof-receipt-architecture.md` — architecture (Accepted).
+- `docs/adr/0002-provider-integration-and-credentials.md` — Gate 6 decisions (httpx, env
+  precedence, redaction, profiles) (Accepted).
+- `docs/worklog/2026-06-19-gate6-provider-integration.md` — what Gate 6 delivered + evidence.
+- `.claude/rules/{providers,receipts,storage}.md` — enforced constraints.
+- `CLAUDE.md` — operating guide and release gates.
 
-## Slice quick reference (Gate 5 output)
+## Gate 6 quick reference
 
-- Dev: `uv run orionfold dev` + `pnpm --dir web dev` (Vite proxies `/api`).
-- Embedded run: `bash scripts/build.sh` then `uv run orionfold up` → http://localhost:8787
-  (a parallel `orionfold-proof-codex` instance may hold :8787 — use `--port` if so).
-- Tests: `uv run pytest` · `pnpm --dir web test` · `pnpm --dir web e2e` (needs
-  `pnpm --dir web exec playwright install chromium` once).
-- Proof loop entry points: `src/orionfold/proof/engine.py`, `providers/mock.py`,
-  `receipts/export.py`, `server/routes.py`, `web/src/features/proof/ProofCockpit.tsx`.
-- Sample receipts: `samples/receipts/sample-proof-receipt.{md,html,json}` (schema v2).
-- **Packaging guard:** the bundled dataset lives in `src/orionfold/data/datasets/` and must
-  appear in the wheel — `unzip -l dist/*.whl | grep data/datasets` after `scripts/build.sh`.
+- Providers: `src/orionfold/providers/{http,pricing,ollama,openai_compatible,gemini,anthropic,
+  registry}.py`; credentials: `src/orionfold/config/keys.py`.
+- Env knobs: `OPENAI_API_KEY` `GEMINI_API_KEY` `OPENROUTER_API_KEY` `ANTHROPIC_API_KEY`;
+  `OLLAMA_HOST` `OPENAI_BASE_URL` `OPENROUTER_BASE_URL` `LMSTUDIO_BASE_URL`;
+  `ORIONFOLD_{OLLAMA,OPENAI,OPENROUTER,GEMINI,ANTHROPIC,LMSTUDIO}_MODEL`;
+  `ORIONFOLD_MAX_TOKENS` (default 2048) `ORIONFOLD_TIMEOUT_S` (default 120) `ORIONFOLD_ENV_FILE`.
+- OPEN DESIGN ITEM: timeout should be progress-based (streaming idle/read timeout + backstop),
+  not a fixed wall-clock value — see worklog "Risks / follow-ups". Candidate for ADR-0003.
+- Regenerate sample receipts after any schema change: `uv run python scripts/gen_samples.py`.
+- Dev: `uv run orionfold dev` + `pnpm --dir web dev`. Embedded: `bash scripts/build.sh` then
+  `uv run orionfold up --port <free>` (avoid 8787 if a sibling instance holds it).
+- Tests: `uv run pytest` · `pnpm --dir web test` · `pnpm --dir web e2e`. Real-provider tests
+  skip without keys / a reachable local server.

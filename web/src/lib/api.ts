@@ -9,6 +9,7 @@ export const candidateSchema = z.object({
   label: z.string(),
   provider_id: z.string(),
   privacy: Privacy,
+  model: z.string().nullable().optional(),
 });
 export type Candidate = z.infer<typeof candidateSchema>;
 
@@ -36,6 +37,7 @@ export const leaderboardEntrySchema = z.object({
   label: z.string(),
   provider_id: z.string(),
   privacy: Privacy,
+  model: z.string().nullable().optional(),
   total: z.number(),
   pass_count: z.number(),
   pass_rate: z.number(),

@@ -16,7 +16,10 @@ from orionfold.domain.models import Candidate, Example, Privacy, ProviderResult
 # receipt or the local DB. The mocks can't leak (no keys), but Gate 6's real providers can
 # raise httpx/SDK errors that echo a key in a URL or header — redact those at the boundary.
 _SECRET_PATTERN = re.compile(
-    r"sk-[A-Za-z0-9]{6,}"
+    # OpenAI / Anthropic keys, including hyphenated families (sk-proj-…, sk-ant-api03-…).
+    r"sk-[A-Za-z0-9_-]{6,}"
+    # Google API keys (AIza…), which can surface in a Gemini error body.
+    r"|AIza[0-9A-Za-z_-]{10,}"
     r"|Bearer\s+\S+"
     r"|(?:api[_-]?key|token|secret|password|authorization)\s*[=:]\s*\S+",
     re.IGNORECASE,

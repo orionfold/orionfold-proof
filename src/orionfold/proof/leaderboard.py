@@ -33,6 +33,7 @@ def build_leaderboard(
                 label=cand.label,
                 provider_id=cand.provider_id,
                 privacy=cand.privacy,
+                model=cand.model,
                 total=total,
                 pass_count=pass_count,
                 pass_rate=pass_count / total if total else 0.0,

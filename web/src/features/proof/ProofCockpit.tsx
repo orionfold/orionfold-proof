@@ -30,11 +30,16 @@ export function ProofCockpit() {
   const [brief, setBrief] = useState<ProofBrief>(DEFAULT_BRIEF);
   const [report, setReport] = useState<ProofReport | null>(null);
 
-  // Sensible defaults once the server data lands: first dataset, all candidates selected.
+  // Sensible defaults once the server data lands: first dataset, and only the keyless,
+  // instant candidates (the mocks — the ones with no pinned model) pre-selected. Real
+  // providers cost money / latency, so the user opts into them explicitly rather than having
+  // "Run proof" fire cloud calls on first click. Falls back to all if there are no mocks.
   const resolvedDatasetId = datasetId || datasets.data?.[0]?.id || "";
   const resolvedSelected = useMemo(() => {
     if (selected.length > 0) return selected;
-    return candidates.data?.map((c) => c.id) ?? [];
+    const all = candidates.data ?? [];
+    const keyless = all.filter((c) => !c.model).map((c) => c.id);
+    return keyless.length > 0 ? keyless : all.map((c) => c.id);
   }, [selected, candidates.data]);
 
   const runMutation = useMutation({

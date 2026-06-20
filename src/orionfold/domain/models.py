@@ -43,12 +43,18 @@ class Rubric(BaseModel):
 
 
 class Candidate(BaseModel):
-    """One thing being proven — a provider with a label and a privacy boundary."""
+    """One thing being proven — a provider with a label and a privacy boundary.
+
+    ``model`` names the specific model for real providers (e.g. ``claude-haiku-4-5``); it is
+    part of the candidate's identity and feeds the run's ``config_hash`` so two runs that
+    differ only by model don't collide. ``None`` for the keyless mocks.
+    """
 
     id: str
     label: str
     provider_id: str
     privacy: Privacy = "local"
+    model: str | None = None
 
 
 class ProviderResult(BaseModel):
@@ -91,6 +97,7 @@ class LeaderboardEntry(BaseModel):
     label: str
     provider_id: str
     privacy: Privacy
+    model: str | None = None
     total: int
     pass_count: int
     pass_rate: float

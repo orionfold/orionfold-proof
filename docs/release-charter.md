@@ -11,7 +11,7 @@
 - Proof Brief wizard: task name, decision question, success criteria, privacy boundary, notes.
 - Dataset import: JSONL, CSV, Markdown, and pasted examples → frozen input/expected text pairs.
 - Candidate abstraction returning a uniform `ProviderResult` (incl. on error).
-- Providers: `mock_good`, `mock_bad` (deterministic, keyless), `ollama` (local), `openai_compatible` (hosted; LM Studio rides this profile).
+- Providers: `mock_good`, `mock_bad` (deterministic, keyless), `ollama` (local), `openai_compatible` (hosted; LM Studio rides this profile). _Gate 6 (operator-approved 2026-06-19) expanded this to four native profiles — `ollama`, `openai_compatible` (OpenAI / OpenRouter / LM Studio), `gemini`, `anthropic` — with `.env.local` key resolution; see `docs/adr/0002-provider-integration-and-credentials.md`._
 - Simple rubric definition + scoring primitives (e.g. exact/contains/similarity-style checks + optional LLM-as-judge later).
 - Matrix run engine (candidates × examples) capturing output, scores, latency, estimated cost.
 - Failure-case browser.

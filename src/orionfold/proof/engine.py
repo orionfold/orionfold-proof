@@ -40,7 +40,12 @@ def config_hash(dataset: Dataset, candidates: list[Candidate], rubric: Rubric) -
             "examples": [e.model_dump() for e in dataset.examples],
         },
         "candidates": [
-            {"id": c.id, "provider_id": c.provider_id, "privacy": c.privacy}
+            {
+                "id": c.id,
+                "provider_id": c.provider_id,
+                "privacy": c.privacy,
+                "model": c.model,
+            }
             for c in candidates
         ],
         "rubric": rubric.model_dump(),

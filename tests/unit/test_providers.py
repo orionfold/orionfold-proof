@@ -11,9 +11,9 @@ def _example(text: str) -> Example:
     return Example(input_text=text, expected_text="Revenue grew 20% on strong demand.")
 
 
-def test_registry_exposes_both_mocks():
+def test_registry_exposes_the_mocks():
     ids = {c.provider_id for c in available_candidates()}
-    assert ids == {"mock_good", "mock_bad"}
+    assert {"mock_good", "mock_bad"} <= ids  # mocks are always offered (see test_registry)
     assert isinstance(get_provider("mock_good"), Provider)
 
 

@@ -13,11 +13,18 @@ def client(tmp_path):
         yield c
 
 
-def test_datasets_and_candidates_are_available(client):
+def test_datasets_and_candidates_are_available(client, tmp_path, monkeypatch):
+    # Hermetic: no ambient provider keys and no .env.local, so the listing is the local-only
+    # set regardless of the developer's shell.
+    monkeypatch.setenv("ORIONFOLD_ENV_FILE", str(tmp_path / "absent.env"))
+    for name in ("OPENAI_API_KEY", "GEMINI_API_KEY", "OPENROUTER_API_KEY", "ANTHROPIC_API_KEY"):
+        monkeypatch.delenv(name, raising=False)
+
     datasets = client.get("/api/datasets").json()
     assert any(d["id"] == "investment-memo-summarization" for d in datasets)
     candidate_ids = {c["provider_id"] for c in client.get("/api/candidates").json()}
-    assert candidate_ids == {"mock_good", "mock_bad"}
+    # Mocks + local profiles are always offered; cloud profiles are absent without keys.
+    assert candidate_ids == {"mock_good", "mock_bad", "ollama", "lmstudio"}
 
 
 def test_full_loop_run_leaderboard_failure_and_receipts(client):
