@@ -90,7 +90,8 @@ def _parse_csv(text: str) -> tuple[list[Example], list[str]]:
     input_key = headers.get("input", headers.get("input_text"))
     expected_key = headers.get("expected", headers.get("expected_text"))
     if input_key is None or expected_key is None:
-        warnings.append("CSV needs 'input' and 'expected' columns — none found.")
+        missing = [c for c, k in (("input", input_key), ("expected", expected_key)) if k is None]
+        warnings.append(f"CSV is missing required column(s): {', '.join(missing)} — skipping.")
         return examples, warnings
     for rowno, row in enumerate(reader, start=2):  # row 1 is the header
         input_text = (row.get(input_key) or "").strip()
