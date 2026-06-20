@@ -172,3 +172,53 @@ def test_run_stream_rejects_unknown_dataset(client):
         },
     )
     assert resp.status_code == 404
+
+
+def test_preview_dataset_returns_pairs_without_writing(client):
+    before = len(client.get("/api/datasets").json())
+    resp = client.post(
+        "/api/datasets/preview",
+        json={"format": "jsonl", "text": '{"input":"a","expected":"b"}\nbad\n'},
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["count"] == 1
+    assert body["examples"][0]["input_text"] == "a"
+    assert len(body["warnings"]) == 1
+    # No write happened.
+    assert len(client.get("/api/datasets").json()) == before
+
+
+def test_preview_zero_valid_is_422(client):
+    resp = client.post("/api/datasets/preview", json={"format": "jsonl", "text": "\n\n"})
+    assert resp.status_code == 422
+
+
+def test_create_dataset_round_trips_and_appears_in_list(client):
+    resp = client.post(
+        "/api/datasets",
+        json={
+            "name": "Client Summaries",
+            "format": "csv",
+            "text": "input,expected\nhello,world\n",
+        },
+    )
+    assert resp.status_code == 201
+    created = resp.json()
+    assert created["id"] == "client-summaries"
+    assert created["examples"] == [{"input_text": "hello", "expected_text": "world"}]
+    ids = {d["id"] for d in client.get("/api/datasets").json()}
+    assert "client-summaries" in ids
+
+
+def test_create_duplicate_name_is_409(client):
+    body = {"name": "Dupe", "format": "jsonl", "text": '{"input":"a","expected":"b"}'}
+    assert client.post("/api/datasets", json=body).status_code == 201
+    assert client.post("/api/datasets", json=body).status_code == 409
+
+
+def test_create_zero_valid_is_422(client):
+    resp = client.post(
+        "/api/datasets", json={"name": "Empty", "format": "jsonl", "text": "\n"}
+    )
+    assert resp.status_code == 422

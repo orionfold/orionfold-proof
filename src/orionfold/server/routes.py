@@ -18,22 +18,37 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import PlainTextResponse, Response, StreamingResponse
 from pydantic import BaseModel
 
-from orionfold.domain.models import Candidate, ProofBrief, ProofReport, ProofRun, Rubric
+from orionfold.data.importers import DatasetParseError, ImportFormat, ParseResult, parse_dataset
+from orionfold.domain.models import Candidate, Dataset, ProofBrief, ProofReport, ProofRun, Rubric
 from orionfold.proof.engine import config_hash, iter_matrix, run_proof
 from orionfold.proof.leaderboard import build_leaderboard
 from orionfold.providers.registry import available_candidates
 from orionfold.receipts import export
 from orionfold.storage.db import apply_migrations, connect
 from orionfold.storage.repository import (
+    DuplicateDatasetError,
     get_dataset,
     get_report,
     list_datasets,
     list_runs,
+    save_dataset,
     save_report,
     seed_datasets,
 )
 
 router = APIRouter(prefix="/api")
+
+
+class DatasetPreviewRequest(BaseModel):
+    format: ImportFormat
+    text: str
+
+
+class DatasetCreateRequest(BaseModel):
+    name: str
+    description: str = ""
+    format: ImportFormat
+    text: str
 
 
 class RunRequest(BaseModel):
@@ -62,6 +77,31 @@ def get_datasets(request: Request):
     conn = _conn(request)
     try:
         return list_datasets(conn)
+    finally:
+        conn.close()
+
+
+@router.post("/datasets/preview")
+def preview_dataset(body: DatasetPreviewRequest) -> ParseResult:
+    """Parse the supplied text and return the pairs + warnings. Never writes."""
+    try:
+        return parse_dataset(body.text, body.format)
+    except DatasetParseError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+
+
+@router.post("/datasets", status_code=201)
+def create_dataset(request: Request, body: DatasetCreateRequest) -> Dataset:
+    """Re-parse server-side (source of truth), then freeze into a new dataset."""
+    try:
+        result = parse_dataset(body.text, body.format)
+    except DatasetParseError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    conn = _conn(request)
+    try:
+        return save_dataset(conn, body.name, body.description, result.examples)
+    except DuplicateDatasetError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
     finally:
         conn.close()
 
