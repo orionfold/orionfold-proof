@@ -4,9 +4,9 @@ import { createDataset, previewDataset } from "./api";
 
 afterEach(() => vi.restoreAllMocks());
 
-function mockResponse(body: unknown, ok = true, status = 200) {
+function mockResponse(body: unknown, status = 200) {
   vi.spyOn(globalThis, "fetch").mockResolvedValue(
-    new Response(JSON.stringify(body), { status: ok ? status : status }),
+    new Response(JSON.stringify(body), { status }),
   );
 }
 
