@@ -76,6 +76,10 @@ def test_html_receipt_carries_both_palettes():
     assert ':root[data-theme="dark"]' in html_out
     # standalone (no explicit theme) must not pin a data-theme on <html>
     assert "data-theme=" not in html_out.split("<head>")[0]
+    # The @media and :root[data-theme="light"] light branches must carry identical token values
+    # (two selectors, one palette) — guards against a single-branch edit drifting AA-corrected colors.
+    assert html_out.count("--rc-case-key: #5f6e80") == 2
+    assert html_out.count("--rc-case-key: #6f8190") == 2  # the two dark branches, unchanged
 
 
 def test_html_receipt_theme_param_pins_data_theme():
