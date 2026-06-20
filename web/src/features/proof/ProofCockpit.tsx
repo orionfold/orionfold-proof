@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useEffect, useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
   createRun,
@@ -25,15 +25,28 @@ const DEFAULT_BRIEF: ProofBrief = {
 // Orchestrates the core loop across two panes: the main workspace (setup → decision →
 // leaderboard → failure cases) and the right inspector (config, receipt, selected failure).
 // Server state (datasets, candidates) comes through TanStack Query; the run is a mutation.
-export function ProofCockpit() {
+// `report` is controlled by App so a past run opened from Receipts hydrates the same cockpit.
+export function ProofCockpit({
+  report,
+  onReport,
+}: {
+  report: ProofReport | null;
+  onReport: (report: ProofReport) => void;
+}) {
+  const queryClient = useQueryClient();
   const datasets = useQuery({ queryKey: ["datasets"], queryFn: getDatasets });
   const candidates = useQuery({ queryKey: ["candidates"], queryFn: getCandidates });
 
   const [datasetId, setDatasetId] = useState("");
   const [selected, setSelected] = useState<string[]>([]);
   const [brief, setBrief] = useState<ProofBrief>(DEFAULT_BRIEF);
-  const [report, setReport] = useState<ProofReport | null>(null);
   const [openFailure, setOpenFailure] = useState<ResultRow | null>(null);
+
+  // Whenever the shown run changes — a fresh run or one reopened from Receipts — clear any
+  // failure-case selection so the inspector doesn't show a row from the previous report.
+  useEffect(() => {
+    setOpenFailure(null);
+  }, [report?.run.id]);
 
   // Sensible defaults once the server data lands: first dataset, and only the keyless,
   // instant candidates (the mocks — no pinned model) pre-selected. Real providers cost money
@@ -50,8 +63,9 @@ export function ProofCockpit() {
   const runMutation = useMutation({
     mutationFn: createRun,
     onSuccess: (r) => {
-      setReport(r);
-      setOpenFailure(null);
+      onReport(r);
+      // Keep the Receipts archive current without a manual refetch.
+      void queryClient.invalidateQueries({ queryKey: ["runs"] });
     },
   });
 

@@ -116,6 +116,12 @@ export function getCandidates(): Promise<Candidate[]> {
   return getJson("/api/candidates", z.array(candidateSchema));
 }
 
+// Past runs, newest first — each is a full report, so the Receipts view can show the winner
+// and reopen the run in the cockpit without a second fetch.
+export function getRuns(): Promise<ProofReport[]> {
+  return getJson("/api/runs", z.array(proofReportSchema));
+}
+
 export interface RunRequest {
   dataset_id: string;
   candidate_ids: string[];

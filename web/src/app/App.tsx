@@ -1,7 +1,12 @@
 import { useEffect, useState } from "react";
 
-import { getHealth, type Health } from "../lib/api";
+import { getHealth, type Health, type ProofReport } from "../lib/api";
+import { CandidatesView } from "../features/proof/CandidatesView";
+import { DatasetsView } from "../features/proof/DatasetsView";
 import { ProofCockpit } from "../features/proof/ProofCockpit";
+import { ReceiptsView } from "../features/proof/ReceiptsView";
+
+type View = "proof" | "datasets" | "candidates" | "receipts";
 
 type Probe =
   | { state: "loading" }
@@ -59,16 +64,16 @@ function EngineStatus() {
   );
 }
 
-// The quiet left rail: the product's full map. "Proof Run" is the live v0 surface; the rest
-// are calm destinations on the roadmap, shown so the structure reads, never as dead links.
-const NAV: { label: string; active?: boolean; soon?: boolean }[] = [
-  { label: "Proof Run", active: true },
-  { label: "Datasets", soon: true },
-  { label: "Candidates", soon: true },
-  { label: "Receipts", soon: true },
+// The quiet left rail: the product's full map. Each item is a real destination now — Proof Run
+// is the live loop; Datasets, Candidates, and Receipts are read-only views over the same engine.
+const NAV: { id: View; label: string }[] = [
+  { id: "proof", label: "Proof Run" },
+  { id: "datasets", label: "Datasets" },
+  { id: "candidates", label: "Candidates" },
+  { id: "receipts", label: "Receipts" },
 ];
 
-function LeftRail() {
+function LeftRail({ view, onNavigate }: { view: View; onNavigate: (view: View) => void }) {
   return (
     <aside
       aria-label="Navigation"
@@ -82,29 +87,31 @@ function LeftRail() {
       </div>
 
       <nav className="flex flex-col gap-0.5 text-sm">
-        {NAV.map((item) =>
-          item.soon ? (
-            <span
-              key={item.label}
-              aria-disabled="true"
-              className="flex items-center justify-between rounded-md px-2.5 py-1.5 text-(--color-ink-faint)"
+        {NAV.map((item) => {
+          const active = item.id === view;
+          return (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => onNavigate(item.id)}
+              aria-current={active ? "page" : undefined}
+              className={
+                "flex items-center gap-2 rounded-md px-2.5 py-1.5 text-left transition-colors " +
+                (active
+                  ? "bg-(--color-panel-card) font-medium text-(--color-ink)"
+                  : "text-(--color-ink-muted) hover:bg-(--color-panel-card)/60 hover:text-(--color-ink)")
+              }
             >
+              <span
+                aria-hidden
+                className={
+                  "h-1.5 w-1.5 rounded-full " + (active ? "bg-(--color-accent)" : "bg-transparent")
+                }
+              />
               {item.label}
-              <span className="text-[10px] uppercase tracking-wide text-(--color-ink-faint)">
-                soon
-              </span>
-            </span>
-          ) : (
-            <span
-              key={item.label}
-              aria-current={item.active ? "page" : undefined}
-              className="flex items-center gap-2 rounded-md bg-(--color-panel-card) px-2.5 py-1.5 font-medium text-(--color-ink)"
-            >
-              <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-(--color-accent)" />
-              {item.label}
-            </span>
-          ),
-        )}
+            </button>
+          );
+        })}
       </nav>
 
       <div className="mt-auto flex flex-col gap-3 border-t border-(--color-panel-line) pt-4">
@@ -123,10 +130,28 @@ function LeftRail() {
 }
 
 export function App() {
+  const [view, setView] = useState<View>("proof");
+  // The run shown in the cockpit. Lifted here so a row in Receipts can load a past run into the
+  // same Proof Run workspace (leaderboard, failures, inspector) rather than a separate viewer.
+  const [report, setReport] = useState<ProofReport | null>(null);
+
+  const openInCockpit = (r: ProofReport) => {
+    setReport(r);
+    setView("proof");
+  };
+
   return (
     <div className="grid min-h-full grid-rows-[auto_1fr] lg:grid-cols-[15rem_minmax(0,1fr)] lg:grid-rows-1">
-      <LeftRail />
-      <ProofCockpit />
+      <LeftRail view={view} onNavigate={setView} />
+      {/* Proof Run stays mounted (toggled with display, not unmounted) so an in-flight run, the
+          brief, and the result survive a side trip to the other views. `contents` lets the
+          cockpit's own grid be the content-column grid item; `hidden` removes it from layout. */}
+      <div className={view === "proof" ? "contents" : "hidden"}>
+        <ProofCockpit report={report} onReport={setReport} />
+      </div>
+      {view === "datasets" && <DatasetsView />}
+      {view === "candidates" && <CandidatesView />}
+      {view === "receipts" && <ReceiptsView onOpen={openInCockpit} />}
     </div>
   );
 }
