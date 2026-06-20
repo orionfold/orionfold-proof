@@ -26,6 +26,16 @@ export const datasetSchema = z.object({
 });
 export type Dataset = z.infer<typeof datasetSchema>;
 
+export const importFormatSchema = z.enum(["jsonl", "csv", "markdown"]);
+export type ImportFormat = z.infer<typeof importFormatSchema>;
+
+export const parseResultSchema = z.object({
+  examples: z.array(exampleSchema),
+  warnings: z.array(z.string()),
+  count: z.number(),
+});
+export type ParseResult = z.infer<typeof parseResultSchema>;
+
 export const rubricSchema = z.object({
   kind: z.enum(["exact", "contains", "similarity"]),
   threshold: z.number(),
@@ -110,6 +120,40 @@ export function getHealth(): Promise<Health> {
 
 export function getDatasets(): Promise<Dataset[]> {
   return getJson("/api/datasets", z.array(datasetSchema));
+}
+
+export async function previewDataset(body: {
+  format: ImportFormat;
+  text: string;
+}): Promise<ParseResult> {
+  const res = await fetch("/api/datasets/preview", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const detail = await res.json().catch(() => ({}));
+    throw new Error(detail?.detail ?? `Preview failed (HTTP ${res.status})`);
+  }
+  return parseResultSchema.parse(await res.json());
+}
+
+export async function createDataset(body: {
+  name: string;
+  description?: string;
+  format: ImportFormat;
+  text: string;
+}): Promise<Dataset> {
+  const res = await fetch("/api/datasets", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const detail = await res.json().catch(() => ({}));
+    throw new Error(detail?.detail ?? `Import failed (HTTP ${res.status})`);
+  }
+  return datasetSchema.parse(await res.json());
 }
 
 export function getCandidates(): Promise<Candidate[]> {
