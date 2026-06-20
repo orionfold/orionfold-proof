@@ -7,10 +7,11 @@ carries provider ids and the local/cloud boundary.
 
 from __future__ import annotations
 
+import re
 import sqlite3
 
 from orionfold.data import bundled_datasets
-from orionfold.domain.models import Dataset, ProofReport
+from orionfold.domain.models import Dataset, Example, ProofReport
 
 
 def seed_datasets(conn: sqlite3.Connection) -> None:
@@ -98,3 +99,47 @@ def _load_examples(raw: str) -> list[dict]:
     import json
 
     return json.loads(raw)
+
+
+class DuplicateDatasetError(ValueError):
+    """A dataset with the same name already exists — surfaced to the API as HTTP 409."""
+
+
+def save_dataset(
+    conn: sqlite3.Connection, name: str, description: str, examples: list[Example]
+) -> Dataset:
+    """Create a new dataset. Name must be unique (case-insensitive); id is a unique slug."""
+    name = name.strip()
+    if not name:
+        raise ValueError("Dataset name is required.")
+    clash = conn.execute(
+        "SELECT 1 FROM datasets WHERE lower(name) = lower(?)", (name,)
+    ).fetchone()
+    if clash is not None:
+        raise DuplicateDatasetError(f"A dataset named '{name}' already exists.")
+    dataset = Dataset(
+        id=_unique_id(conn, name),
+        name=name,
+        description=description.strip(),
+        examples=examples,
+    )
+    conn.execute(
+        "INSERT INTO datasets (id, name, description, examples) VALUES (?, ?, ?, ?)",
+        (dataset.id, dataset.name, dataset.description, _examples_json(dataset)),
+    )
+    conn.commit()
+    return dataset
+
+
+def _slug(name: str) -> str:
+    s = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
+    return s or "dataset"
+
+
+def _unique_id(conn: sqlite3.Connection, name: str) -> str:
+    base = _slug(name)
+    candidate, n = base, 1
+    while conn.execute("SELECT 1 FROM datasets WHERE id = ?", (candidate,)).fetchone():
+        n += 1
+        candidate = f"{base}-{n}"
+    return candidate
