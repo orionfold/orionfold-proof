@@ -1,5 +1,5 @@
 import type { ProofReport, ResultRow } from "../../lib/api";
-import { ProviderTag } from "./badges";
+import { ProviderTag, StatusBadge } from "./badges";
 import { ReceiptExport } from "./ReceiptExport";
 
 // The right inspector: secondary context for the run in the main workspace — its config and
@@ -85,13 +85,9 @@ function SelectedFailure({ selected }: { selected: ResultRow | null }) {
           <div className="flex items-center gap-2">
             <span className="text-(--color-ink-faint)">Example {selected.example_index + 1}</span>
             {selected.error ? (
-              <span className="rounded-full border border-rose-400/40 bg-rose-500/10 px-2 py-0.5 text-[11px] text-rose-300">
-                error
-              </span>
+              <StatusBadge kind="error">error</StatusBadge>
             ) : (
-              <span className="rounded-full border border-amber-400/40 bg-amber-500/10 px-2 py-0.5 text-[11px] text-amber-300">
-                score {selected.score.toFixed(2)}
-              </span>
+              <StatusBadge kind="fail">score {selected.score.toFixed(2)}</StatusBadge>
             )}
           </div>
           <Detail label="Input" value={selected.input_text} />

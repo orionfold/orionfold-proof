@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { BadgeCheck } from "lucide-react";
 
 import {
   createRun,
@@ -168,7 +169,10 @@ function DecisionSummary({
       </p>
       <div className="rounded-xl border border-(--color-accent)/40 bg-(--color-accent)/[0.08] p-5">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs uppercase tracking-wide text-(--color-accent)">Recommended</span>
+          <span className="flex items-center gap-1 text-xs uppercase tracking-wide text-(--color-accent)">
+            <BadgeCheck aria-hidden className="h-3.5 w-3.5" />
+            Recommended
+          </span>
           <span className="text-lg font-semibold text-(--color-ink)">{winner.label}</span>
           <ProviderTag candidate={winner} />
         </div>

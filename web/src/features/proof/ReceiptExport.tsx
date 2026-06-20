@@ -1,3 +1,5 @@
+import { Download } from "lucide-react";
+
 import { receiptUrl, type ProofReport } from "../../lib/api";
 
 // The receipt is the product's takeaway artifact. Three formats: Markdown to paste, HTML to
@@ -21,8 +23,9 @@ export function ReceiptExport({ report }: { report: ProofReport }) {
             key={fmt}
             href={receiptUrl(report.run.id, fmt)}
             download
-            className="rounded-lg border border-(--color-panel-line) bg-(--color-panel-card) px-3 py-1.5 text-sm text-(--color-ink) transition-colors hover:border-(--color-accent)/50"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-(--color-panel-line) bg-(--color-panel-card) px-3 py-1.5 text-sm text-(--color-ink) transition-colors hover:border-(--color-accent)/50"
           >
+            <Download aria-hidden className="h-3.5 w-3.5 shrink-0" />
             Export {label}
           </a>
         ))}

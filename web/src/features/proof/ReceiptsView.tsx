@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { ChevronRight, Download } from "lucide-react";
 
 import { getRuns, receiptUrl, type LeaderboardEntry, type ProofReport } from "../../lib/api";
 import { ProviderTag } from "./badges";
@@ -64,8 +65,9 @@ function ReceiptCard({ report, onOpen }: { report: ProofReport; onOpen: () => vo
       >
         <div className="flex items-start justify-between gap-3">
           <span className="font-medium text-(--color-ink)">{heading}</span>
-          <span aria-hidden className="text-(--color-ink-faint)">
-            Open ›
+          <span aria-hidden className="flex shrink-0 items-center gap-0.5 text-(--color-ink-faint)">
+            Open
+            <ChevronRight className="h-4 w-4" />
           </span>
         </div>
         {winner && (
@@ -85,7 +87,10 @@ function ReceiptCard({ report, onOpen }: { report: ProofReport; onOpen: () => vo
         <code className="text-(--color-ink-muted)">{run.config_hash}</code>
         <span className="text-(--color-ink-faint)">{run.created_at}</span>
         <span className="ml-auto flex items-center gap-2">
-          <span className="text-(--color-ink-faint)">Download</span>
+          <span className="flex items-center gap-1 text-(--color-ink-faint)">
+            <Download aria-hidden className="h-3 w-3 shrink-0" />
+            Download
+          </span>
           {FORMATS.map(({ fmt, label }) => (
             <a
               key={fmt}

@@ -1,3 +1,5 @@
+import { BadgeCheck } from "lucide-react";
+
 import type { LeaderboardEntry } from "../../lib/api";
 import { ProviderTag } from "./badges";
 
@@ -34,7 +36,8 @@ export function Leaderboard({ entries }: { entries: LeaderboardEntry[] }) {
                 <td className="p-3">
                   {e.label}
                   {e.recommended && (
-                    <span className="ml-2 rounded-full bg-(--color-accent)/20 px-2 py-0.5 text-xs text-(--color-accent)">
+                    <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-(--color-accent)/20 px-2 py-0.5 text-xs text-(--color-accent)">
+                      <BadgeCheck aria-hidden className="h-3 w-3 shrink-0" />
                       Recommended
                     </span>
                   )}

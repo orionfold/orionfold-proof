@@ -1,6 +1,7 @@
 import { useState } from "react";
 
 import type { ProofReport, ResultRow } from "../../lib/api";
+import { StatusBadge } from "./badges";
 
 const rowKey = (r: ResultRow) => `${r.candidate_id}-${r.example_index}`;
 
@@ -103,13 +104,9 @@ function FailureRow({
         <span className="shrink-0 text-(--color-ink-faint)">Example {row.example_index + 1}</span>
         <span className="min-w-0 flex-1 truncate text-(--color-ink-muted)">{row.input_text}</span>
         {row.error ? (
-          <span className="shrink-0 rounded-full border border-rose-400/40 bg-rose-500/10 px-2 py-0.5 text-[11px] text-rose-300">
-            error: {row.error}
-          </span>
+          <StatusBadge kind="error">error: {row.error}</StatusBadge>
         ) : (
-          <span className="shrink-0 rounded-full border border-amber-400/40 bg-amber-500/10 px-2 py-0.5 text-[11px] text-amber-300">
-            Fail · score {row.score.toFixed(2)}
-          </span>
+          <StatusBadge kind="fail">Fail · score {row.score.toFixed(2)}</StatusBadge>
         )}
       </button>
     </li>
