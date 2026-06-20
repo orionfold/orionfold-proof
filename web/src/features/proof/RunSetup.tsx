@@ -38,6 +38,8 @@ export function RunSetup(props: RunSetupProps) {
   } = props;
 
   const canRun = selectedCandidates.length > 0 && brief.task_name.trim().length > 0;
+  // Before the very first run, give the primary action a gentle, one-glance affordance.
+  const firstRun = !hasRun && !isRunning;
 
   return (
     <form
@@ -62,10 +64,16 @@ export function RunSetup(props: RunSetupProps) {
               </option>
             ))}
           </select>
+          <span className="text-xs text-(--color-ink-faint)">
+            The frozen examples every candidate is scored on.
+          </span>
         </label>
 
         <fieldset className="grid gap-2 text-sm">
           <legend className="text-(--color-ink-muted)">Candidates</legend>
+          <p className="text-xs text-(--color-ink-faint)">
+            The models or prompts you’re comparing. Mock candidates run instantly, no API key.
+          </p>
           <div className="flex flex-wrap gap-2">
             {candidates.map((c) => {
               const checked = selectedCandidates.includes(c.id);
@@ -109,6 +117,9 @@ export function RunSetup(props: RunSetupProps) {
             onChange={(e) => onBriefChange({ ...brief, decision_question: e.target.value })}
             className={inputCls}
           />
+          <span className="text-xs text-(--color-ink-faint)">
+            The question this proof should answer for you — it headlines the receipt.
+          </span>
         </label>
 
         {error && (
@@ -121,7 +132,10 @@ export function RunSetup(props: RunSetupProps) {
           <button
             type="submit"
             disabled={!canRun || isRunning}
-            className="rounded-lg bg-(--color-accent-strong) px-5 py-2.5 font-medium text-(--color-accent-ink) transition-opacity hover:opacity-90 disabled:opacity-40"
+            className={
+              "rounded-lg bg-(--color-accent-strong) px-5 py-2.5 font-medium text-(--color-accent-ink) transition-opacity hover:opacity-90 disabled:opacity-40" +
+              (firstRun && canRun ? " motion-safe:animate-breathe" : "")
+            }
           >
             {isRunning ? "Running proof…" : hasRun ? "Rerun proof" : "Run proof"}
           </button>

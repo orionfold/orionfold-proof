@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Iterator
 
 from orionfold import __version__
 from orionfold.domain.models import (
@@ -54,11 +55,15 @@ def config_hash(dataset: Dataset, candidates: list[Candidate], rubric: Rubric) -
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:12]
 
 
-def run_matrix(
+def iter_matrix(
     dataset: Dataset, candidates: list[Candidate], rubric: Rubric
-) -> list[ResultRow]:
-    """Execute candidates × examples, returning one scored :class:`ResultRow` per cell."""
-    rows: list[ResultRow] = []
+) -> Iterator[ResultRow]:
+    """Yield one scored :class:`ResultRow` per cell as it completes.
+
+    Iterating candidate-major (each candidate's examples in order) makes a consumer's running
+    count a faithful position in the matrix — the basis for streamed progress (ADR-0003). The
+    cell logic is identical to a batch run; only the shape (generator vs. list) differs.
+    """
     for candidate in candidates:
         provider = get_provider(candidate.provider_id)
         for index, example in enumerate(dataset.examples):
@@ -68,22 +73,26 @@ def run_matrix(
             else:
                 score_value = score(example.expected_text, result.output_text, rubric)
                 did_pass = passed(score_value, rubric)
-            rows.append(
-                ResultRow(
-                    candidate_id=candidate.id,
-                    example_index=index,
-                    input_text=example.input_text,
-                    expected_text=example.expected_text,
-                    output_text=result.output_text,
-                    score=score_value,
-                    passed=did_pass,
-                    latency_ms=result.latency_ms,
-                    estimated_cost_usd=result.estimated_cost_usd,
-                    privacy=result.privacy,
-                    error=result.error,
-                )
+            yield ResultRow(
+                candidate_id=candidate.id,
+                example_index=index,
+                input_text=example.input_text,
+                expected_text=example.expected_text,
+                output_text=result.output_text,
+                score=score_value,
+                passed=did_pass,
+                latency_ms=result.latency_ms,
+                estimated_cost_usd=result.estimated_cost_usd,
+                privacy=result.privacy,
+                error=result.error,
             )
-    return rows
+
+
+def run_matrix(
+    dataset: Dataset, candidates: list[Candidate], rubric: Rubric
+) -> list[ResultRow]:
+    """Execute candidates × examples, returning one scored :class:`ResultRow` per cell."""
+    return list(iter_matrix(dataset, candidates, rubric))
 
 
 def run_proof(

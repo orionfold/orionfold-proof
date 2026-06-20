@@ -1,5 +1,7 @@
 """End-to-end API loop over a temp DB — runs fully keyless (no providers, no network)."""
 
+import json
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -61,6 +63,56 @@ def test_full_loop_run_leaderboard_failure_and_receipts(client):
 def test_unknown_dataset_is_rejected(client):
     resp = client.post(
         "/api/runs",
+        json={
+            "dataset_id": "nope",
+            "candidate_ids": ["mock_good"],
+            "brief": {"task_name": "t", "decision_question": "q", "success_criteria": ""},
+        },
+    )
+    assert resp.status_code == 404
+
+
+def _parse_sse(text: str) -> list[dict]:
+    """Collect the JSON payload of every ``data:`` frame in an SSE response body."""
+    return [
+        json.loads(line[len("data:") :].strip())
+        for line in text.splitlines()
+        if line.startswith("data:")
+    ]
+
+
+def test_run_stream_emits_start_progress_and_report(client):
+    body = {
+        "dataset_id": "investment-memo-summarization",
+        "candidate_ids": ["mock_good", "mock_bad"],
+        "brief": {"task_name": "t", "decision_question": "q", "success_criteria": ""},
+    }
+    resp = client.post("/api/runs/stream", json=body)
+    assert resp.status_code == 200
+    assert resp.headers["content-type"].startswith("text/event-stream")
+    events = _parse_sse(resp.text)
+
+    start = events[0]
+    assert start["type"] == "start"
+    assert start["total"] == start["n_examples"] * 2  # two candidates
+    assert [c["id"] for c in start["candidates"]] == ["mock_good", "mock_bad"]
+
+    progress = [e for e in events if e["type"] == "progress"]
+    # One progress frame per cell, monotonically increasing, ending at total.
+    assert [e["done"] for e in progress] == list(range(1, start["total"] + 1))
+
+    report = events[-1]
+    assert report["type"] == "report"
+    assert report["report"]["leaderboard"][0]["candidate_id"] == "mock_good"
+
+    # The streamed run was persisted just like a batch run.
+    run_id = report["report"]["run"]["id"]
+    assert client.get(f"/api/runs/{run_id}").status_code == 200
+
+
+def test_run_stream_rejects_unknown_dataset(client):
+    resp = client.post(
+        "/api/runs/stream",
         json={
             "dataset_id": "nope",
             "candidate_ids": ["mock_good"],

@@ -144,3 +144,70 @@ export async function createRun(body: RunRequest): Promise<ProofReport> {
 export function receiptUrl(runId: string, fmt: "md" | "html" | "json"): string {
   return `/api/runs/${runId}/receipt.${fmt}`;
 }
+
+// --- Streaming run (Server-Sent Events) ---------------------------------------------------
+// The cockpit runs proofs through this so a long run (e.g. a slow local model) shows live,
+// cell-by-cell progress instead of a silent spinner. See ADR-0003.
+
+export interface RunStartEvent {
+  type: "start";
+  total: number;
+  n_examples: number;
+  candidates: { id: string; label: string; provider_id: string; privacy: "local" | "cloud" }[];
+}
+
+export interface RunProgressEvent {
+  type: "progress";
+  done: number;
+  candidate_id: string;
+  example_index: number;
+  passed: boolean;
+  error: boolean;
+}
+
+export interface RunStreamHandlers {
+  onStart?: (e: RunStartEvent) => void;
+  onProgress?: (e: RunProgressEvent) => void;
+}
+
+// POST the run and consume the SSE stream, invoking handlers as frames arrive. Resolves with
+// the final, schema-validated ProofReport — so callers can use it as a mutationFn unchanged.
+export async function createRunStream(
+  body: RunRequest,
+  handlers: RunStreamHandlers = {},
+): Promise<ProofReport> {
+  const res = await fetch("/api/runs/stream", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok || !res.body) {
+    const detail = await res.json().catch(() => ({}));
+    throw new Error(detail?.detail ?? `Run failed (HTTP ${res.status})`);
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let report: ProofReport | null = null;
+
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    // SSE frames are separated by a blank line; keep the trailing partial in the buffer.
+    const frames = buffer.split("\n\n");
+    buffer = frames.pop() ?? "";
+    for (const frame of frames) {
+      const dataLine = frame.split("\n").find((l) => l.startsWith("data:"));
+      if (!dataLine) continue;
+      const evt = JSON.parse(dataLine.slice("data:".length).trim());
+      if (evt.type === "start") handlers.onStart?.(evt as RunStartEvent);
+      else if (evt.type === "progress") handlers.onProgress?.(evt as RunProgressEvent);
+      else if (evt.type === "report") report = proofReportSchema.parse(evt.report);
+    }
+  }
+
+  if (!report) throw new Error("The run ended without a receipt.");
+  return report;
+}

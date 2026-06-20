@@ -1,21 +1,25 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { BadgeCheck } from "lucide-react";
+import { BadgeCheck, LoaderCircle } from "lucide-react";
 
 import {
-  createRun,
+  createRunStream,
   getCandidates,
   getDatasets,
   type LeaderboardEntry,
   type ProofBrief,
   type ProofReport,
   type ResultRow,
+  type RunRequest,
+  type RunStartEvent,
 } from "../../lib/api";
 import { ProviderTag } from "./badges";
 import { FailureCases } from "./FailureCases";
 import { Inspector } from "./Inspector";
 import { Leaderboard } from "./Leaderboard";
+import { RunProgress } from "./RunProgress";
 import { RunSetup } from "./RunSetup";
+import { StageStepper } from "./StageStepper";
 
 const DEFAULT_BRIEF: ProofBrief = {
   task_name: "Investment memo summarization",
@@ -42,6 +46,8 @@ export function ProofCockpit({
   const [selected, setSelected] = useState<string[]>([]);
   const [brief, setBrief] = useState<ProofBrief>(DEFAULT_BRIEF);
   const [openFailure, setOpenFailure] = useState<ResultRow | null>(null);
+  // Live progress for the streaming run: the plan from the `start` frame + a cumulative count.
+  const [progress, setProgress] = useState<{ start: RunStartEvent; done: number } | null>(null);
 
   // Whenever the shown run changes — a fresh run or one reopened from Receipts — clear any
   // failure-case selection so the inspector doesn't show a row from the previous report.
@@ -62,12 +68,18 @@ export function ProofCockpit({
   }, [selected, candidates.data]);
 
   const runMutation = useMutation({
-    mutationFn: createRun,
+    mutationFn: (body: RunRequest) =>
+      createRunStream(body, {
+        onStart: (s) => setProgress({ start: s, done: 0 }),
+        onProgress: (p) => setProgress((prev) => (prev ? { ...prev, done: p.done } : prev)),
+      }),
     onSuccess: (r) => {
       onReport(r);
+      setProgress(null);
       // Keep the Receipts archive current without a manual refetch.
       void queryClient.invalidateQueries({ queryKey: ["runs"] });
     },
+    onError: () => setProgress(null),
   });
 
   const toggleCandidate = (id: string) => {
@@ -96,12 +108,15 @@ export function ProofCockpit({
   return (
     <div className="grid min-h-full grid-rows-[auto_auto] lg:grid-cols-[minmax(0,1fr)_22rem] lg:grid-rows-1">
       <main className="flex flex-col gap-8 px-6 py-8 lg:px-10">
-        <header className="flex flex-col gap-1">
-          <h2 className="text-xl font-semibold tracking-tight text-(--color-ink)">Proof Run</h2>
-          <p className="text-sm text-(--color-ink-muted)">
-            Prove which AI model, prompt, or workflow is worth trusting — privately, with a
-            repeatable receipt.
-          </p>
+        <header className="flex flex-col gap-3">
+          <div className="flex flex-col gap-1">
+            <h2 className="text-xl font-semibold tracking-tight text-(--color-ink)">Proof Run</h2>
+            <p className="text-sm text-(--color-ink-muted)">
+              Prove which AI model, prompt, or workflow is worth trusting — privately, with a
+              repeatable receipt.
+            </p>
+          </div>
+          <StageStepper stage={report ? "decide" : runMutation.isPending ? "run" : "configure"} />
         </header>
 
         <RunSetup
@@ -125,14 +140,20 @@ export function ProofCockpit({
           }
         />
 
-        {report ? (
-          <>
+        {runMutation.isPending ? (
+          progress ? (
+            <RunProgress start={progress.start} done={progress.done} />
+          ) : (
+            <StartingNotice />
+          )
+        ) : report ? (
+          <div className="flex flex-col gap-8 motion-safe:animate-reveal">
             <DecisionSummary brief={report.run.brief} leaderboard={report.leaderboard} />
             <Leaderboard entries={report.leaderboard} />
             <FailureCases report={report} selected={openFailure} onSelect={setOpenFailure} />
-          </>
+          </div>
         ) : (
-          <EmptyResults running={runMutation.isPending} />
+          <EmptyResults />
         )}
       </main>
 
@@ -167,7 +188,7 @@ function DecisionSummary({
       <p className="text-sm text-(--color-ink-muted)">
         {brief.decision_question || brief.task_name}
       </p>
-      <div className="rounded-xl border border-(--color-accent)/40 bg-(--color-accent)/[0.08] p-5">
+      <div className="rounded-xl border border-(--color-accent)/40 bg-(--color-accent)/[0.08] p-5 motion-safe:animate-emphasis">
         <div className="flex flex-wrap items-center gap-2">
           <span className="flex items-center gap-1 text-xs uppercase tracking-wide text-(--color-accent)">
             <BadgeCheck aria-hidden className="h-3.5 w-3.5" />
@@ -186,21 +207,21 @@ function DecisionSummary({
   );
 }
 
-function EmptyResults({ running }: { running: boolean }) {
-  if (running) {
-    return (
-      <section aria-label="Proof run progress" aria-busy="true" className="grid gap-2">
-        <p className="flex items-center gap-2 text-sm text-(--color-ink)">
-          <span aria-hidden className="inline-block h-2 w-2 animate-pulse rounded-full bg-(--color-accent)" />
-          Running the proof across every candidate and example…
-        </p>
-        <p className="text-sm text-(--color-ink-muted)">
-          Each candidate runs on the same frozen examples. Results appear here when the run
-          completes.
-        </p>
-      </section>
-    );
-  }
+// Shown for the brief moment between pressing Run and the first streamed `start` frame.
+function StartingNotice() {
+  return (
+    <section
+      aria-label="Proof run progress"
+      aria-busy="true"
+      className="flex items-center gap-2 text-sm text-(--color-ink-muted)"
+    >
+      <LoaderCircle aria-hidden className="h-4 w-4 animate-spin text-(--color-accent)" />
+      Starting the run…
+    </section>
+  );
+}
+
+function EmptyResults() {
   return (
     <section aria-label="Results" className="rounded-xl border border-dashed border-(--color-panel-line) p-6">
       <h3 className="text-sm font-medium text-(--color-ink)">No proof run yet</h3>

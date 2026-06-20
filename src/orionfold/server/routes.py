@@ -7,16 +7,20 @@ itself stays deterministic and clock-free).
 
 from __future__ import annotations
 
+import json
 import sqlite3
 import uuid
 from datetime import datetime, timezone
 
+from collections.abc import Iterator
+
 from fastapi import APIRouter, HTTPException, Request
-from fastapi.responses import PlainTextResponse, Response
+from fastapi.responses import PlainTextResponse, Response, StreamingResponse
 from pydantic import BaseModel
 
-from orionfold.domain.models import Candidate, ProofBrief, ProofReport, Rubric
-from orionfold.proof.engine import run_proof
+from orionfold.domain.models import Candidate, ProofBrief, ProofReport, ProofRun, Rubric
+from orionfold.proof.engine import config_hash, iter_matrix, run_proof
+from orionfold.proof.leaderboard import build_leaderboard
 from orionfold.providers.registry import available_candidates
 from orionfold.receipts import export
 from orionfold.storage.db import apply_migrations, connect
@@ -97,6 +101,92 @@ def create_run(request: Request, body: RunRequest) -> ProofReport:
         return report
     finally:
         conn.close()
+
+
+def _sse(payload: dict) -> str:
+    """Serialize one Server-Sent Event frame; the event kind rides in the JSON ``type``."""
+    return f"data: {json.dumps(payload)}\n\n"
+
+
+@router.post("/runs/stream")
+def create_run_stream(request: Request, body: RunRequest) -> StreamingResponse:
+    """Run a proof, streaming progress as Server-Sent Events.
+
+    Frames (one JSON object per ``data:`` line):
+      - ``start``: total cells, examples-per-candidate, and the ordered candidate list. The
+        client derives the currently-running cell from ``done`` + this order (candidate-major),
+        so progress events stay tiny.
+      - ``progress``: cumulative ``done`` count plus the just-finished cell's outcome.
+      - ``report``: the full, persisted :class:`ProofReport` (same shape as ``POST /runs``).
+    Validation runs synchronously up front so a bad request is a normal 4xx, not an SSE error.
+    """
+    conn = _conn(request)
+    try:
+        dataset = get_dataset(conn, body.dataset_id)
+    finally:
+        conn.close()
+    if dataset is None:
+        raise HTTPException(status_code=404, detail="Unknown dataset")
+    available = {c.id: c for c in available_candidates()}
+    if not body.candidate_ids:
+        raise HTTPException(status_code=400, detail="Select at least one candidate")
+    unknown = [cid for cid in body.candidate_ids if cid not in available]
+    if unknown:
+        raise HTTPException(status_code=400, detail=f"Unknown candidate(s): {unknown}")
+    candidates = [available[cid] for cid in body.candidate_ids]
+    db_path = request.app.state.db_path
+
+    def events() -> Iterator[str]:
+        n_examples = len(dataset.examples)
+        yield _sse(
+            {
+                "type": "start",
+                "total": n_examples * len(candidates),
+                "n_examples": n_examples,
+                "candidates": [
+                    {"id": c.id, "label": c.label, "provider_id": c.provider_id, "privacy": c.privacy}
+                    for c in candidates
+                ],
+            }
+        )
+        rows = []
+        for done, row in enumerate(iter_matrix(dataset, candidates, body.rubric), start=1):
+            rows.append(row)
+            yield _sse(
+                {
+                    "type": "progress",
+                    "done": done,
+                    "candidate_id": row.candidate_id,
+                    "example_index": row.example_index,
+                    "passed": row.passed,
+                    "error": row.error is not None,
+                }
+            )
+        now = datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+        run = ProofRun(
+            id=f"run_{uuid.uuid4().hex[:12]}",
+            brief=body.brief,
+            dataset_id=dataset.id,
+            dataset_name=dataset.name,
+            rubric=body.rubric,
+            candidates=candidates,
+            config_hash=config_hash(dataset, candidates, body.rubric),
+            created_at=now,
+        )
+        report = ProofReport(run=run, leaderboard=build_leaderboard(candidates, rows), results=rows)
+        write = connect(db_path)
+        try:
+            save_report(write, report)
+        finally:
+            write.close()
+        yield _sse({"type": "report", "report": report.model_dump(mode="json")})
+
+    return StreamingResponse(
+        events(),
+        media_type="text/event-stream",
+        # Defeat proxy/dev-server buffering so events arrive cell-by-cell, not all at the end.
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 @router.get("/runs")

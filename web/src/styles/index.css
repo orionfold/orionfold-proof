@@ -24,6 +24,45 @@
 
   /* Focus ring — one visible ring across all controls. */
   --color-focus: #5eead4;
+
+  /* Motion — minimal and functional. Registered here so `animate-*` (and the `motion-safe:`
+     variant) generate as utilities; the reduced-motion guard below neutralizes them. */
+  --animate-reveal: reveal 0.3s ease-out both; /* results / progress easing in */
+  --animate-emphasis: emphasis 0.6s ease-out; /* one quiet lift on the winner card */
+  --animate-breathe: breathe 2.4s ease-in-out infinite; /* first-run CTA affordance */
+}
+
+@keyframes reveal {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes emphasis {
+  0% {
+    transform: none;
+  }
+  30% {
+    transform: scale(1.015);
+  }
+  100% {
+    transform: none;
+  }
+}
+
+@keyframes breathe {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(52, 211, 153, 0);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgba(52, 211, 153, 0.18);
+  }
 }
 
 html,
