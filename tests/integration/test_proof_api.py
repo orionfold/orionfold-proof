@@ -84,6 +84,10 @@ def test_html_receipt_can_be_served_inline_for_preview(client):
     download = client.get(f"/api/runs/{run_id}/receipt.html")
     assert "attachment" in download.headers["content-disposition"]
     assert inline.text == download.text
+    # The sandbox headers guard the renderable format regardless of disposition — assert them on
+    # the download path too, so a future refactor can't silently scope them to inline only.
+    assert download.headers["content-security-policy"] == "sandbox"
+    assert download.headers["x-content-type-options"] == "nosniff"
 
 
 def test_inline_html_receipt_is_sandboxed(client):

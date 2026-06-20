@@ -79,7 +79,9 @@ export function receiptPreviewUrl(runId: string): string {
   the content pane, scrolling internally. `sandbox=""` (no `allow-scripts`/`allow-same-origin`)
   makes the framed document an inert, opaque-origin island: no script execution, no style leakage
   either direction. (The content is already fully `html.escape`d server-side; the sandbox is
-  defense-in-depth.) An `onLoad`-driven "Loading receipt…" notice covers the brief load.
+  defense-in-depth.) _(Built: the iframe paints when ready. The originally-specced `onLoad`
+  "Loading receipt…" notice was deferred as unnecessary — the receipt is served locally and renders
+  instantly; a loading flash would add noise, not reassurance.)_
 - Toolbar: the three **Download** buttons (MD · HTML · JSON), reusing `receiptUrl` — same anchors
   as the archive card.
 
