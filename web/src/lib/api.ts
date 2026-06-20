@@ -145,6 +145,11 @@ export function receiptUrl(runId: string, fmt: "md" | "html" | "json"): string {
   return `/api/runs/${runId}/receipt.${fmt}`;
 }
 
+// Same receipt, served for rendering (Content-Disposition: inline) so the cockpit can embed it.
+export function receiptPreviewUrl(runId: string): string {
+  return `/api/runs/${runId}/receipt.html?inline=1`;
+}
+
 // --- Streaming run (Server-Sent Events) ---------------------------------------------------
 // The cockpit runs proofs through this so a long run (e.g. a slow local model) shows live,
 // cell-by-cell progress instead of a silent spinner. See ADR-0003.

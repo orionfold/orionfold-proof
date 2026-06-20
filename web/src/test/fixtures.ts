@@ -1,6 +1,8 @@
+import { type ProofReport } from "../lib/api";
+
 // A minimal but schema-valid ProofReport for view tests — one recommended candidate, no result
 // rows needed. Shaped to satisfy the Zod schemas in lib/api.ts so tests fail if the models drift.
-export const SAMPLE_REPORT = {
+export const SAMPLE_REPORT: ProofReport = {
   run: {
     id: "run_abc123def456",
     brief: {
