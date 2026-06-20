@@ -70,3 +70,42 @@ def test_provider_rejects_duplicate_model_ids():
         CatalogProvider(
             id="p", label="P", privacy="local", default_model="dup", models=[a, b]
         )
+
+
+import pytest
+
+from orionfold.catalog import default_model_for
+
+# The behavior-preserving regression target: these are the exact defaults the registry used
+# before consolidation. They MUST NOT change.
+_CURRENT_DEFAULTS = {
+    "openai": "gpt-4o-mini",
+    "openrouter": "openai/gpt-4o-mini",
+    "lmstudio": "local-model",
+    "ollama": "llama3.2",
+    "gemini": "gemini-2.5-flash",
+    "anthropic": "claude-haiku-4-5",
+}
+
+
+@pytest.mark.parametrize("provider_id,expected", sorted(_CURRENT_DEFAULTS.items()))
+def test_default_model_for_matches_current_defaults(provider_id, expected):
+    assert default_model_for(provider_id) == expected
+
+
+def test_default_model_for_unknown_provider_raises():
+    with pytest.raises(KeyError):
+        default_model_for("does-not-exist")
+
+
+from orionfold.providers import anthropic as _anthropic
+from orionfold.providers import gemini as _gemini
+from orionfold.providers import ollama as _ollama
+
+
+def test_provider_module_defaults_match_catalog():
+    # The provider modules' __init__ fallbacks must agree with the catalog so direct
+    # instantiation and the registry never diverge.
+    assert _ollama.DEFAULT_MODEL == default_model_for("ollama")
+    assert _gemini.DEFAULT_MODEL == default_model_for("gemini")
+    assert _anthropic.DEFAULT_MODEL == default_model_for("anthropic")

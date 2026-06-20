@@ -17,6 +17,7 @@ feeds the run's ``config_hash``.
 
 from __future__ import annotations
 
+from orionfold.catalog import default_model_for
 from orionfold.config.keys import has_key, resolve
 from orionfold.domain.models import Candidate
 from orionfold.providers import anthropic as _anthropic
@@ -26,11 +27,9 @@ from orionfold.providers.base import Provider
 from orionfold.providers.mock import MockBadProvider, MockGoodProvider
 from orionfold.providers.openai_compatible import OpenAICompatibleProvider
 
-# Default models per profile. Each is overridable with the matching env / .env.local var so an
-# operator can prove a different model without code changes.
-_OPENAI_DEFAULT = "gpt-4o-mini"
-_OPENROUTER_DEFAULT = "openai/gpt-4o-mini"
-_LMSTUDIO_DEFAULT = "local-model"
+# Default models are sourced from the bundled catalog (single source of truth). Each remains
+# overridable with the matching env / .env.local var so an operator can prove a different model
+# without code changes: ORIONFOLD_<PROVIDER>_MODEL > catalog default.
 
 # (provider instance, model). model is None for the keyless mocks.
 _Entry = tuple[Provider, str | None]
@@ -45,11 +44,11 @@ def _build() -> dict[str, _Entry]:
         registry[mock.id] = (mock, None)
 
     # Ollama — local, keyless.
-    ollama_model = resolve("ORIONFOLD_OLLAMA_MODEL", _ollama.DEFAULT_MODEL)
+    ollama_model = resolve("ORIONFOLD_OLLAMA_MODEL", default_model_for("ollama"))
     registry["ollama"] = (_ollama.OllamaProvider(ollama_model), ollama_model)
 
     # LM Studio — local, keyless, OpenAI-compatible.
-    lmstudio_model = resolve("ORIONFOLD_LMSTUDIO_MODEL", _LMSTUDIO_DEFAULT)
+    lmstudio_model = resolve("ORIONFOLD_LMSTUDIO_MODEL", default_model_for("lmstudio"))
     registry["lmstudio"] = (
         OpenAICompatibleProvider(
             id="lmstudio",
@@ -64,7 +63,7 @@ def _build() -> dict[str, _Entry]:
 
     # Cloud profiles — only when their key is present.
     if has_key("OPENAI_API_KEY"):
-        model = resolve("ORIONFOLD_OPENAI_MODEL", _OPENAI_DEFAULT)
+        model = resolve("ORIONFOLD_OPENAI_MODEL", default_model_for("openai"))
         registry["openai"] = (
             OpenAICompatibleProvider(
                 id="openai",
@@ -76,7 +75,7 @@ def _build() -> dict[str, _Entry]:
             model,
         )
     if has_key("OPENROUTER_API_KEY"):
-        model = resolve("ORIONFOLD_OPENROUTER_MODEL", _OPENROUTER_DEFAULT)
+        model = resolve("ORIONFOLD_OPENROUTER_MODEL", default_model_for("openrouter"))
         registry["openrouter"] = (
             OpenAICompatibleProvider(
                 id="openrouter",
@@ -88,10 +87,10 @@ def _build() -> dict[str, _Entry]:
             model,
         )
     if has_key("GEMINI_API_KEY"):
-        model = resolve("ORIONFOLD_GEMINI_MODEL", _gemini.DEFAULT_MODEL)
+        model = resolve("ORIONFOLD_GEMINI_MODEL", default_model_for("gemini"))
         registry["gemini"] = (_gemini.GeminiProvider(model), model)
     if has_key("ANTHROPIC_API_KEY"):
-        model = resolve("ORIONFOLD_ANTHROPIC_MODEL", _anthropic.DEFAULT_MODEL)
+        model = resolve("ORIONFOLD_ANTHROPIC_MODEL", default_model_for("anthropic"))
         registry["anthropic"] = (_anthropic.AnthropicProvider(model), model)
 
     return registry
