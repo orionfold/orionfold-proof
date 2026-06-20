@@ -5,8 +5,11 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from orionfold.catalog import load_catalog
+from orionfold.catalog import default_model_for, load_catalog
 from orionfold.catalog.models import CatalogModel, CatalogProvider, ModelCatalog
+from orionfold.providers import anthropic as _anthropic
+from orionfold.providers import gemini as _gemini
+from orionfold.providers import ollama as _ollama
 
 # The six real, model-bearing providers the catalog must cover (mocks are excluded —
 # they carry model=None and are special-cased in the registry).
@@ -72,10 +75,6 @@ def test_provider_rejects_duplicate_model_ids():
         )
 
 
-import pytest
-
-from orionfold.catalog import default_model_for
-
 # The behavior-preserving regression target: these are the exact defaults the registry used
 # before consolidation. They MUST NOT change.
 _CURRENT_DEFAULTS = {
@@ -96,11 +95,6 @@ def test_default_model_for_matches_current_defaults(provider_id, expected):
 def test_default_model_for_unknown_provider_raises():
     with pytest.raises(KeyError):
         default_model_for("does-not-exist")
-
-
-from orionfold.providers import anthropic as _anthropic
-from orionfold.providers import gemini as _gemini
-from orionfold.providers import ollama as _ollama
 
 
 def test_provider_module_defaults_match_catalog():
