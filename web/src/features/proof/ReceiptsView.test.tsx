@@ -17,7 +17,7 @@ function mockRuns(runs: unknown) {
 
 test("lists a past run with its winner and three download links", async () => {
   mockRuns([SAMPLE_REPORT]);
-  renderWithQuery(<ReceiptsView onOpen={() => {}} />);
+  renderWithQuery(<ReceiptsView onOpenReceipt={() => {}} />);
 
   await waitFor(() =>
     expect(
@@ -33,22 +33,21 @@ test("lists a past run with its winner and three download links", async () => {
   }
 });
 
-test("clicking a run calls onOpen with that report", async () => {
+test("clicking a run calls onOpenReceipt with that report", async () => {
   mockRuns([SAMPLE_REPORT]);
-  const onOpen = vi.fn();
-  renderWithQuery(<ReceiptsView onOpen={onOpen} />);
+  const onOpenReceipt = vi.fn();
+  renderWithQuery(<ReceiptsView onOpenReceipt={onOpenReceipt} />);
 
   const heading = await screen.findByText(
     "Which model should I trust for client memo summaries?",
   );
-  // The summary button wraps the heading; click it.
   fireEvent.click(heading.closest("button")!);
-  expect(onOpen).toHaveBeenCalledWith(SAMPLE_REPORT);
+  expect(onOpenReceipt).toHaveBeenCalledWith(SAMPLE_REPORT);
 });
 
 test("shows a calm empty state when there are no runs", async () => {
   mockRuns([]);
-  renderWithQuery(<ReceiptsView onOpen={() => {}} />);
+  renderWithQuery(<ReceiptsView onOpenReceipt={() => {}} />);
   await waitFor(() => expect(screen.getByText(/No proof runs yet/)).toBeInTheDocument());
   // No past-runs list is rendered.
   expect(screen.queryByLabelText("Past proof runs")).not.toBeInTheDocument();

@@ -69,7 +69,7 @@ test("navigates to the Datasets view from the rail", async () => {
   expect(screen.getByRole("heading", { name: "Datasets" })).toBeInTheDocument();
 });
 
-test("opens a past run from Receipts back into the cockpit", async () => {
+test("opens a receipt into its detail view, then explores it in the cockpit", async () => {
   mockServer();
   renderWithQuery(<App />);
   await waitFor(() =>
@@ -77,15 +77,17 @@ test("opens a past run from Receipts back into the cockpit", async () => {
   );
 
   fireEvent.click(screen.getByRole("button", { name: "Receipts" }));
-  const openButton = await screen.findByRole("button", {
-    name: /Which model should I trust/,
-  });
-  fireEvent.click(openButton);
+  const card = await screen.findByRole("button", { name: /Which model should I trust/ });
+  fireEvent.click(card);
 
-  // The selected run is now loaded in the cockpit: the leaderboard renders and the
-  // receipts list is gone.
+  // The receipt detail view renders the artifact; the archive list is gone.
+  const frame = await screen.findByTitle("Proof Receipt preview");
+  expect(frame).toHaveAttribute("src", expect.stringContaining("receipt.html?inline=1"));
+  expect(screen.queryByLabelText("Past proof runs")).not.toBeInTheDocument();
+
+  // Explore in cockpit loads the run into the workspace.
+  fireEvent.click(screen.getByRole("button", { name: /Explore in cockpit/ }));
   await waitFor(() =>
     expect(screen.getByRole("region", { name: "Leaderboard" })).toBeInTheDocument(),
   );
-  expect(screen.queryByLabelText("Past proof runs")).not.toBeInTheDocument();
 });

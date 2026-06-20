@@ -12,6 +12,7 @@ import { getHealth, type Health, type ProofReport } from "../lib/api";
 import { CandidatesView } from "../features/proof/CandidatesView";
 import { DatasetsView } from "../features/proof/DatasetsView";
 import { ProofCockpit } from "../features/proof/ProofCockpit";
+import { ReceiptDetailView } from "../features/proof/ReceiptDetailView";
 import { ReceiptsView } from "../features/proof/ReceiptsView";
 
 type View = "proof" | "datasets" | "candidates" | "receipts";
@@ -153,27 +154,43 @@ function LeftRail({ view, onNavigate }: { view: View; onNavigate: (view: View) =
 
 export function App() {
   const [view, setView] = useState<View>("proof");
-  // The run shown in the cockpit. Lifted here so a row in Receipts can load a past run into the
-  // same Proof Run workspace (leaderboard, failures, inspector) rather than a separate viewer.
+  // The run shown in the cockpit. Lifted here so a past run can load into the Proof Run workspace.
   const [report, setReport] = useState<ProofReport | null>(null);
+  // The receipt being previewed as an artifact (Receipts → detail view). Null = show the archive.
+  const [receiptInView, setReceiptInView] = useState<ProofReport | null>(null);
+
+  // Rail navigation always clears the open receipt so Receipts reopens to its list.
+  const navigate = (next: View) => {
+    setReceiptInView(null);
+    setView(next);
+  };
 
   const openInCockpit = (r: ProofReport) => {
+    setReceiptInView(null);
     setReport(r);
     setView("proof");
   };
 
   return (
     <div className="grid min-h-full grid-rows-[auto_1fr] lg:grid-cols-[15rem_minmax(0,1fr)] lg:grid-rows-1">
-      <LeftRail view={view} onNavigate={setView} />
+      <LeftRail view={view} onNavigate={navigate} />
       {/* Proof Run stays mounted (toggled with display, not unmounted) so an in-flight run, the
-          brief, and the result survive a side trip to the other views. `contents` lets the
-          cockpit's own grid be the content-column grid item; `hidden` removes it from layout. */}
+          brief, and the result survive a side trip to the other views. */}
       <div className={view === "proof" ? "contents" : "hidden"}>
         <ProofCockpit report={report} onReport={setReport} />
       </div>
       {view === "datasets" && <DatasetsView />}
       {view === "candidates" && <CandidatesView />}
-      {view === "receipts" && <ReceiptsView onOpen={openInCockpit} />}
+      {view === "receipts" &&
+        (receiptInView ? (
+          <ReceiptDetailView
+            report={receiptInView}
+            onBack={() => setReceiptInView(null)}
+            onExplore={openInCockpit}
+          />
+        ) : (
+          <ReceiptsView onOpenReceipt={setReceiptInView} />
+        ))}
     </div>
   );
 }

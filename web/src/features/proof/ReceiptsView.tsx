@@ -12,14 +12,14 @@ const FORMATS: { fmt: "md" | "html" | "json"; label: string }[] = [
 ];
 
 // The receipts archive: every past proof run, newest first. Each is the takeaway artifact —
-// open it back into the cockpit to re-read the leaderboard and failures, or download it to share.
-export function ReceiptsView({ onOpen }: { onOpen: (report: ProofReport) => void }) {
+// open one to view its receipt and explore it in the cockpit, or download it to share.
+export function ReceiptsView({ onOpenReceipt }: { onOpenReceipt: (report: ProofReport) => void }) {
   const runs = useQuery({ queryKey: ["runs"], queryFn: getRuns });
 
   return (
     <ViewShell
       title="Receipts"
-      subtitle="Every proof you've run, newest first. Open one to re-read its leaderboard and failure cases in the cockpit, or download the receipt to share — each carries its config hash and timestamp."
+      subtitle="Every proof you've run, newest first. Open one to view its receipt and explore it in the cockpit, or download it to share — each carries its config hash and timestamp."
     >
       {runs.isLoading ? (
         <ViewNotice>Loading receipts…</ViewNotice>
@@ -36,7 +36,7 @@ export function ReceiptsView({ onOpen }: { onOpen: (report: ProofReport) => void
         <ul aria-label="Past proof runs" className="grid gap-3">
           {runs.data.map((report) => (
             <li key={report.run.id}>
-              <ReceiptCard report={report} onOpen={() => onOpen(report)} />
+              <ReceiptCard report={report} onOpen={() => onOpenReceipt(report)} />
             </li>
           ))}
         </ul>
