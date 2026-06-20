@@ -8,6 +8,8 @@ page is served instead so ``orionfold up`` always responds.
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -15,6 +17,8 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from orionfold import __version__
+from orionfold.server.routes import init_db, router
+from orionfold.storage.db import default_db_path
 
 SERVICE_NAME = "orionfold-proof"
 
@@ -64,13 +68,24 @@ _PLACEHOLDER_HTML = """<!doctype html>
 """
 
 
-def create_app() -> FastAPI:
+def create_app(db_path: Path | str | None = None) -> FastAPI:
     """Build the FastAPI app: ``/api`` routes, then the cockpit (SPA or placeholder)."""
-    app = FastAPI(title="Orionfold Proof", version=__version__)
+    resolved_db = Path(db_path) if db_path is not None else default_db_path()
+
+    @asynccontextmanager
+    async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+        # Local SQLite: apply append-only migrations and seed bundled datasets once.
+        init_db(app.state.db_path)
+        yield
+
+    app = FastAPI(title="Orionfold Proof", version=__version__, lifespan=lifespan)
+    app.state.db_path = resolved_db
 
     @app.get("/api/health")
     def health() -> dict[str, str]:
         return {"status": "ok", "service": SERVICE_NAME, "version": __version__}
+
+    app.include_router(router)
 
     # Register API routes BEFORE the catch-all cockpit so they always win.
     if cockpit_is_built():

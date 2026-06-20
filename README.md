@@ -11,11 +11,16 @@ they are here to decide what AI to trust.
 
 ---
 
-## Status: Gate 4 — skeleton
+## Status: Gate 5 — proof-receipt vertical slice
 
-The runnable skeleton is in place: a Typer CLI, a FastAPI local server with a health
-endpoint, and a Vite/React cockpit shell that reports the live engine. **No proof logic,
-providers, datasets, or receipts yet** — those land in Gates 5–6.
+The core loop works end-to-end, **mock-only and keyless**: pick the bundled sample dataset,
+run two deterministic mock candidates, see the leaderboard, inspect failure cases (including
+a surfaced provider error), and export a Proof Receipt in Markdown, HTML, and JSON — each
+stamped with a config hash, timestamp, and schema version. Real providers (Ollama +
+OpenAI-compatible) land in Gate 6.
+
+Run it: `bash scripts/build.sh && uv run orionfold up`, open the cockpit, click **Run proof**,
+then export a receipt. See a sample under [`samples/receipts/`](samples/receipts/).
 
 ## Quickstart
 
@@ -41,8 +46,10 @@ uv run orionfold up           # open http://localhost:8787
 **Test:**
 
 ```bash
-uv run pytest                 # backend
+uv run pytest                 # backend (unit + integration; keyless)
 pnpm --dir web test           # cockpit (Vitest)
+pnpm --dir web exec playwright install chromium  # one-time, for e2e
+pnpm --dir web e2e            # Playwright happy-path (boots the embedded build)
 ```
 
 Target install (post-v0): `uv tool install orionfold-proof && orionfold up`.

@@ -1,34 +1,30 @@
 import { useEffect, useState } from "react";
 
-interface Health {
-  status: string;
-  service: string;
-  version: string;
-}
+import { getHealth, type Health } from "../lib/api";
+import { ProofCockpit } from "../features/proof/ProofCockpit";
 
 type Probe =
   | { state: "loading" }
   | { state: "ok"; health: Health }
   | { state: "error"; message: string };
 
-// Plain fetch is deliberate for the Gate 4 skeleton. TanStack Query arrives with the
-// vertical slice (Gate 5), when there is real server state worth caching.
+// A compact engine status pill — calm reassurance that the local engine is reachable,
+// without stealing focus from the proof loop below.
 function useHealth(): Probe {
   const [probe, setProbe] = useState<Probe>({ state: "loading" });
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/health")
-      .then(async (res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return (await res.json()) as Health;
-      })
+    getHealth()
       .then((health) => {
         if (!cancelled) setProbe({ state: "ok", health });
       })
       .catch((err: unknown) => {
         if (!cancelled) {
-          setProbe({ state: "error", message: err instanceof Error ? err.message : "unknown" });
+          setProbe({
+            state: "error",
+            message: err instanceof Error ? err.message : "unknown",
+          });
         }
       });
     return () => {
@@ -39,57 +35,43 @@ function useHealth(): Probe {
   return probe;
 }
 
-function HealthCard() {
+function EngineStatus() {
   const probe = useHealth();
 
+  if (probe.state === "loading") {
+    return <span className="text-sm text-[--color-ink-muted]">Checking the local engine…</span>;
+  }
+  if (probe.state === "error") {
+    return (
+      <span className="flex items-center gap-2 text-sm text-[--color-ink]">
+        <span aria-hidden className="inline-block h-2 w-2 rounded-full bg-rose-400" />
+        Engine unreachable <span className="text-[--color-ink-muted]">({probe.message})</span>
+      </span>
+    );
+  }
   return (
-    <section
-      aria-label="API health"
-      className="w-full max-w-md rounded-xl border border-[--color-panel-line] bg-[--color-panel-card] p-6"
-    >
-      <h2 className="text-sm font-medium uppercase tracking-wide text-[--color-ink-muted]">
-        Local engine
-      </h2>
-
-      {probe.state === "loading" && (
-        <p className="mt-3 text-[--color-ink-muted]">Checking the local engine…</p>
-      )}
-
-      {probe.state === "ok" && (
-        <div className="mt-3 flex items-center gap-3">
-          <span
-            aria-hidden
-            className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-400"
-          />
-          <p className="text-[--color-ink]">
-            Connected · <span className="text-[--color-ink-muted]">{probe.health.service}</span> v
-            {probe.health.version}
-          </p>
-        </div>
-      )}
-
-      {probe.state === "error" && (
-        <div className="mt-3 flex items-center gap-3">
-          <span aria-hidden className="inline-block h-2.5 w-2.5 rounded-full bg-rose-400" />
-          <p className="text-[--color-ink]">
-            Engine unreachable <span className="text-[--color-ink-muted]">({probe.message})</span>
-          </p>
-        </div>
-      )}
-    </section>
+    <span className="flex items-center gap-2 text-sm text-[--color-ink]">
+      <span aria-hidden className="inline-block h-2 w-2 rounded-full bg-emerald-400" />
+      Connected · <span className="text-[--color-ink-muted]">{probe.health.service}</span> v
+      {probe.health.version}
+    </span>
   );
 }
 
 export function App() {
   return (
-    <main className="flex min-h-full flex-col items-center justify-center gap-8 px-6 py-16">
-      <header className="text-center">
-        <h1 className="text-2xl font-semibold tracking-tight">Orionfold Proof</h1>
-        <p className="mt-2 max-w-md text-[--color-ink-muted]">
-          Prove which AI model, prompt, or workflow is worth trusting.
+    <main className="mx-auto flex min-h-full max-w-3xl flex-col gap-10 px-6 py-12">
+      <header className="flex flex-col gap-2">
+        <div className="flex items-center justify-between gap-4">
+          <h1 className="text-2xl font-semibold tracking-tight">Orionfold Proof</h1>
+          <EngineStatus />
+        </div>
+        <p className="max-w-xl text-[--color-ink-muted]">
+          Prove which AI model, prompt, or workflow is worth trusting — privately, with a
+          repeatable receipt.
         </p>
       </header>
-      <HealthCard />
+      <ProofCockpit />
     </main>
   );
 }

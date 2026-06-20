@@ -39,7 +39,9 @@ e2e/**/screenshots/__diff__/
 *.sqlite
 *.sqlite3
 *.db
-data/
+# Anchored to repo root: a top-level local data dir. Must NOT match the bundled
+# src/orionfold/data/ package, whose sample datasets ship inside the wheel.
+/data/
 # Generated receipts are not committed (samples/ committed ones are curated by hand)
 samples/receipts/*.generated.*
 

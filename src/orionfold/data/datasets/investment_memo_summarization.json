@@ -1,0 +1,27 @@
+{
+  "id": "investment-memo-summarization",
+  "name": "Investment memo summarization",
+  "description": "Condense short investment-memo excerpts into a one-line takeaway. The demo proof for comparing AI candidates on a real consulting task.",
+  "examples": [
+    {
+      "input_text": "Q3 revenue reached $48.2M, up 22% year over year, driven by enterprise seat expansion. Net revenue retention held at 118%. Gross margin improved to 79% as infrastructure costs were renegotiated.",
+      "expected_text": "Revenue grew 22% to $48.2M on enterprise expansion, with 118% net retention and margins improving to 79%."
+    },
+    {
+      "input_text": "The company burned $6.1M in the quarter against $52M cash on hand, giving roughly eight quarters of runway. Management paused hiring outside of engineering and reaffirmed a path to breakeven by late next year.",
+      "expected_text": "Burn of $6.1M leaves about eight quarters of runway; hiring paused except engineering, with breakeven targeted late next year."
+    },
+    {
+      "input_text": "Churn ticked up to 4.2% monthly among self-serve customers, concentrated in accounts under ten seats. Enterprise churn remained under 1%. The team is shifting acquisition spend toward larger accounts. Management is testing onboarding fixes.",
+      "expected_text": "Self-serve churn rose to 4.2% in small accounts while enterprise stayed under 1%, prompting a shift to larger-account acquisition."
+    },
+    {
+      "input_text": "A new competitor launched an aggressively priced tier and captured several mid-market logos. The company responded with annual-contract discounts, protecting retention but compressing average selling price by 9%.",
+      "expected_text": "Competitive pricing pressure cost mid-market logos; annual discounts defended retention but cut average selling price 9%."
+    },
+    {
+      "input_text": "The founders are raising a $15M Series B at a $90M post-money valuation, a 2.1x markup from the prior round. Lead investor is requesting a board seat and a standard 1x non-participating liquidation preference.",
+      "expected_text": "Raising $15M Series B at $90M post (2.1x markup); lead seeks a board seat and a 1x non-participating preference."
+    }
+  ]
+}
