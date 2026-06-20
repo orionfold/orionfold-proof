@@ -46,6 +46,7 @@ class OllamaProvider:
             payload=payload,
             headers={"content-type": "application/json"},
             provider=self.id,
+            privacy=self.privacy,
         )
         message = data.get("message") or {}
         text = message.get("content", "")

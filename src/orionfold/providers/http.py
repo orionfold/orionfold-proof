@@ -20,19 +20,39 @@ from orionfold.domain.models import Privacy, ProviderResult
 from orionfold.providers.base import redact_secrets
 from orionfold.providers.pricing import estimate_cost
 
-# Generous enough for a cold local model load or a slow hosted hop, short enough that a dead
-# endpoint fails the row instead of hanging the whole run. Env-overridable for heavy local
-# reasoning models (qwen3, deepseek-r1, …) that can take minutes per completion.
-_DEFAULT_TIMEOUT_S = 120.0
+# Per-provider-class idle budget: the window one cell has to complete before it fails as a
+# timed-out row (ADR-0003 follow-up). Because cells run sequentially, "no cell completes within
+# the budget" is just "this cell's HTTP call exceeded the budget" — so the budget is the
+# per-request read timeout, tuned by class. Local is generous (a cold model load + slow
+# generation on qwen3/deepseek-r1 can run minutes); cloud is tighter (a hosted call idle this
+# long is wedged, not working).
+_LOCAL_IDLE_S = 300.0
+_CLOUD_IDLE_S = 90.0
+# Absolute backstop: the connection itself must be established quickly even when the read budget
+# is generous, so a black-holed host (wrong OLLAMA_HOST, dropped route) fails fast instead of
+# burning the full local budget. Independent of the idle budget by design.
+_CONNECT_BACKSTOP_S = 10.0
 
 
-def default_timeout() -> float:
-    """Per-request timeout in seconds; ``ORIONFOLD_TIMEOUT_S`` overrides the default."""
-    try:
-        value = float(resolve("ORIONFOLD_TIMEOUT_S", str(_DEFAULT_TIMEOUT_S)))
-    except ValueError:
-        return _DEFAULT_TIMEOUT_S
-    return value if value > 0 else _DEFAULT_TIMEOUT_S
+def idle_budget(privacy: Privacy) -> float:
+    """Per-cell idle budget in seconds for a provider of the given ``privacy`` class.
+
+    ``ORIONFOLD_TIMEOUT_S`` is the single global override (it *extends*, not replaces, the
+    per-class defaults — one knob still wins for everyone); otherwise local gets the generous
+    budget and cloud the tighter one. A garbage or non-positive override falls back to the
+    class default.
+    """
+    override = resolve("ORIONFOLD_TIMEOUT_S", "").strip()
+    if override:
+        try:
+            value = float(override)
+        except ValueError:
+            value = 0.0
+        if value > 0:
+            return value
+    return _LOCAL_IDLE_S if privacy == "local" else _CLOUD_IDLE_S
+
+
 # Cap echoed error bodies so a provider can't flood a receipt/log; redaction still applies.
 _MAX_ERROR_BODY = 500
 # Header names whose values carry a credential we must never echo back in an error.
@@ -87,18 +107,26 @@ def post_json(
     payload: dict[str, Any],
     headers: dict[str, str],
     provider: str,
+    privacy: Privacy = "cloud",
     timeout: float | None = None,
 ) -> tuple[dict[str, Any], int]:
     """POST ``payload`` as JSON and return ``(parsed_json, latency_ms)``.
 
-    Raises :class:`ProviderError` on any non-2xx response or transport error. The error text
-    is intentionally terse: ``"{provider} HTTP {status}: {short body}"`` or the exception
-    class — enough to act on, with nothing sensitive that redaction would need to catch.
+    The ``privacy`` class selects the per-cell idle budget (local generous, cloud tighter);
+    an explicit ``timeout`` overrides it. Connect is capped at the short absolute backstop so
+    an unreachable host fails fast regardless of the read budget.
+
+    Raises :class:`ProviderError` on a timeout (``"{provider} timed out after {n}s"``), a non-2xx
+    response (``"{provider} HTTP {status}: {short body}"``), or any other transport error — all
+    terse, with nothing sensitive that redaction would need to catch.
     """
-    timeout = default_timeout() if timeout is None else timeout
+    budget = idle_budget(privacy) if timeout is None else timeout
+    request_timeout = httpx.Timeout(budget, connect=min(_CONNECT_BACKSTOP_S, budget))
     start = time.monotonic()
     try:
-        response = httpx.post(url, json=payload, headers=headers, timeout=timeout)
+        response = httpx.post(url, json=payload, headers=headers, timeout=request_timeout)
+    except httpx.TimeoutException as exc:
+        raise ProviderError(f"{provider} timed out after {budget:.0f}s") from exc
     except httpx.HTTPError as exc:
         raise ProviderError(f"{provider} request failed: {type(exc).__name__}") from exc
     latency_ms = int((time.monotonic() - start) * 1000)

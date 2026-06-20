@@ -6,37 +6,40 @@
 > To resume: in a fresh session say **"read from handoff"** (or "continue from last
 > session"), or `/clear` and paste the prompt below.
 
-_Last updated: 2026-06-20 · **Streamed run progress + orientation touches** shipped and committed.
-Long runs now show a live determinate bar + "now running" cell (SSE); added a Configure→Run→Decide
-stepper, first-run CTA nudge, inline field helpers, and a calm result reveal. ADR-0003 written
-(streaming architecture + path to the deferred idle timeout). All tests green; browser-verified.
-This session's commits on `main` (not pushed): `0015f23` rail views · `a9eda42` icons+rail-foot
-polish · `05dd651` streamed progress + orientation. Next OWED: ADR-0003's follow-up — the
-progress-based idle timeout itself._
+_Last updated: 2026-06-20 · **Progress-based idle timeout** shipped (ADR-0003 follow-up — the last
+owed item, now CLOSED). A stalled cell fails as a `timed out after Ns` row instead of hanging/
+crashing. Per-provider-class idle budgets in `providers/http.py`: local 300s, cloud 90s;
+`ORIONFOLD_TIMEOUT_S` still overrides both; connect capped at 10s (absolute backstop). `post_json`
+catches `httpx.TimeoutException` before generic `HTTPError`; four providers pass `privacy=self.
+privacy`. ADR-0003 flipped to Accepted-implemented; README knob rewritten. 71 tests green, ruff +
+pyright clean, fresh diff-review clean. This session's commit on `main` (not pushed): see git log
+(idle-timeout). **No owed task remains** — v0 is feature-complete against the charter._
 
 ## Paste prompt for the next session
 
 ```text
 Use the context-refresh skill to load current state from docs/ (release charter, ADR-0001 +
-ADR-0002 + ADR-0003, and the latest worklog, 2026-06-20-streamed-progress-and-orientation).
+ADR-0002 + ADR-0003, and the latest worklog, 2026-06-20-progress-based-idle-timeout).
 
-RECENT WORK (all committed to main this session, not pushed):
-- 0015f23 — left-rail destinations wired (Datasets/Candidates/Receipts are real views; a Receipts
-  row reopens that run in the cockpit). ProofCockpit is CONTROLLED (report lifted to App).
-- a9eda42 — Lucide iconography (functional, calm) + rail-foot polish (EngineStatus 2-line,
-  Settings as disabled "soon"). Icons are aria-hidden; ProviderTag/StatusBadge in badges.tsx.
-- 05dd651 — STREAMED RUN PROGRESS + orientation. Backend: engine.iter_matrix() +
-  POST /api/runs/stream (SSE: start/progress/report) beside the unchanged batch POST /api/runs.
-  Frontend: lib/api.ts createRunStream (fetch + ReadableStream); ProofCockpit holds {start,done}
-  progress state; RunProgress.tsx (determinate bar + "Now running {cand}·example x/n", derived
-  client-side from done since cells run candidate-major); StageStepper.tsx (Configure→Run→Decide);
-  RunSetup first-run breathe + inline helpers; index.css @theme motion tokens (reveal/emphasis/
-  breathe, reduced-motion-safe). ADR-0003 records this + the DEFERRED idle timeout.
+RECENT WORK (committed to main, not pushed):
+- (this session) PROGRESS-BASED IDLE TIMEOUT — the last ADR-0003 owed item, now CLOSED. A stalled
+  cell fails as a `timed out after Ns` ResultRow instead of hanging/crashing. providers/http.py:
+  `idle_budget(privacy)` replaces the old flat default_timeout — local 300s, cloud 90s;
+  `ORIONFOLD_TIMEOUT_S` still overrides both (extends, not replaces); `post_json` builds
+  `httpx.Timeout(budget, connect=min(10s,budget))` (10s connect = absolute backstop) and catches
+  `httpx.TimeoutException` BEFORE generic `HTTPError` → `ProviderError("{p} timed out after {n}s")`,
+  swallowed by safe_generate. The four real providers pass `privacy=self.privacy`. ADR-0003 §follow-up
+  flipped to Accepted-implemented; README env-knob rewritten. Tests in test_providers_http.py.
+- 05dd651 — STREAMED RUN PROGRESS + orientation. engine.iter_matrix() + POST /api/runs/stream (SSE:
+  start/progress/report) beside batch POST /api/runs. Frontend: createRunStream, RunProgress.tsx,
+  StageStepper.tsx, first-run breathe + inline helpers, @theme motion tokens.
+- a9eda42 — Lucide iconography + rail-foot polish. 0015f23 — left-rail destinations wired.
 
-THE NEXT OWED TASK: ADR-0003's follow-up — the progress-based idle timeout itself (per-provider-
-class idle budget keyed off completed cells as heartbeats + an absolute backstop, surfaced as a
-failing ResultRow, never a crash). Touches providers/http.py + the 4 providers; needs its own
-tests. Write/extend the ADR section to "Accepted-implemented" when done.
+NO OWED TASK REMAINS. v0 is feature-complete against the release charter (all acceptance criteria
+met; ADR-0001/0002/0003 all Accepted-implemented). Likely next candidates, operator's call: the
+deferred post-v0 items (document ingestion + minimal RAG template — "first thing after v0"), a
+polish/packaging pass before a wider share, or a fresh ship-candidate rebuild. Brainstorm with the
+operator before picking; start in plan mode for anything substantial.
 
 Do NOT regress: keyless mock default; Proof Run is the DEFAULT view; the 3-format receipt; both
 run endpoints (batch + stream); test-contract strings (heading "Orionfold Proof", "Connected",
@@ -61,8 +64,10 @@ Obsidian one at a time. Append a docs/worklog entry and overwrite HANDOFF.md.
 
 ## Where to look (durable context)
 
-- `docs/adr/0003-streaming-run-progress.md` — SSE progress architecture + deferred idle timeout.
-- `docs/worklog/2026-06-20-streamed-progress-and-orientation.md` — this pass's evidence (latest).
+- `docs/adr/0003-streaming-run-progress.md` — SSE progress architecture + idle timeout (now
+  Accepted-implemented, §follow-up).
+- `docs/worklog/2026-06-20-progress-based-idle-timeout.md` — this pass's evidence (latest).
+- `docs/worklog/2026-06-20-streamed-progress-and-orientation.md` — the streaming substrate.
 - `docs/worklog/2026-06-20-wire-rail-destinations.md` — rail views (committed 0015f23).
 - `docs/ux/product-design-system.md` — the three-pane target, implemented.
 - `docs/worklog/2026-06-19-gate7-ship-candidate.md` — Gate 7 ship-candidate evidence.

@@ -62,12 +62,26 @@ defeats proxy/dev-server buffering so frames arrive cell-by-cell.
   route only adds framing + persistence around it.
 - Receipt schema, leaderboard, scoring, and storage are untouched (ADR-0001 boundaries hold).
 
-## Follow-up (deferred, not in this change): progress-based idle timeout
+## Follow-up: progress-based idle timeout — **Accepted-implemented (2026-06-20)**
 
-The owed timeout becomes natural on top of this: treat **each completed cell as a heartbeat**
-and abort a run if no cell completes within a per-provider-class idle budget (local generous,
-cloud tighter), with an absolute backstop — surfaced as a normal failing `ResultRow`
-(`error="timed out after …"`), never a crashed run. This needs per-class defaults in
-`providers/http.py` + the four providers and its own verification, so it is **left as a separate
-change**; this ADR records the substrate and the intent. Env knobs already exist
-(`ORIONFOLD_TIMEOUT_S`); the idle budget would extend, not replace, them.
+The owed timeout is now in place, exactly on this substrate. Because cells run **sequentially**
+(`iter_matrix`, candidate-major), "no cell completes within the idle budget" reduces to "this
+cell's HTTP call exceeded its budget" — so the heartbeat window is the per-request **read
+timeout**, tuned by provider class. No watchdog, thread, or job queue (charter non-goals hold).
+
+- **Per-class idle budget** (`idle_budget(privacy)` in `providers/http.py`): **local 300s**
+  (generous — a cold model load + slow generation on qwen3/deepseek-r1 runs minutes), **cloud
+  90s** (tighter — a hosted call idle that long is wedged). `ORIONFOLD_TIMEOUT_S` remains the
+  single global override and **extends, not replaces** these — one knob still wins for everyone;
+  a garbage/non-positive value falls back to the class default.
+- **Absolute backstop**: `httpx.Timeout(budget, connect=min(10s, budget))` — the connection must
+  be established within ~10s even when the read budget is generous, so a black-holed host (wrong
+  `OLLAMA_HOST`, dropped route) fails fast instead of burning the full local budget.
+- **Surfaced as a failing row, never a crash**: `post_json` catches `httpx.TimeoutException`
+  *before* the generic `HTTPError` and raises `ProviderError("{provider} timed out after {n}s")`,
+  which `safe_generate` turns into a normal failing `ResultRow` (`error="… timed out after …"`).
+  The message carries no body, headers, or key — nothing redaction would need to catch.
+- **Wiring**: each of the four real providers passes `privacy=self.privacy` to `post_json`; the
+  mocks are unaffected (they never call out). Verified by unit tests in
+  `tests/unit/test_providers_http.py` (per-class budgets, env override + fallback, the clean
+  timed-out message via `safe_generate`, and connect=10s while read=300s).

@@ -53,6 +53,7 @@ class AnthropicProvider:
                 "content-type": "application/json",
             },
             provider=self.id,
+            privacy=self.privacy,
         )
         blocks = data.get("content") or []
         text = "".join(

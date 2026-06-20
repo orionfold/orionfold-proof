@@ -45,6 +45,7 @@ class GeminiProvider:
             payload=payload,
             headers={"x-goog-api-key": key, "content-type": "application/json"},
             provider=self.id,
+            privacy=self.privacy,
         )
         candidates = data.get("candidates") or []
         text = ""

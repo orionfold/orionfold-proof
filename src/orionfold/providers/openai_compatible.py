@@ -60,6 +60,7 @@ class OpenAICompatibleProvider:
             payload=payload,
             headers=headers,
             provider=self.id,
+            privacy=self.privacy,
         )
         choices = data.get("choices") or []
         if not choices:

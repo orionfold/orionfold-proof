@@ -252,6 +252,61 @@ def test_providers_send_the_configured_token_cap(monkeypatch):
     assert captured["max_tokens"] == 4096
 
 
+def test_idle_budget_is_per_provider_class(monkeypatch):
+    # No override: local gets the generous budget, cloud the tighter one (ADR-0003 follow-up).
+    monkeypatch.delenv("ORIONFOLD_TIMEOUT_S", raising=False)
+    assert http_mod.idle_budget("local") == 300.0
+    assert http_mod.idle_budget("cloud") == 90.0
+
+
+def test_idle_budget_env_override_applies_to_both_classes(monkeypatch):
+    # ORIONFOLD_TIMEOUT_S extends (does not replace) the budget: one knob overrides everyone.
+    monkeypatch.setenv("ORIONFOLD_TIMEOUT_S", "45")
+    assert http_mod.idle_budget("local") == 45.0
+    assert http_mod.idle_budget("cloud") == 45.0
+    # A garbage / non-positive override falls back to the per-class default.
+    monkeypatch.setenv("ORIONFOLD_TIMEOUT_S", "garbage")
+    assert http_mod.idle_budget("local") == 300.0
+    monkeypatch.setenv("ORIONFOLD_TIMEOUT_S", "0")
+    assert http_mod.idle_budget("cloud") == 90.0
+
+
+def test_timeout_becomes_clean_timed_out_error(monkeypatch):
+    # A read timeout must surface as a "timed out after Ns" row — not the generic "request
+    # failed" message — so the operator sees the real reason a slow cell failed.
+    def slow(url, json=None, headers=None, timeout=None):
+        raise httpx.ReadTimeout("read timed out", request=httpx.Request("POST", url))
+
+    monkeypatch.setattr(http_mod.httpx, "post", slow)
+    result = safe_generate(OllamaProvider(), _example(), _candidate("ollama", "llama3.2"))
+    assert result.error is not None
+    assert "timed out after" in result.error
+    assert "300" in result.error  # local idle budget reached
+    assert "request failed" not in result.error
+
+
+def test_connect_uses_short_backstop_while_read_is_generous(monkeypatch):
+    # The absolute backstop: connect must happen quickly even when the read budget is generous,
+    # so a black-holed host fails fast instead of burning the full local budget.
+    captured: dict = {}
+
+    def fake_post(url, json=None, headers=None, timeout=None):
+        captured["timeout"] = timeout
+        return httpx.Response(
+            200,
+            json={"message": {"content": "ok"}, "prompt_eval_count": 1, "eval_count": 1},
+            request=httpx.Request("POST", url),
+        )
+
+    monkeypatch.delenv("ORIONFOLD_TIMEOUT_S", raising=False)
+    monkeypatch.setattr(http_mod.httpx, "post", fake_post)
+    OllamaProvider().generate(_example(), _candidate("ollama", "llama3.2"))
+    timeout = captured["timeout"]
+    assert isinstance(timeout, httpx.Timeout)
+    assert timeout.connect == 10.0  # absolute connect backstop
+    assert timeout.read == 300.0  # generous local idle budget
+
+
 def test_transport_failure_becomes_clean_error(monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "fake")
 

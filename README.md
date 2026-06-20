@@ -107,9 +107,11 @@ Two cross-cutting knobs apply to every provider:
 - `ORIONFOLD_MAX_TOKENS` (default `2048`) — per-completion output cap. Raise it for local
   **reasoning** models (qwen3, deepseek-r1, gpt-oss), which spend the budget *thinking* and
   return empty content at a low cap.
-- `ORIONFOLD_TIMEOUT_S` (default `120`) — per-request timeout. Raise it for slow local
-  models. _(This is a fixed wall-clock value; a progress-based streaming timeout is a
-  planned follow-up — see the worklog.)_
+- `ORIONFOLD_TIMEOUT_S` — per-cell idle budget (how long one example may run before it fails
+  as a `timed out after …` row, never crashing the run). Defaults are **per provider class**:
+  local **300s** (generous — slow local generation), cloud **90s** (tighter). Set this to
+  override both at once; raise it for heavy local reasoning models. The connection itself is
+  always capped at ~10s so an unreachable host fails fast.
 
 Other knobs: `ORIONFOLD_ENV_FILE` (point at a non-default env file) and `ORIONFOLD_DB`
 (override the SQLite path; default `~/.orionfold/proof.db`).
