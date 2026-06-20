@@ -23,6 +23,11 @@ SELECTION scaffolding, NOT provenance: config_hash + RECEIPT_VERSION (3) untouch
 `as_of` is a `datetime.date` (rejects malformed; JSON contract unchanged). pytest 114 · ruff clean.
 Commits on `main` (NOT pushed — no remote): 459e8ca 0114b05 dcd96a0 9e048c4 beb7cb0 2fc9be2 e7e1e79
 (+ spec 2484839, plan 8700395)._
+>
+> **NEXT SESSION (operator-decided order): build #4 MODEL-PER-CANDIDATE PICKER first, then #5
+> DECISION RECIPES.** Both are full creative/feature work → brainstorm → spec → plan →
+> subagent-driven, same loop as the catalog. Do #4 end-to-end (merge-ready) before starting #5;
+> #5's brainstorm should assume #4 has shipped (recipes compose panels using the picker)._
 
 ## Paste prompt for the next session
 
@@ -46,24 +51,33 @@ RECENT WORK (committed to main, not pushed — no git remote configured):
   feature-complete against the charter.
 
 THE DECISION-RECIPES THREAD (operator's strategic bet; decomposed, sequenced). Done: #1 catalog.
-REMAINING, in build order:
-- #4 MODEL-PER-CANDIDATE PICKER (next natural build on the catalog) — a per-provider
-  "recommended models" dropdown sourced from GET /api/catalog (latest/recommended marked) + a
-  free-text "custom model" escape hatch; candidates carry a chosen model into the run. The run path
-  must accept a custom model for an available provider (model becomes part of candidate identity →
-  feeds config_hash, which already handles it). NEEDS ITS OWN SPEC/PLAN.
-- #5 DECISION RECIPES — named presets that compose a coherent candidate panel (using #4) + seed the
-  decision question (+ optional dataset/rubric). Operator chose: unavailable providers SHOW greyed
-  + offer INLINE KEY ENTRY (writes to .env.local) — that cross-cut needs its own security review
-  (use security-secrets-review). Recipes are best a bundled catalog-like JSON served by an endpoint
-  (resolve availability server-side), pre-fill not lock. BRAINSTORM before plan/code.
+OPERATOR-DECIDED ORDER for this session: do #4 FIRST (end-to-end, merge-ready), THEN #5.
+
+>> START HERE — #4 MODEL-PER-CANDIDATE PICKER (the next build on the catalog). A per-provider
+   "recommended models" dropdown sourced from GET /api/catalog (latest/recommended marked) + a
+   free-text "custom model" escape hatch; candidates carry a chosen model into the run. The run path
+   must accept a custom model for an available provider — the model becomes part of candidate
+   identity (id includes the model, e.g. anthropic:claude-opus-4-8) → feeds config_hash, which
+   already handles distinct models as distinct candidates. Watch: routes.py create_run /
+   create_run_stream currently validate candidate_ids against the FIXED available_candidates() set
+   (one per provider) — that validation must widen to "provider available + model is a string" while
+   staying keyless-safe and not regressing the existing candidate contract. Mocks stay model=None.
+   This is full feature work: brainstorm → spec → plan → subagent-driven (same loop as the catalog).
+
+>> THEN — #5 DECISION RECIPES. Named presets that compose a coherent candidate panel (USING #4's
+   model-bearing candidates) + seed the decision question (+ optional dataset/rubric). Operator
+   chose: unavailable providers SHOW greyed + offer INLINE KEY ENTRY (writes to .env.local) — that
+   cross-cut needs its own security review (use security-secrets-review; never log/echo/commit keys).
+   Recipes are best a bundled catalog-like JSON served by an endpoint (resolve availability
+   server-side), pre-fill not lock. BRAINSTORM before plan/code; assume #4 has shipped.
+
+OTHER (non-blocking, do when convenient — NOT before #4/#5):
 - OPERATOR PRICE/SOURCE VERIFICATION PASS for catalog.json (deferred review finding I2): verify each
   input/output price against the source URL; OpenRouter `source` should be per-model anchors, not the
   models list page. Bump each pricing as_of when a value changes. Optional: a lint/test that flags a
   non-per-model OpenRouter source so "verify at implementation" doesn't rot.
-- DEFERRED (do when a consumer needs it): re-export Tier/CostClass from orionfold.catalog.__init__.
-
-Operator's call which slice; #4 is the natural next build, #5 needs a brainstorm first.
+- DEFERRED (do when a consumer needs it — likely #4): re-export Tier/CostClass from
+  orionfold.catalog.__init__ so the picker can type its sort/filter logic.
 
 Also pending whenever wanted: set up a git remote + PUSH (none configured; ALL main commits — this
 session + the whole backlog — are local only).
