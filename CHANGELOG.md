@@ -8,6 +8,14 @@ for [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Model catalog.** A bundled `provider → model → capabilities` catalog (`orionfold.catalog`)
+  describing the six real providers and their curated models — `family`, quality `tier`, privacy,
+  context window, cost class, and dated/sourced list prices (local models are free/unpriced). The
+  per-provider default models now read from this single source of truth (behavior-preserving;
+  `ORIONFOLD_<PROVIDER>_MODEL` still overrides). Exposed read-only at `GET /api/catalog`. This is
+  the foundation for an upcoming model picker and comparison "decision recipes"; it is selection
+  metadata only — it never affects a run's `config_hash` or the Proof Receipt.
+
 - **Light theme + theme switcher.** A three-state **System / Light / Dark** control in the
   rail footer (replacing the old "Settings · soon" marker). The choice persists
   (`localStorage`), "System" follows the OS and tracks live changes, and a pre-paint script
