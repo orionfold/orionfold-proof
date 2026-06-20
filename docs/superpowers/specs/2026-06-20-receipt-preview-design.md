@@ -50,6 +50,13 @@ def download_receipt(request: Request, run_id: str, fmt: str, inline: bool = Fal
 - `?inline=1` → `inline` disposition; the browser renders the document. Only the `html` format is
   used inline; the flag is format-agnostic but harmless for `md`/`json`.
 - Body, media type, escaping, and the secret-free guarantees are untouched.
+- **Security (defense-in-depth).** The HTML response also carries `Content-Security-Policy:
+  sandbox` and `X-Content-Type-Options: nosniff`. The inline endpoint is directly navigable (a
+  top-level tab is **not** covered by the iframe sandbox), so the server sandboxes the document
+  itself — no script execution, opaque origin, no MIME sniffing — regardless of how it's loaded.
+  Three independent layers protect the same-origin XSS surface: output escaping (`html.escape`
+  in `export.to_html`) · server `CSP: sandbox` · the iframe `sandbox=""`. (Flagged by automated
+  security review; see `docs/worklog/2026-06-20-ui-feature-review.md`.)
 
 ## Frontend changes
 

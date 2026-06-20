@@ -56,3 +56,4 @@ samples/receipts/*.generated.*
 
 # Playwright MCP scratch (screenshots, snapshots, console logs)
 .playwright-mcp/
+.superpowers/
