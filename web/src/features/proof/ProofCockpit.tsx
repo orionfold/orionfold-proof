@@ -45,6 +45,10 @@ export function ProofCockpit({
   const [datasetId, setDatasetId] = useState("");
   const [selected, setSelected] = useState<string[]>([]);
   const [brief, setBrief] = useState<ProofBrief>(DEFAULT_BRIEF);
+  // The Task name headlines the receipt, so it should describe the dataset under test. Until the
+  // user types their own, mirror it from the selected dataset — otherwise a receipt for an
+  // imported set would inherit the bundled dataset's name. Editing the field locks it.
+  const [taskNameTouched, setTaskNameTouched] = useState(false);
   const [openFailure, setOpenFailure] = useState<ResultRow | null>(null);
   // Live progress for the streaming run: the plan from the `start` frame + a cumulative count.
   const [progress, setProgress] = useState<{ start: RunStartEvent; done: number } | null>(null);
@@ -60,6 +64,16 @@ export function ProofCockpit({
   // / latency, so the user opts into them explicitly rather than having "Run proof" fire cloud
   // calls on first click. Falls back to all if there are no mocks.
   const resolvedDatasetId = datasetId || datasets.data?.[0]?.id || "";
+  // Task name follows the selected dataset's name until the user overrides it.
+  const selectedDataset = datasets.data?.find((d) => d.id === resolvedDatasetId);
+  const effectiveBrief: ProofBrief =
+    taskNameTouched || !selectedDataset
+      ? brief
+      : { ...brief, task_name: selectedDataset.name };
+  const handleBriefChange = (next: ProofBrief) => {
+    if (next.task_name !== effectiveBrief.task_name) setTaskNameTouched(true);
+    setBrief(next);
+  };
   const resolvedSelected = useMemo(() => {
     if (selected.length > 0) return selected;
     const all = candidates.data ?? [];
@@ -126,8 +140,8 @@ export function ProofCockpit({
           onDatasetChange={setDatasetId}
           selectedCandidates={resolvedSelected}
           onToggleCandidate={toggleCandidate}
-          brief={brief}
-          onBriefChange={setBrief}
+          brief={effectiveBrief}
+          onBriefChange={handleBriefChange}
           isRunning={runMutation.isPending}
           error={runMutation.isError ? (runMutation.error as Error).message : null}
           hasRun={report !== null}
@@ -135,7 +149,7 @@ export function ProofCockpit({
             runMutation.mutate({
               dataset_id: resolvedDatasetId,
               candidate_ids: resolvedSelected,
-              brief,
+              brief: effectiveBrief,
             })
           }
         />

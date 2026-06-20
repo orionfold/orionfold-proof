@@ -69,6 +69,42 @@ test("navigates to the Datasets view from the rail", async () => {
   expect(screen.getByRole("heading", { name: "Datasets" })).toBeInTheDocument();
 });
 
+test("syncs the Task name to the selected dataset until the user edits it", async () => {
+  const TWO_DATASETS = [
+    DATASETS[0],
+    {
+      id: "client-memo-summaries",
+      name: "Client memo summaries v1",
+      description: "imported",
+      examples: [{ input_text: "in", expected_text: "out" }],
+    },
+  ];
+  vi.spyOn(globalThis, "fetch").mockImplementation(
+    mockFetchByUrl({
+      health: HEALTH,
+      datasets: TWO_DATASETS,
+      candidates: CANDIDATES,
+      runs: [],
+    }) as typeof fetch,
+  );
+  renderWithQuery(<App />);
+
+  const taskName = (await screen.findByLabelText("Task name")) as HTMLInputElement;
+  // Defaults to the first (pre-selected) dataset's name, not a hardcoded string.
+  expect(taskName.value).toBe("Investment memo summarization");
+
+  // Selecting another dataset re-syncs the untouched Task name to its name.
+  fireEvent.change(screen.getByRole("combobox"), { target: { value: "client-memo-summaries" } });
+  expect(taskName.value).toBe("Client memo summaries v1");
+
+  // Once the user edits the Task name, it stops auto-syncing on dataset change.
+  fireEvent.change(taskName, { target: { value: "My own task" } });
+  fireEvent.change(screen.getByRole("combobox"), {
+    target: { value: "investment-memo-summarization" },
+  });
+  expect(taskName.value).toBe("My own task");
+});
+
 test("opens a receipt into its detail view, then explores it in the cockpit", async () => {
   mockServer();
   renderWithQuery(<App />);
