@@ -31,4 +31,13 @@ test("proof loop: run → leaderboard → failure case → receipts", async ({ p
     const download = await downloadPromise;
     expect(download.suggestedFilename()).toMatch(/^proof-receipt-[a-f0-9]{12}\.(md|html|json)$/);
   }
+
+  // The receipt is viewable in-app, not just downloadable: open it from the archive.
+  await page.getByRole("button", { name: "Receipts" }).click();
+  await page.getByRole("button", { name: /Which model should I trust/ }).first().click();
+  await expect(page.getByTitle("Proof Receipt preview")).toBeVisible();
+  await expect(page.getByRole("button", { name: /Explore in cockpit/ })).toBeVisible();
+  for (const label of ["Markdown", "HTML", "JSON"]) {
+    await expect(page.getByRole("link", { name: label, exact: true })).toBeVisible();
+  }
 });
