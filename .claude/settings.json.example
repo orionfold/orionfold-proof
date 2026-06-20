@@ -1,0 +1,32 @@
+{
+  "//": "Review, then rename to settings.json to activate. These allow-rules widen what Claude Code can run without prompting — keep them tight and only add commands you trust.",
+  "model": "claude-opus-4-8",
+  "permissions": {
+    "allow": [
+      "Bash(uv run pytest:*)",
+      "Bash(uv run ruff:*)",
+      "Bash(uv run pyright:*)",
+      "Bash(uv sync:*)",
+      "Bash(pnpm test:*)",
+      "Bash(pnpm lint:*)",
+      "Bash(pnpm build:*)",
+      "Bash(pnpm exec playwright:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
+    ],
+    "ask": [
+      "Bash(git push:*)",
+      "Bash(uv add:*)",
+      "Bash(pnpm add:*)",
+      "Bash(uv tool install:*)"
+    ],
+    "deny": [
+      "Read(.env)",
+      "Read(./**/.env)",
+      "Read(./**/.env.*)"
+    ]
+  }
+}

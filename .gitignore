@@ -1,0 +1,49 @@
+# Secrets — never commit
+.env
+.env.*
+*.key
+*.pem
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.pyright/
+dist/
+build/
+*.egg-info/
+
+# uv
+# (uv.lock IS committed)
+
+# Node / frontend
+node_modules/
+web/dist/
+web/node_modules/
+.vite/
+
+# Playwright
+test-results/
+playwright-report/
+.playwright/
+e2e/**/screenshots/__diff__/
+
+# Local data & artifacts
+*.sqlite
+*.sqlite3
+*.db
+data/
+# Generated receipts are not committed (samples/ committed ones are curated by hand)
+samples/receipts/*.generated.*
+
+# OS / editor
+.DS_Store
+*.swp
+.idea/
+.vscode/
+
+# Obsidian (this repo is also a vault) — personal UI state, not shared config
+.obsidian/
