@@ -155,7 +155,7 @@ def to_markdown(report: ProofReport) -> str:
     return "\n".join(lines)
 
 
-def to_html(report: ProofReport) -> str:
+def to_html(report: ProofReport, theme: str | None = None) -> str:
     """Self-contained HTML receipt (no external assets), calm and readable."""
     data = build_receipt(report)
     brief = data["brief"]
@@ -197,30 +197,52 @@ def to_html(report: ProofReport) -> str:
         failures_html = "<p class='muted'>No failures — every candidate passed every example.</p>"
 
     return f"""<!doctype html>
-<html lang="en">
+<html lang="en"{f' data-theme="{theme}"' if theme in ("light", "dark") else ""}>
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Proof Receipt · {html.escape(data['dataset']['name'])}</title>
 <style>
-  :root {{ color-scheme: light dark; }}
+  :root {{
+    color-scheme: light dark;
+    --rc-bg: #0b0f14; --rc-ink: #e6edf3; --rc-muted: #9fb0c0; --rc-line: #1c2530;
+    --rc-rec-bg: #11331f; --rc-rec-line: #1f5135; --rc-rec-ink: #c8f5da;
+    --rc-case: #c4d0db; --rc-case-key: #6f8190;
+  }}
+  @media (prefers-color-scheme: light) {{
+    :root {{
+      --rc-bg: #f4f6f8; --rc-ink: #1b2430; --rc-muted: #51616f; --rc-line: #dde3ea;
+      --rc-rec-bg: #e7f7ee; --rc-rec-line: #b6e6cb; --rc-rec-ink: #0f5132;
+      --rc-case: #2b3744; --rc-case-key: #67768a;
+    }}
+  }}
+  :root[data-theme="dark"] {{
+    --rc-bg: #0b0f14; --rc-ink: #e6edf3; --rc-muted: #9fb0c0; --rc-line: #1c2530;
+    --rc-rec-bg: #11331f; --rc-rec-line: #1f5135; --rc-rec-ink: #c8f5da;
+    --rc-case: #c4d0db; --rc-case-key: #6f8190;
+  }}
+  :root[data-theme="light"] {{
+    --rc-bg: #f4f6f8; --rc-ink: #1b2430; --rc-muted: #51616f; --rc-line: #dde3ea;
+    --rc-rec-bg: #e7f7ee; --rc-rec-line: #b6e6cb; --rc-rec-ink: #0f5132;
+    --rc-case: #2b3744; --rc-case-key: #67768a;
+  }}
   body {{ margin: 0; font: 15px/1.6 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-         background: #0b0f14; color: #e6edf3; }}
+         background: var(--rc-bg); color: var(--rc-ink); }}
   main {{ max-width: 56rem; margin: 0 auto; padding: 2.5rem 1.5rem; }}
   h1 {{ font-size: 1.5rem; letter-spacing: -0.01em; margin: 0 0 0.25rem; }}
-  .rec {{ background: #11331f; border: 1px solid #1f5135; color: #c8f5da;
+  .rec {{ background: var(--rc-rec-bg); border: 1px solid var(--rc-rec-line); color: var(--rc-rec-ink);
           padding: 0.9rem 1rem; border-radius: 10px; margin: 1rem 0 1.5rem; }}
   dl {{ display: grid; grid-template-columns: max-content 1fr; gap: 0.2rem 1rem; margin: 0 0 1.5rem; }}
-  dt {{ color: #9fb0c0; }} dd {{ margin: 0; }}
+  dt {{ color: var(--rc-muted); }} dd {{ margin: 0; }}
   table {{ width: 100%; border-collapse: collapse; margin: 0.5rem 0 1.5rem; }}
-  th, td {{ text-align: left; padding: 0.5rem 0.6rem; border-bottom: 1px solid #1c2530; }}
-  th {{ color: #9fb0c0; font-weight: 600; }}
+  th, td {{ text-align: left; padding: 0.5rem 0.6rem; border-bottom: 1px solid var(--rc-line); }}
+  th {{ color: var(--rc-muted); font-weight: 600; }}
   code {{ font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }}
-  .muted {{ color: #9fb0c0; }}
+  .muted {{ color: var(--rc-muted); }}
   ul.failures {{ list-style: none; padding: 0; }}
-  ul.failures > li {{ border: 1px solid #1c2530; border-radius: 10px; padding: 0.8rem 1rem; margin: 0.6rem 0; }}
-  .case {{ color: #c4d0db; margin-top: 0.25rem; }}
-  .case > span {{ color: #6f8190; display: inline-block; min-width: 4.5rem; }}
+  ul.failures > li {{ border: 1px solid var(--rc-line); border-radius: 10px; padding: 0.8rem 1rem; margin: 0.6rem 0; }}
+  .case {{ color: var(--rc-case); margin-top: 0.25rem; }}
+  .case > span {{ color: var(--rc-case-key); display: inline-block; min-width: 4.5rem; }}
 </style>
 </head>
 <body>

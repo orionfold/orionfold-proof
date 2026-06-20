@@ -67,3 +67,20 @@ def test_receipt_never_contains_secret_markers():
         lowered = text.lower()
         for needle in needles:
             assert needle not in lowered, f"receipt leaked marker: {needle}"
+
+
+def test_html_receipt_carries_both_palettes():
+    html_out = export.to_html(_report())
+    assert "@media (prefers-color-scheme: light)" in html_out
+    assert ':root[data-theme="light"]' in html_out
+    assert ':root[data-theme="dark"]' in html_out
+    # standalone (no explicit theme) must not pin a data-theme on <html>
+    assert "data-theme=" not in html_out.split("<head>")[0]
+
+
+def test_html_receipt_theme_param_pins_data_theme():
+    report = _report()
+    assert '<html lang="en" data-theme="light">' in export.to_html(report, theme="light")
+    assert '<html lang="en" data-theme="dark">' in export.to_html(report, theme="dark")
+    # an unknown theme is ignored (no attribute)
+    assert '<html lang="en">' in export.to_html(report, theme="bogus")
