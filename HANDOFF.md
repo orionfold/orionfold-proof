@@ -6,7 +6,7 @@
 > To resume: in a fresh session say **"read from handoff"** (or "continue from last
 > session"), or `/clear` and paste the prompt below.
 
-_Last updated: 2026-06-19 · Gate 5 (vertical slice) built, verified, reviewed & **committed** on branch `gate-5-vertical-slice` (not pushed; ready to merge to `main`) · next: **Gate 6 (provider integration)**_
+_Last updated: 2026-06-19 · Gate 5 (vertical slice) built, verified, reviewed & **committed** (`3fea82a` on branch `gate-5-vertical-slice`; not pushed; ready to merge to `main`) · next: **Gate 6 (provider integration)**_
 
 ## Paste prompt for the next session
 
