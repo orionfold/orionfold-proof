@@ -50,7 +50,9 @@
 
   --color-ink: #1b2430;
   --color-ink-muted: #51616f;
-  --color-ink-faint: #67768a;
+  /* Darkened from #67768a so faint hints clear WCAG AA (4.5) on the rail's slightly deeper
+     surface (#eceff3) too — measured 4.52 worst-case, still visibly quieter than ink-muted. */
+  --color-ink-faint: #5f6e80;
 
   --color-accent: #047857;
   --color-accent-strong: #047857;
