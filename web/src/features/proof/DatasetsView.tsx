@@ -1,18 +1,32 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 import { getDatasets } from "../../lib/api";
 import { ViewNotice, ViewShell } from "./ViewShell";
+import { DatasetImportPanel } from "./DatasetImportPanel";
 
 // A read-only reference: the frozen example sets a proof run scores candidates against. Seeing
 // the exact inputs/expected answers is part of trusting the receipt — nothing is hidden.
 export function DatasetsView() {
   const datasets = useQuery({ queryKey: ["datasets"], queryFn: getDatasets });
+  const [importing, setImporting] = useState(false);
 
   return (
     <ViewShell
       title="Datasets"
       subtitle="The frozen example sets your candidates are proved against. Every candidate runs on the same inputs, so the comparison is fair and repeatable."
+      action={
+        <button
+          type="button"
+          onClick={() => setImporting((v) => !v)}
+          className="rounded-lg border border-(--color-panel-line) px-3 py-1.5 text-sm text-(--color-ink) hover:bg-(--color-panel-line)/40"
+        >
+          {importing ? "Close import" : "Import dataset"}
+        </button>
+      }
     >
+      {importing && <DatasetImportPanel onClose={() => setImporting(false)} />}
+      {/* existing loading / error / empty / list block unchanged */}
       {datasets.isLoading ? (
         <ViewNotice>Loading datasets…</ViewNotice>
       ) : datasets.isError || !datasets.data ? (

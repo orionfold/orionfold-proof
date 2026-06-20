@@ -4,17 +4,22 @@
 export function ViewShell({
   title,
   subtitle,
+  action,
   children,
 }: {
   title: string;
   subtitle: string;
+  action?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
     <main className="flex flex-col gap-8 px-6 py-8 lg:px-10">
-      <header className="flex flex-col gap-1">
-        <h2 className="text-xl font-semibold tracking-tight text-(--color-ink)">{title}</h2>
-        <p className="max-w-prose text-sm text-(--color-ink-muted)">{subtitle}</p>
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex flex-col gap-1">
+          <h2 className="text-xl font-semibold tracking-tight text-(--color-ink)">{title}</h2>
+          <p className="max-w-prose text-sm text-(--color-ink-muted)">{subtitle}</p>
+        </div>
+        {action}
       </header>
       {children}
     </main>
