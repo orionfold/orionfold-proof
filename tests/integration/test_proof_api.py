@@ -259,3 +259,32 @@ def test_inline_receipt_rejects_unknown_theme_without_reflecting_it(client):
     # An unknown theme is not pinned on <html>, and the payload is never reflected anywhere.
     assert "data-theme=" not in r.text.split("<head>")[0]
     assert "<script>alert(1)" not in r.text
+
+
+def test_catalog_endpoint_returns_validated_catalog(client):
+    resp = client.get("/api/catalog")
+    assert resp.status_code == 200
+    body = resp.json()
+
+    # Parses back into the schema (shape contract).
+    from orionfold.catalog.models import ModelCatalog
+
+    catalog = ModelCatalog.model_validate(body)
+    assert catalog.version >= 1
+
+    providers = {p.id: p for p in catalog.providers}
+    assert {"anthropic", "openai", "gemini", "openrouter", "ollama", "lmstudio"} <= providers.keys()
+    # Privacy boundary is representable (cloud vs local) for the UI/recipes to label.
+    assert providers["anthropic"].privacy == "cloud"
+    assert providers["ollama"].privacy == "local"
+
+
+def test_catalog_endpoint_leaks_no_secrets(client, monkeypatch):
+    # Even with keys present in the environment, the catalog body must contain no credential-ish
+    # strings — it is static reference data with no key fields.
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-should-never-appear-in-catalog")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-should-never-appear")
+    text = client.get("/api/catalog").text
+    assert "sk-should-never-appear-in-catalog" not in text
+    assert "sk-ant-should-never-appear" not in text
+    assert "API_KEY" not in text

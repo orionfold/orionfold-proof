@@ -18,6 +18,8 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import PlainTextResponse, Response, StreamingResponse
 from pydantic import BaseModel
 
+from orionfold.catalog import load_catalog
+from orionfold.catalog.models import ModelCatalog
 from orionfold.data.importers import DatasetParseError, ImportFormat, ParseResult, parse_dataset
 from orionfold.domain.models import Candidate, Dataset, ProofBrief, ProofReport, ProofRun, Rubric
 from orionfold.proof.engine import config_hash, iter_matrix, run_proof
@@ -109,6 +111,16 @@ def create_dataset(request: Request, body: DatasetCreateRequest) -> Dataset:
 @router.get("/candidates")
 def get_candidates() -> list[Candidate]:
     return available_candidates()
+
+
+@router.get("/catalog")
+def get_catalog() -> ModelCatalog:
+    """The bundled model catalog (provider → model → capabilities). Read-only reference data.
+
+    Consumed by the model picker and decision recipes (later sub-projects). Contains no
+    credentials — purely static selection metadata.
+    """
+    return load_catalog()
 
 
 @router.post("/runs")
