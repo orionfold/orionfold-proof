@@ -11,16 +11,23 @@ they are here to decide what AI to trust.
 
 ---
 
-## Status: Gate 5 — proof-receipt vertical slice
+## Status: Gate 7 — ship candidate
 
-The core loop works end-to-end, **mock-only and keyless**: pick the bundled sample dataset,
-run two deterministic mock candidates, see the leaderboard, inspect failure cases (including
-a surfaced provider error), and export a Proof Receipt in Markdown, HTML, and JSON — each
-stamped with a config hash, timestamp, and schema version. Real providers (Ollama +
-OpenAI-compatible) land in Gate 6.
+The full v0 loop works end-to-end. **Keyless out of the box:** pick the bundled sample
+dataset, run two deterministic mock candidates, see the leaderboard, inspect failure cases
+(including a surfaced provider error), and export a Proof Receipt in Markdown, HTML, and
+JSON — each stamped with a config hash, timestamp, and schema version (currently v3).
+
+**Real providers when you configure them:** the same loop runs against local and cloud
+models — Ollama and LM Studio (local), plus OpenAI, OpenRouter, Google Gemini, and
+Anthropic (cloud) — behind one uniform result boundary. Cloud candidates appear **only when
+their API key resolves**; the keyless mock path stays the instant default. See
+[Configure providers](#configure-providers) below.
 
 Run it: `bash scripts/build.sh && uv run orionfold up`, open the cockpit, click **Run proof**,
-then export a receipt. See a sample under [`samples/receipts/`](samples/receipts/).
+then export a receipt. See a sample under [`samples/receipts/`](samples/receipts/), a
+guided walkthrough in [`docs/demo-script.md`](docs/demo-script.md), and the release history
+in [`CHANGELOG.md`](CHANGELOG.md).
 
 ## Quickstart
 
@@ -52,7 +59,64 @@ pnpm --dir web exec playwright install chromium  # one-time, for e2e
 pnpm --dir web e2e            # Playwright happy-path (boots the embedded build)
 ```
 
-Target install (post-v0): `uv tool install orionfold-proof && orionfold up`.
+Target install: `uv tool install orionfold-proof && orionfold up`.
+
+## Configure providers
+
+The mock candidates need no setup. To prove **real** models, make their credentials
+resolvable. Orionfold reads keys from two places, in order:
+
+1. The **system environment** (preferred for CI / 12-factor).
+2. A repo-root **`.env.local`** file (git-ignored; convenient for local dev).
+
+The system environment **wins** when both are set; empty or whitespace-only values are
+treated as absent. A cloud candidate is offered **only when its key resolves**, so the
+cockpit never lists a model that can't run. Keys are never logged, printed, or written into
+any receipt or screenshot.
+
+Create `.env.local` at the repo root (an example, never commit real keys):
+
+```bash
+# .env.local — git-ignored. Set only the providers you want to prove.
+OPENAI_API_KEY=sk-...
+OPENROUTER_API_KEY=sk-or-...
+GEMINI_API_KEY=AIza...
+ANTHROPIC_API_KEY=sk-ant-...
+```
+
+Local providers need no key — just a reachable server: **Ollama** (`ollama serve`, models
+pulled) and **LM Studio** (`lms server start`, a model loaded). Both are always offered.
+
+**Defaults and overrides** — each profile ships a sensible default model and every knob is
+env-overridable (set in `.env.local` or the environment; no code change):
+
+| Profile | Default model | Model override | Endpoint override |
+| --- | --- | --- | --- |
+| Ollama (local) | `llama3.2` | `ORIONFOLD_OLLAMA_MODEL` | `OLLAMA_HOST` |
+| LM Studio (local) | `local-model` | `ORIONFOLD_LMSTUDIO_MODEL` | `LMSTUDIO_BASE_URL` |
+| OpenAI | `gpt-4o-mini` | `ORIONFOLD_OPENAI_MODEL` | `OPENAI_BASE_URL` |
+| OpenRouter | `openai/gpt-4o-mini` | `ORIONFOLD_OPENROUTER_MODEL` | `OPENROUTER_BASE_URL` |
+| Gemini | `gemini-2.5-flash` | `ORIONFOLD_GEMINI_MODEL` | — |
+| Anthropic | `claude-haiku-4-5` | `ORIONFOLD_ANTHROPIC_MODEL` | — |
+
+The model is part of a candidate's identity and feeds the run's `config_hash`, so changing
+it produces a distinct, traceable receipt.
+
+Two cross-cutting knobs apply to every provider:
+
+- `ORIONFOLD_MAX_TOKENS` (default `2048`) — per-completion output cap. Raise it for local
+  **reasoning** models (qwen3, deepseek-r1, gpt-oss), which spend the budget *thinking* and
+  return empty content at a low cap.
+- `ORIONFOLD_TIMEOUT_S` (default `120`) — per-request timeout. Raise it for slow local
+  models. _(This is a fixed wall-clock value; a progress-based streaming timeout is a
+  planned follow-up — see the worklog.)_
+
+Other knobs: `ORIONFOLD_ENV_FILE` (point at a non-default env file) and `ORIONFOLD_DB`
+(override the SQLite path; default `~/.orionfold/proof.db`).
+
+> Estimated costs use a small built-in price table for the default models. An unknown model
+> (e.g. OpenRouter's namespaced ids) shows `$0.00` — costs are labeled **estimated**, never
+> authoritative.
 
 ## How development is structured
 
@@ -99,16 +163,19 @@ docs/
   ux/                             design system · usability/a11y/visual checklists · copy-deck
   adr/                            architecture decision records (template seeded)
   worklog/                        per-session summaries (template seeded)
-src/ web/ samples/ tests/ e2e/ scripts/   Empty target dirs for the approved build
+src/orionfold/                    Backend: CLI, FastAPI server, domain, providers, storage
+web/                              Vite/React cockpit (built + embedded into the wheel)
+samples/                          Bundled demo dataset + sample receipts (MD/HTML/JSON)
+tests/  scripts/                  pytest (unit + integration), Playwright e2e, build script
 ```
 
-## Planned stack (boring on purpose)
+## Stack (boring on purpose)
 
 - **Backend:** Python 3.12+, `uv`, FastAPI, Pydantic, Typer, SQLite, httpx, pytest, ruff, pyright.
 - **Frontend:** Vite, React, TypeScript, Tailwind, shadcn/Radix, TanStack Query, Zod, React Hook Form, Recharts.
 - **Testing:** pytest, Vitest, Playwright (visual + e2e), deterministic mock providers.
 
-Target install (post-v0): `uv tool install orionfold-proof && orionfold up` → `http://localhost:8787`.
+Install: `uv tool install orionfold-proof && orionfold up` → `http://localhost:8787`.
 Dev: `uv sync && pnpm --dir web install && uv run orionfold dev` (see Quickstart above).
 
 PyPI distribution name: `orionfold-proof` (CLI command `orionfold`). The brand names
