@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import pytest
+from pydantic import ValidationError
+
 from orionfold.catalog import load_catalog
-from orionfold.catalog.models import ModelCatalog
+from orionfold.catalog.models import CatalogModel, CatalogProvider, ModelCatalog
 
 # The six real, model-bearing providers the catalog must cover (mocks are excluded —
 # they carry model=None and are special-cased in the registry).
@@ -48,3 +51,22 @@ def test_local_models_are_free_and_unpriced():
             for model in provider.models:
                 assert model.cost_class == "free", f"{provider.id}/{model.id}"
                 assert model.pricing is None, f"{provider.id}/{model.id}"
+
+
+def test_provider_rejects_default_model_not_in_models():
+    good = CatalogModel(
+        id="m1", display_name="M1", family="x", tier="economy", cost_class="free"
+    )
+    with pytest.raises(ValidationError):
+        CatalogProvider(
+            id="p", label="P", privacy="local", default_model="missing", models=[good]
+        )
+
+
+def test_provider_rejects_duplicate_model_ids():
+    a = CatalogModel(id="dup", display_name="A", family="x", tier="economy", cost_class="free")
+    b = CatalogModel(id="dup", display_name="B", family="x", tier="economy", cost_class="free")
+    with pytest.raises(ValidationError):
+        CatalogProvider(
+            id="p", label="P", privacy="local", default_model="dup", models=[a, b]
+        )
