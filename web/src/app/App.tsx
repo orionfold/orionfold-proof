@@ -3,10 +3,14 @@ import {
   Boxes,
   Database,
   Gauge,
+  Monitor,
+  Moon,
   ReceiptText,
-  Settings as SettingsIcon,
+  Sun,
   type LucideIcon,
 } from "lucide-react";
+
+import { useTheme, type ThemeChoice } from "../lib/theme";
 
 import { getHealth, type Health, type ProofReport } from "../lib/api";
 import { CandidatesView } from "../features/proof/CandidatesView";
@@ -81,6 +85,50 @@ function EngineStatus() {
   );
 }
 
+const THEMES: { value: ThemeChoice; label: string; Icon: LucideIcon }[] = [
+  { value: "system", label: "System", Icon: Monitor },
+  { value: "light", label: "Light", Icon: Sun },
+  { value: "dark", label: "Dark", Icon: Moon },
+];
+
+// Replaces the old "Settings · soon" marker: a calm 3-way theme control pinned in the rail
+// footer. radiogroup semantics so it's keyboard-navigable; the active segment uses the raised
+// card surface, matching the nav's active treatment.
+function ThemeSwitcher() {
+  const { choice, setChoice } = useTheme();
+  return (
+    <div
+      role="radiogroup"
+      aria-label="Theme"
+      className="flex gap-0.5 rounded-lg border border-(--color-panel-line) p-0.5"
+    >
+      {THEMES.map(({ value, label, Icon }) => {
+        const active = value === choice;
+        return (
+          <button
+            key={value}
+            type="button"
+            role="radio"
+            aria-checked={active}
+            aria-label={label}
+            title={label}
+            onClick={() => setChoice(value)}
+            className={
+              "flex flex-1 items-center justify-center gap-1 rounded-md px-1.5 py-1 text-xs transition-colors " +
+              (active
+                ? "bg-(--color-panel-card) text-(--color-ink)"
+                : "text-(--color-ink-muted) hover:text-(--color-ink)")
+            }
+          >
+            <Icon aria-hidden className="h-3.5 w-3.5 shrink-0" />
+            {label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 // The quiet left rail: the product's full map. Each item is a real destination now — Proof Run
 // is the live loop; Datasets, Candidates, and Receipts are read-only views over the same engine.
 const NAV: { id: View; label: string; Icon: LucideIcon }[] = [
@@ -136,18 +184,7 @@ function LeftRail({ view, onNavigate }: { view: View; onNavigate: (view: View) =
       </nav>
 
       <div className="mt-auto flex flex-col gap-3 border-t border-(--color-panel-line) pt-4">
-        {/* Settings has no screen in v0 (config is via env vars). Marked clearly as a roadmap
-            item — a "soon" tag + not-allowed cursor — so it doesn't read as a clickable nav item. */}
-        <span
-          aria-disabled="true"
-          className="flex cursor-not-allowed items-center justify-between rounded-md px-2.5 py-1.5 text-sm text-(--color-ink-faint)"
-        >
-          <span className="flex items-center gap-2">
-            <SettingsIcon aria-hidden className="h-4 w-4 shrink-0" />
-            Settings
-          </span>
-          <span className="text-[10px] uppercase tracking-wide text-(--color-ink-faint)">soon</span>
-        </span>
+        <ThemeSwitcher />
         <div className="px-2.5">
           <EngineStatus />
         </div>
