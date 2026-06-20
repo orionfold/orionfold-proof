@@ -1,5 +1,10 @@
 @import "tailwindcss";
 
+/* Resolved theme drives a data attribute on <html>; expose it as Tailwind's `dark:` variant so
+   literal-color utilities (badges) can carry a light base + dark override. Design-token colors
+   are handled by the :root[data-theme="light"] override below, not this variant. */
+@custom-variant dark ([data-theme="dark"] &);
+
 /* Calm instrument-panel tokens. A lab bench plus a signed receipt: restrained neutral
    surfaces, one confident accent, semantic color reserved for status, and a distinct
    hue per provider boundary. See docs/ux/product-design-system.md. */
@@ -30,6 +35,28 @@
   --animate-reveal: reveal 0.3s ease-out both; /* results / progress easing in */
   --animate-emphasis: emphasis 0.6s ease-out; /* one quiet lift on the winner card */
   --animate-breathe: breathe 2.4s ease-in-out infinite; /* first-run CTA affordance */
+}
+
+/* Light theme — "paper, not glare": soft gray app surface, white raised cards, deepened emerald
+   accent that stays AA-legible on white. Overrides the @theme dark base; :root[data-theme=light]
+   (0,2,0) beats @theme's :root (0,1,0). Keep token names identical so every utility re-resolves. */
+:root[data-theme="light"] {
+  --color-panel: #f4f6f8;
+  --color-rail: #eceff3;
+  --color-inspector: #f0f2f5;
+  --color-panel-card: #ffffff;
+  --color-panel-line: #dde3ea;
+  --color-panel-line-strong: #c3ccd6;
+
+  --color-ink: #1b2430;
+  --color-ink-muted: #51616f;
+  --color-ink-faint: #67768a;
+
+  --color-accent: #047857;
+  --color-accent-strong: #047857;
+  --color-accent-ink: #ffffff;
+
+  --color-focus: #0d9488;
 }
 
 @keyframes reveal {
