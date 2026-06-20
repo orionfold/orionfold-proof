@@ -13,9 +13,21 @@ function providerKind(providerId: string, privacy: "local" | "cloud"): ProviderK
 }
 
 const PROVIDER_STYLE: Record<ProviderKind, { label: string; cls: string; Icon: LucideIcon }> = {
-  mock: { label: "Mock", cls: "border-zinc-500/40 bg-zinc-500/10 text-zinc-300", Icon: FlaskConical },
-  local: { label: "Local", cls: "border-slate-400/40 bg-slate-400/10 text-slate-200", Icon: HardDrive },
-  cloud: { label: "Cloud", cls: "border-sky-400/40 bg-sky-400/10 text-sky-300", Icon: Cloud },
+  mock: {
+    label: "Mock",
+    cls: "border-zinc-400/50 bg-zinc-400/10 text-zinc-600 dark:border-zinc-500/40 dark:bg-zinc-500/10 dark:text-zinc-300",
+    Icon: FlaskConical,
+  },
+  local: {
+    label: "Local",
+    cls: "border-slate-400/50 bg-slate-400/10 text-slate-600 dark:border-slate-400/40 dark:bg-slate-400/10 dark:text-slate-200",
+    Icon: HardDrive,
+  },
+  cloud: {
+    label: "Cloud",
+    cls: "border-sky-500/50 bg-sky-500/10 text-sky-700 dark:border-sky-400/40 dark:bg-sky-400/10 dark:text-sky-300",
+    Icon: Cloud,
+  },
 };
 
 export function ProviderTag({
@@ -37,8 +49,14 @@ export function ProviderTag({
 // Failure status — an outright provider error vs. a graded miss. Icon + color + text together so
 // the severity reads at a glance and never depends on color alone.
 const STATUS_STYLE: Record<"error" | "fail", { cls: string; Icon: LucideIcon }> = {
-  error: { cls: "border-rose-400/40 bg-rose-500/10 text-rose-300", Icon: CircleX },
-  fail: { cls: "border-amber-400/40 bg-amber-500/10 text-amber-300", Icon: TriangleAlert },
+  error: {
+    cls: "border-rose-500/50 bg-rose-500/10 text-rose-700 dark:border-rose-400/40 dark:bg-rose-500/10 dark:text-rose-300",
+    Icon: CircleX,
+  },
+  fail: {
+    cls: "border-amber-500/50 bg-amber-500/10 text-amber-700 dark:border-amber-400/40 dark:bg-amber-500/10 dark:text-amber-300",
+    Icon: TriangleAlert,
+  },
 };
 
 export function StatusBadge({ kind, children }: { kind: "error" | "fail"; children: ReactNode }) {
