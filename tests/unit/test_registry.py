@@ -59,3 +59,10 @@ def test_local_candidates_carry_model_and_label():
 def test_unknown_provider_raises():
     with pytest.raises(KeyError):
         get_provider("does-not-exist")
+
+
+def test_env_var_overrides_catalog_default(monkeypatch):
+    # The catalog default is only the *fallback*; an explicit ORIONFOLD_<P>_MODEL must win.
+    monkeypatch.setenv("ORIONFOLD_OLLAMA_MODEL", "custom-ollama-model")
+    cands = {c.id: c for c in available_candidates()}
+    assert cands["ollama"].model == "custom-ollama-model"

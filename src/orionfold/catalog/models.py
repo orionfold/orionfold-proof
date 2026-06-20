@@ -8,6 +8,7 @@ catalog list price downstream).
 
 from __future__ import annotations
 
+from datetime import date
 from typing import Literal
 
 from pydantic import BaseModel, model_validator
@@ -22,7 +23,7 @@ class ModelPricing(BaseModel):
     input_per_mtok: float  # USD per 1M input tokens — a LIST price, not a claim
     output_per_mtok: float
     currency: str = "USD"
-    as_of: str  # ISO date the price was recorded
+    as_of: date  # ISO date the price was recorded
     source: str  # provider pricing-page URL
 
 
@@ -59,5 +60,5 @@ class CatalogProvider(BaseModel):
 
 class ModelCatalog(BaseModel):
     version: int  # catalog schema version (starts at 1)
-    as_of: str  # catalog-wide snapshot date
+    as_of: date  # catalog-wide snapshot date
     providers: list[CatalogProvider]
