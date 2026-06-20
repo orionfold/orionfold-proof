@@ -40,6 +40,7 @@ export function DatasetImportPanel({ onClose }: { onClose: () => void }) {
     if (!file) return;
     setText(await file.text());
     setPreview(null);
+    previewMutation.reset();
   }
 
   const hint = FORMATS.find((f) => f.value === format)?.hint ?? "";
@@ -54,6 +55,7 @@ export function DatasetImportPanel({ onClose }: { onClose: () => void }) {
             onClick={() => {
               setFormat(f.value);
               setPreview(null);
+              previewMutation.reset();
             }}
             aria-pressed={format === f.value}
             className={
@@ -76,6 +78,7 @@ export function DatasetImportPanel({ onClose }: { onClose: () => void }) {
           onChange={(e) => {
             setText(e.target.value);
             setPreview(null);
+            previewMutation.reset();
           }}
           rows={6}
           className="w-full rounded-lg border border-(--color-panel-line) bg-(--color-panel-card) p-3 font-mono text-xs text-(--color-ink)"
@@ -88,6 +91,7 @@ export function DatasetImportPanel({ onClose }: { onClose: () => void }) {
           type="file"
           accept=".jsonl,.json,.csv,.md,.markdown,.txt"
           onChange={onFile}
+          aria-label="Upload dataset file"
           className="text-xs text-(--color-ink-muted)"
         />
         <button
