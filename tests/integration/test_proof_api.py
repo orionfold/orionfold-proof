@@ -86,6 +86,28 @@ def test_html_receipt_can_be_served_inline_for_preview(client):
     assert inline.text == download.text
 
 
+def test_inline_html_receipt_is_sandboxed(client):
+    run_id = client.post(
+        "/api/runs",
+        json={
+            "dataset_id": "investment-memo-summarization",
+            "candidate_ids": ["mock_good", "mock_bad"],
+            "brief": {
+                "task_name": "Memo summarization",
+                "decision_question": "Which model to trust?",
+                "success_criteria": "",
+            },
+        },
+    ).json()["run"]["id"]
+
+    resp = client.get(f"/api/runs/{run_id}/receipt.html?inline=1")
+    assert resp.status_code == 200
+    # Even rendered directly (not only in the iframe sandbox), the document is a sandboxed
+    # opaque origin with no script execution, and its type cannot be sniffed.
+    assert resp.headers["content-security-policy"] == "sandbox"
+    assert resp.headers["x-content-type-options"] == "nosniff"
+
+
 def test_unknown_dataset_is_rejected(client):
     resp = client.post(
         "/api/runs",

@@ -238,5 +238,10 @@ def download_receipt(
     disposition = "inline" if inline else "attachment"
     headers = {"Content-Disposition": f'{disposition}; filename="{filename}"'}
     if fmt == "html":
+        # Defense-in-depth for the only renderable format: sandbox the document (no scripts,
+        # opaque origin) and forbid content-type sniffing, so even a directly-navigated receipt
+        # cannot execute script against the app origin. The body is already fully html-escaped.
+        headers["Content-Security-Policy"] = "sandbox"
+        headers["X-Content-Type-Options"] = "nosniff"
         return Response(content=body, media_type=media_type, headers=headers)
     return PlainTextResponse(content=body, media_type=media_type, headers=headers)
