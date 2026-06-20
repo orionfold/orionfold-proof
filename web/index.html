@@ -4,6 +4,21 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Orionfold Proof</title>
+    <script>
+      // Apply the persisted theme before first paint so there is no dark→light flash.
+      // Mirrors web/src/lib/theme.ts (key + resolution); the React hook re-attaches listeners.
+      (function () {
+        try {
+          var c = localStorage.getItem("orionfold-theme") || "system";
+          var dark =
+            c === "dark" ||
+            (c === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+          document.documentElement.dataset.theme = dark ? "dark" : "light";
+        } catch (e) {
+          document.documentElement.dataset.theme = "dark";
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
