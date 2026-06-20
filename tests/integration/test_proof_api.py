@@ -236,8 +236,26 @@ def test_inline_receipt_theme_param_injects_data_theme(client):
 
     light = client.get(f"/api/runs/{run_id}/receipt.html?inline=1&theme=light")
     assert light.status_code == 200
-    assert 'data-theme="light"' in light.text
+    assert 'data-theme="light"' in light.text.split("<head>")[0]
 
     # A plain download pins no theme (it self-adapts via prefers-color-scheme).
     download = client.get(f"/api/runs/{run_id}/receipt.html")
     assert "data-theme=" not in download.text.split("<head>")[0]
+
+
+def test_inline_receipt_rejects_unknown_theme_without_reflecting_it(client):
+    run_id = client.post(
+        "/api/runs",
+        json={
+            "dataset_id": "investment-memo-summarization",
+            "candidate_ids": ["mock_good", "mock_bad"],
+            "brief": {"task_name": "Memo", "decision_question": "Which?", "success_criteria": ""},
+        },
+    ).json()["run"]["id"]
+
+    payload = '"><script>alert(1)</script>'
+    r = client.get(f"/api/runs/{run_id}/receipt.html", params={"inline": 1, "theme": payload})
+    assert r.status_code == 200
+    # An unknown theme is not pinned on <html>, and the payload is never reflected anywhere.
+    assert "data-theme=" not in r.text.split("<head>")[0]
+    assert "<script>alert(1)" not in r.text

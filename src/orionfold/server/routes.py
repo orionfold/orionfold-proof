@@ -273,7 +273,12 @@ def download_receipt(
 
     render, media_type = _FORMATS[fmt]
     if fmt == "html":
-        body = export.to_html(report, theme=theme)
+        # Only the HTML receipt is themeable, so it bypasses the generic render to pass the theme.
+        # Validate the reflected param to a known set here (defense-in-depth: to_html guards too, but
+        # the boundary must stay safe even if that inner guard is ever refactored away). An unknown
+        # value falls back to the OS-adaptive default receipt.
+        safe_theme = theme if theme in ("light", "dark") else None
+        body = export.to_html(report, theme=safe_theme)
     else:
         body = render(report)
     filename = f"proof-receipt-{report.run.config_hash}.{fmt}"
