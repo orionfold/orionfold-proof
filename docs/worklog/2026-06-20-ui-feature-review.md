@@ -40,5 +40,23 @@ cloud (privacy)_ · _Cheapest model that still passes_ · _Same weights, differe
 (provider arbitrage: llama3.x on Ollama vs OpenRouter vs LM Studio)_. This turns "pick models" (a
 blank-canvas chore) into "pick the decision you're making" — which is the product's whole thesis.
 
-## Next steps
-_(to fill in at the end — prioritized backlog)_
+## Status
+
+- **#8 Receipt preview — SHIPPED (this session).** Built via brainstorm → spec → plan →
+  subagent-driven execution. A dedicated artifact-first Receipt detail view renders the real
+  generated HTML in a sandboxed iframe (`?inline=1` + CSP `sandbox` + `nosniff`); clicking a
+  receipt opens it, with "Explore in cockpit" as the secondary path. Commits `780daee` (inline
+  serve) · `50e4dfb` (CSP/nosniff hardening, from automated security review) · `725362c`
+  (`ReceiptDetailView`) · `4e8417b` (nav wiring) · `1d8ea18` (e2e) · `7b3a09c` (download-header
+  test). 73 backend + 12 frontend + 1 e2e green; final whole-branch review: ready to merge.
+  Design: `docs/superpowers/specs/2026-06-20-receipt-preview-design.md`.
+
+## Next steps (prioritized backlog from this review)
+
+1. **#2 Sticky rail footer** — cheap P1 layout fix (Settings/Connected pin via full-height rail).
+2. **#9 Dataset import UI** — Tier-1 charter gap (paste/JSONL/CSV/MD in the Datasets view).
+3. **#5 + #7 + #4 Decision recipes** — the strategic bet; own brainstorm/spec. Named comparison
+   presets that bundle a candidate panel + starter decision question.
+4. **#1 Light theme + switcher** — sizable; token audit + persisted toggle in the rail footer.
+5. **#6 Prompt-variant candidates** — next candidate axis after models (post-v0-leaning).
+6. **#10 URL routing / deep links** — only if shareable view URLs are wanted.

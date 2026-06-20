@@ -6,40 +6,41 @@
 > To resume: in a fresh session say **"read from handoff"** (or "continue from last
 > session"), or `/clear` and paste the prompt below.
 
-_Last updated: 2026-06-20 · **Progress-based idle timeout** shipped (ADR-0003 follow-up — the last
-owed item, now CLOSED). A stalled cell fails as a `timed out after Ns` row instead of hanging/
-crashing. Per-provider-class idle budgets in `providers/http.py`: local 300s, cloud 90s;
-`ORIONFOLD_TIMEOUT_S` still overrides both; connect capped at 10s (absolute backstop). `post_json`
-catches `httpx.TimeoutException` before generic `HTTPError`; four providers pass `privacy=self.
-privacy`. ADR-0003 flipped to Accepted-implemented; README knob rewritten. 71 tests green, ruff +
-pyright clean, fresh diff-review clean. This session's commit on `main` (not pushed): see git log
-(idle-timeout). **No owed task remains** — v0 is feature-complete against the charter._
+_Last updated: 2026-06-20 · **In-app Proof Receipt preview** shipped (review finding #8). The
+receipt — the product's deliverable — is now viewable in-app, not just downloadable: a dedicated
+artifact-first **Receipt detail view** renders the real generated HTML in a `sandbox=""` iframe
+(backend `?inline=1` + `CSP: sandbox` + `nosniff`); clicking a receipt opens it, "Explore in
+cockpit" is the secondary path. Came from an operator-guided UI/feature review (10 findings) →
+brainstorm → spec → plan → subagent-driven execution with per-task + final reviews (verdict: ready
+to merge). 73 backend + 12 frontend + 1 e2e green. Commits on `main` (NOT pushed): 780daee 50e4dfb
+4214a03 725362c 4e8417b 1d8ea18 7b3a09c. The other 9 review findings are an open backlog._
 
 ## Paste prompt for the next session
 
 ```text
 Use the context-refresh skill to load current state from docs/ (release charter, ADR-0001 +
-ADR-0002 + ADR-0003, and the latest worklog, 2026-06-20-progress-based-idle-timeout).
+ADR-0002 + ADR-0003, and the latest worklogs: 2026-06-20-receipt-preview and
+2026-06-20-ui-feature-review).
 
 RECENT WORK (committed to main, not pushed):
-- (this session) PROGRESS-BASED IDLE TIMEOUT — the last ADR-0003 owed item, now CLOSED. A stalled
-  cell fails as a `timed out after Ns` ResultRow instead of hanging/crashing. providers/http.py:
-  `idle_budget(privacy)` replaces the old flat default_timeout — local 300s, cloud 90s;
-  `ORIONFOLD_TIMEOUT_S` still overrides both (extends, not replaces); `post_json` builds
-  `httpx.Timeout(budget, connect=min(10s,budget))` (10s connect = absolute backstop) and catches
-  `httpx.TimeoutException` BEFORE generic `HTTPError` → `ProviderError("{p} timed out after {n}s")`,
-  swallowed by safe_generate. The four real providers pass `privacy=self.privacy`. ADR-0003 §follow-up
-  flipped to Accepted-implemented; README env-knob rewritten. Tests in test_providers_http.py.
-- 05dd651 — STREAMED RUN PROGRESS + orientation. engine.iter_matrix() + POST /api/runs/stream (SSE:
-  start/progress/report) beside batch POST /api/runs. Frontend: createRunStream, RunProgress.tsx,
-  StageStepper.tsx, first-run breathe + inline helpers, @theme motion tokens.
-- a9eda42 — Lucide iconography + rail-foot polish. 0015f23 — left-rail destinations wired.
+- (this session) IN-APP RECEIPT PREVIEW (review finding #8). routes.py: `?inline=1` on
+  GET /api/runs/{id}/receipt.{fmt} serves the same to_html() body with Content-Disposition: inline
+  (default attachment), plus `Content-Security-Policy: sandbox` + `X-Content-Type-Options: nosniff`
+  on the HTML response. Frontend: ReceiptDetailView renders it in a `sandbox=""` iframe via
+  receiptPreviewUrl; App gained `receiptInView` state — clicking a Receipts card opens the detail
+  view (mutually exclusive with the archive list; both use <main>), "Explore in cockpit" →
+  openInCockpit. NO receipt schema change (RECEIPT_VERSION still 3). Three security layers:
+  html.escape + server CSP sandbox + iframe sandbox. Design+plan under docs/superpowers/.
+- (prior) PROGRESS-BASED IDLE TIMEOUT (ADR-0003 follow-up). providers/http.py idle_budget(privacy):
+  local 300s, cloud 90s; ORIONFOLD_TIMEOUT_S overrides; post_json catches httpx.TimeoutException
+  before HTTPError. STREAMED RUN PROGRESS (05dd651): SSE POST /api/runs/stream beside batch.
 
-NO OWED TASK REMAINS. v0 is feature-complete against the release charter (all acceptance criteria
-met; ADR-0001/0002/0003 all Accepted-implemented). Likely next candidates, operator's call: the
-deferred post-v0 items (document ingestion + minimal RAG template — "first thing after v0"), a
-polish/packaging pass before a wider share, or a fresh ship-candidate rebuild. Brainstorm with the
-operator before picking; start in plan mode for anything substantial.
+v0 IS FEATURE-COMPLETE against the charter; this was post-v0 polish from an operator UI/feature
+review. OPEN BACKLOG (the other 9 review findings, prioritized in
+docs/worklog/2026-06-20-ui-feature-review.md §Next steps): #2 sticky rail footer (cheap P1) · #9
+dataset import UI (Tier-1 charter gap) · #5+#7+#4 "decision recipes" (the strategic bet — named
+comparison presets; needs its own brainstorm) · #1 light theme + switcher · #6 prompt-variant
+candidates · #10 URL routing. Operator's call which thread; brainstorm #5 before building.
 
 Do NOT regress: keyless mock default; Proof Run is the DEFAULT view; the 3-format receipt; both
 run endpoints (batch + stream); test-contract strings (heading "Orionfold Proof", "Connected",
@@ -64,10 +65,13 @@ Obsidian one at a time. Append a docs/worklog entry and overwrite HANDOFF.md.
 
 ## Where to look (durable context)
 
+- `docs/worklog/2026-06-20-receipt-preview.md` — receipt-preview evidence (latest).
+- `docs/worklog/2026-06-20-ui-feature-review.md` — the 10-finding operator review + backlog.
+- `docs/superpowers/specs/2026-06-20-receipt-preview-design.md` · `…/plans/2026-06-20-receipt-preview.md`
+  — design + implementation plan for #8 (the pattern for the next finding's build).
 - `docs/adr/0003-streaming-run-progress.md` — SSE progress architecture + idle timeout (now
   Accepted-implemented, §follow-up).
-- `docs/worklog/2026-06-20-progress-based-idle-timeout.md` — this pass's evidence (latest).
-- `docs/worklog/2026-06-20-streamed-progress-and-orientation.md` — the streaming substrate.
+- `docs/worklog/2026-06-20-progress-based-idle-timeout.md` — idle-timeout evidence.
 - `docs/worklog/2026-06-20-wire-rail-destinations.md` — rail views (committed 0015f23).
 - `docs/ux/product-design-system.md` — the three-pane target, implemented.
 - `docs/worklog/2026-06-19-gate7-ship-candidate.md` — Gate 7 ship-candidate evidence.
