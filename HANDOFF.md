@@ -6,130 +6,114 @@
 > To resume: in a fresh session say **"read from handoff"** (or "continue from last
 > session"), or `/clear` and paste the prompt below.
 
-_Last updated: 2026-06-20 · **Leaderboard recommendation fix (live-review Finding 1 + Finding 3)
-SHIPPED & merge-ready.** The leaderboard no longer recommends a candidate that produced nothing. An
-errored candidate reports 0ms/$0.00 and used to win the 0%-pass latency/cost tiebreak, then got
-crowned RECOMMENDED unconditionally (verified live: a model 404-ing on every example was
-"recommended"). Fixed in three layers: ranking adds `error_count` + sorts
-`(all_errored, -pass_rate, -avg_score, latency, cost)` so a fully-errored candidate ranks LAST and
-any real output beats it even at a 0.00 tie; `recommended` is set ONLY when `entries[0].pass_count>0`;
-and when nobody passes, the cockpit + all 3 receipt formats show a calm NEUTRAL "No clear winner"
-state ("No candidate passed the rubric (threshold N)") with errored rows annotated "errored, no
-output". The receipt gains the additive `error_count` field → **RECEIPT_VERSION 3 → 4**
-(`config_hash` + run provenance byte-for-byte UNCHANGED). Bundled Finding 3: removed `claude-fable-5`
-from catalog.json (not available; made the cost-vs-quality "Frontier" arm resolve to an unavailable
-model) → Frontier now resolves to `claude-opus-4-8` (flagged ★ latest); anthropic default
-(`claude-haiku-4-5`) unchanged. Built brainstorm → spec → plan → subagent-driven (5 TDD tasks,
-per-task reviews, Task 2 fix loop for a vacuous test, Opus whole-branch review: Ready-to-merge with
-one fix = stale fable-5 in pricing.py, fixed). pytest 157 · vitest 46 · ruff clean · build clean ·
-e2e 4/4 · receipt-quality-review clean (no secrets, 3 formats) · live browser check (no-winner card
-neutral, error-vs-fail distinction, catalog change live). Commits on `main` (NOT pushed — no remote):
-5b899c6 bbb3d21 4145b66 b56dc38 45c7772 67ee30c 0c0de7e (+ spec/plan/worklog docs)._
+_Last updated: 2026-06-21 · **Meaning-aware scoring (live-review Finding 2) SHIPPED & merge-ready.**
+The receipt no longer fails a correct summary for being worded/formatted differently. Two scoring
+methods join v0 similarity: **keypoint coverage** (deterministic, keyless — fraction of authored
+required facts present; the new DEFAULT when a dataset has keypoints) and an opt-in **LLM judge**
+(grades meaning vs expected 0..1 via a `Judge` seam reusing `safe_generate`; keyless deterministic
+`MockJudge` via `judge_provider_id="mock_judge"`). A full **cost rollup** (`RunCostSummary` =
+candidate · judge · total) accounts for judge cost SEPARATELY — never folded into a candidate's own
+cost or the leaderboard ranking. Receipt gains a "Scored by" line + "Run cost" summary
+(**RECEIPT_VERSION 4 → 5**); an in-app **Scoring method** picker (Auto · Keypoint · Similarity · LLM
+judge) reuses the candidate-picker availability + inline-KeyEntry machinery. The bundled demo dataset
+ships with keypoints (each a normalized substring of its expected text → mock_good stays 5/5), so the
+keyless demo scores by meaning out of the box. config_hash intentionally changed (additive
+`Example.keypoints` + `Rubric.judge_*`); samples regenerated. brainstorm → spec → plan → 12-task
+subagent-driven (Task 3 + Task 9 each one fix loop; Opus whole-branch review = Ready-to-merge + a
+security/receipt review → two robustness fixes). pytest 200 · ruff clean · vitest 55 · build clean ·
+e2e 4/4 (incl. keyless "Scored by Keypoint coverage" proof) · security review clean (no key in
+receipt/log/response; judge receipt verified). Commits on `main` (NOT pushed — no remote):
+b595d06 ee0681a 5969652 db3467a 03de56d 93ae30c 4e30238 5299eb9 2da1e62 c029688 9a1e587 87adab9
+f81be3a c57846e ffacb4d (+ spec/plan/worklog docs)._
 >
-> **NEXT SESSION — QUEUED: brainstorm Finding 2 (the similarity-rubric weakness) FIRST.** The very
-> first action is to invoke the **`superpowers:brainstorming`** skill on the rubric redesign — do NOT
-> write a plan or code until a design is approved (it's a scoring-semantics decision, see the weigh-
-> points below). It is the last of the three live-review findings. The v0 default rubric is
-> **string-similarity @ threshold 0.8** against the expected
-> prose, so a **correct** summary in a different FORMAT scores low (live: Haiku produced a clean,
-> factually complete Markdown table — arguably better than the terse expected prose — and scored
-> 0.12 / Fail). The rubric rewards matching phrasing/format, not meaning. Real fix points to an
-> **LLM-as-judge / semantic rubric** (the charter flagged LLM-as-judge as "optional, later" — this
-> run is the evidence it's needed). Lower-effort interim: lower the default threshold and/or document
-> that similarity scoring is format-sensitive. **BRAINSTORM this before plan/code** — it's a scoring-
-> semantics decision (touches `proof/` scoring + possibly a new provider-backed judge, so weigh
-> keyless-default + cost + determinism-in-tests). Details in
-> docs/worklog/2026-06-20-decision-recipes.md §"Finding 2" and
-> docs/worklog/2026-06-20-leaderboard-recommendation-fix.md §Risks.
->
-> THEN **#6 prompt-variant candidates** (same model, different system prompt — the next candidate
-> axis; composes with the picker + recipes; still text-in/text-out, no new provider machinery), and
-> the CATALOG PRICE/SOURCE accuracy pass. Full creative/feature work → brainstorm → spec → plan →
-> subagent-driven, same loop._
+> **NEXT SESSION — #6 PROMPT-VARIANT CANDIDATES** (the next candidate axis): same model, different
+> system prompt, compared in one run — composes with the picker (#4) + recipes (#5) and the new
+> scoring methods; still text-in/text-out, **no new provider machinery**. It is creative/feature
+> work → **brainstorm FIRST** (`superpowers:brainstorming`), then spec → plan → subagent-driven, same
+> loop. THEN the **catalog price/source accuracy pass** (roadmap; non-blocking — a measured receipt
+> cost always outranks a list price). Workflows/RAG remain post-v0._
 
 ## Paste prompt for the next session
 
 ```text
 Use the context-refresh skill to load current state from docs/ (release charter, ADR-0001 +
-ADR-0002 + ADR-0003, and the latest worklogs: 2026-06-20-leaderboard-recommendation-fix,
-2026-06-20-decision-recipes).
+ADR-0002 + ADR-0003, and the latest worklogs: 2026-06-21-meaning-aware-scoring,
+2026-06-20-leaderboard-recommendation-fix, 2026-06-20-decision-recipes).
 
 RECENT WORK (committed to main, not pushed — no git remote configured):
-- (this session) LEADERBOARD RECOMMENDATION FIX (live-review Finding 1 + Finding 3), merge-ready.
-  proof/leaderboard.py: LeaderboardEntry gains error_count (= rows where r.error is not None);
-  build_leaderboard sorts (all_errored, -pass_rate, -avg_score, avg_latency_ms, total_cost) where
-  all_errored = total>0 and error_count==total (fully-errored ranks LAST; real output beats it even
-  at 0.00 tie); recommended set ONLY when entries[0].pass_count>0. receipts/export.py:
-  RECEIPT_VERSION 4; build_receipt computes has_winner = top and top.pass_count>0 → verdict
-  "No clear winner" + "No candidate passed the rubric (threshold {rubric.threshold:.2f})." when no
-  winner; _failures_label() annotates "errored, no output" rows in MD + HTML; _verdict/_recommendation_line
-  unchanged (no-winner branch in the CALLER). Frontend: api.ts leaderboardEntrySchema += error_count;
-  DecisionSummary (ProofCockpit.tsx, now EXPORTED) + ReceiptsView.winnerOf use find(recommended) ??
-  null/undefined → calm NEUTRAL no-winner card (panel colors, NOT --color-accent); Leaderboard.tsx
-  marks rows where error_count===total && total>0. catalog.json: claude-fable-5 REMOVED;
-  claude-opus-4-8 is sole frontier claude + latest:true (anthropic default still claude-haiku-4-5,
-  drift-guard green). pricing.py: stale claude-fable-5 entry removed (catalog parity). Samples
-  regenerated (mock_good err=0 winner stays; mock_bad err=1). config_hash + run provenance UNTOUCHED.
-- (prior) DECISION RECIPES (#5): recipes/ package, GET /api/recipes + POST /api/credentials, inline
-  .env.local key entry. MODEL-PER-CANDIDATE PICKER (#4). MODEL CATALOG (#1). DATASET IMPORT (#9).
+- (this session) MEANING-AWARE SCORING (live-review Finding 2), merge-ready. RubricKind +=
+  keypoint, judge. scoring/rubric.py: score_keypoints(keypoints, output, rubric) = fraction whose
+  normalized text is a substring of the normalized output (empty list → 0.0 sentinel; the ENGINE
+  owns the fallback-to-similarity for keypoint-less rows via a module-level _SIMILARITY);
+  default_rubric_for(dataset) → keypoint if any example has keypoints else similarity. scoring/judge.py
+  (NEW): JudgeOutcome(score, cost_usd, latency_ms, error); parse_score (>10→/100, >2→/10, (1,2]→clamp
+  — documented+tested); MockJudge (difflib, fixed 0.0001/5, keyless/pure); LLMJudge (reuses
+  safe_generate → inherits redaction; provider-error OR unparseable → error outcome score 0.0);
+  build_judge(rubric) (mock_judge→MockJudge else LLMJudge; ValueError if no judge_provider_id).
+  engine.py: iter_matrix branches (candidate-error short-circuits BEFORE judge; keypoint; judge carries
+  cost/latency + outcome.error→row.error+did_pass False; else unchanged); judge built ONCE pre-loop;
+  build_cost_summary(rows). models.py: Example.keypoints; Rubric.judge_provider_id/judge_model;
+  ResultRow.judge_cost_usd/judge_latency_ms; RunCostSummary; ProofReport.cost_summary (zeroed
+  default_factory so old persisted reports read back). receipts/export.py: RECEIPT_VERSION 5;
+  _scored_by + "cost" block; MD/HTML "Scored by"+"Run cost". routes.py: RunRequest.rubric Rubric|None;
+  both endpoints `body.rubric or default_rubric_for(dataset)`; judge pre-validated → 422 on
+  ValueError+KeyError; stream threads the RESOLVED rubric through iter_matrix+ProofRun+config_hash.
+  Frontend: api.ts rubric/judge + cost_summary schemas + scoredByLabel; ScoringMethod.tsx picker
+  (reuses getSelection + KeyEntry; CLOUD_KEY_NAMES → shared selectionMeta.ts); ProofCockpit rubric
+  state (null=Auto, omitted from run request when null) + DecisionSummary/ReceiptsView "Scored by" +
+  "Run cost". Demo dataset got keypoints; samples regenerated (config_hash 467ddd96c9a5).
+- (prior) LEADERBOARD RECOMMENDATION FIX (Finding 1 + fable-5 removal Finding 3). DECISION RECIPES (#5),
+  MODEL-PER-CANDIDATE PICKER (#4), MODEL CATALOG (#1), DATASET IMPORT (#9).
 
 THE DECISION-RECIPES THREAD (operator's strategic bet). Done: #1 catalog, #4 picker, #5 recipes.
-LIVE-REVIEW FINDINGS: #1 leaderboard bug DONE, #3 fable-5 removal DONE. #2 similarity rubric NEXT.
+LIVE-REVIEW FINDINGS: ALL THREE DONE (#1 leaderboard bug, #2 similarity rubric, #3 fable-5).
 
->> START HERE — FIRST ACTION: invoke the `superpowers:brainstorming` skill for FINDING 2:
-   SIMILARITY-RUBRIC WEAKNESS (last of the three live-review findings). Brainstorm BEFORE any
-   plan/code — present a design and get operator approval first.
-   The v0 rubric is string-similarity @ threshold 0.8 vs the expected prose, so a CORRECT summary in
-   a different FORMAT scores low (live: a clean Markdown table scored 0.12/Fail). It rewards matching
-   phrasing/format, not meaning. Points to an LLM-as-judge / semantic rubric (charter "optional,
-   later" — this run is the evidence). Interim option: lower default threshold / document format-
-   sensitivity. Brainstorm weigh-points (scoring-semantics decision): keyless-mock default (an
-   LLM judge needs a provider → how do keyless tests/CI stay deterministic? a fake/mock judge?),
-   cost, and whether the receipt should record the rubric kind + judge model in provenance
-   (config_hash). Touches proof/ scoring (rubric application in engine/scoring) + domain Rubric model
-   (already has kind/threshold/case_sensitive) + possibly a new judge provider. Details in
-   docs/worklog/2026-06-20-decision-recipes.md §"Finding 2".
-   THEN #6 PROMPT-VARIANT CANDIDATES (same model, different system prompt; composes with picker +
-   recipes), and the CATALOG PRICE/SOURCE pass. Workflows/RAG remain post-v0.
+>> START HERE — #6 PROMPT-VARIANT CANDIDATES: same model, different system prompt, compared in one
+   run. The next candidate axis; composes with the picker + recipes + the new scoring methods; still
+   text-in/text-out, NO new provider machinery. Creative/feature work → invoke superpowers:brainstorming
+   FIRST (present a design, get operator approval), then spec → plan → subagent-driven, same loop.
+   THEN the CATALOG PRICE/SOURCE accuracy pass (roadmap, non-blocking). Workflows/RAG remain post-v0.
 
-OTHER (non-blocking — do NOT gate Finding 2 on these):
-- CATALOG PRICE/SOURCE accuracy is a ROADMAP item (a few values approximate/UNVERIFIED). A measured
-  receipt cost always outranks a catalog list price downstream, so it never blocks the proof loop.
-- A general prices⊆catalog drift-guard test was deliberately NOT added (pricing.py keeps legacy/test
-  ids + OpenRouter uses a different id format → a naive guard false-fails). Revisit only if a non-
-  fragile shape emerges. Cosmetic minors (final review): winnerOf redundant `?? undefined`; no
-  dedicated HTML test for the errored-row annotation (MD is tested; _failures_label is shared);
-  _all_errored defined per-call. CLOUD_KEY_NAMES Py/TS dup (from the recipes session) still open.
-- Set up a git remote + PUSH (none configured; ALL main commits are local only).
+Do NOT regress (meaning-aware scoring invariants): keypoint coverage = fraction of authored keypoints
+present (normalized substring); default_rubric_for picks keypoint only when a dataset has keypoints,
+NEVER judge (judge is opt-in, needs a key); MockJudge (judge_provider_id="mock_judge") is the keyless
+deterministic judge that keeps the suite keyless. A JUDGE error is an ERROR (row.error set, did_pass
+False), NOT a low-scoring fail — so an all-errored judge candidate ranks last; the candidate's own
+provider error short-circuits BEFORE the judge is consulted (judge_cost stays 0). Judge cost lives ONLY
+in ResultRow.judge_cost_usd + RunCostSummary — it MUST NOT enter a candidate's estimated_cost_usd or
+leaderboard.py ranking. RECEIPT_VERSION stays 5 (bump on ANY further receipt-schema change);
+ProofReport.cost_summary keeps its zeroed default_factory (old-report read-back). The judge API key
+NEVER appears in a receipt/log/response — the judge reuses safe_generate's redaction; Rubric has no key
+field. Keypoints must be normalized substrings of their expected_text (so mock_good stays 5/5). Auto =
+omit the rubric → server resolves default_rubric_for. A misconfigured/unavailable judge → 422 (not 500).
 
-Do NOT regress: leaderboard NEVER recommends a 0-pass / all-errored candidate (recommended requires
-pass_count>0; all_errored ranks last); the no-winner state is calm + NEUTRAL (panel colors, no
-accent, no badge) across cockpit + all 3 receipt formats; errored rows say "errored, no output";
-RECEIPT_VERSION stays 4 (bump again on ANY further receipt-schema change); config_hash + run
-provenance UNTOUCHED (error_count is the only additive leaderboard field; default_model_for single
-source of truth; ORIONFOLD_<P>_MODEL override precedence; catalog drift-guard anthropic=claude-haiku-
-4-5). Keyless mock default (mocks pre-selected, bare-id, model=None); Proof Run is the DEFAULT view;
-the 3-format receipt; both run endpoints route through build_candidates; /api/selection + /api/catalog
-+ /api/recipes leak NO secrets; /api/credentials NEVER echoes/logs a key + writes ONLY whitelisted
-cloud providers to a 0o600 .env.local; the global 422 input-stripping handler stays. Test-contract
-strings (heading "Orionfold Proof", "Connected", button /Run proof/ — lowercase p, regions Leaderboard
-/ Failure cases / Proof Receipt export, "Export Markdown|HTML|JSON", "100% (5/5)", "Failure cases
-(5)", "simulated provider failure"). Verdict vocabulary now ALSO includes "No clear winner". Tailwind
-v4: CSS vars use the PARENTHESIS shorthand bg-(--color-x), never bg-[--color-x].
+Plus the STANDING invariants: leaderboard NEVER recommends a 0-pass/all-errored candidate; calm NEUTRAL
+"No clear winner" state across cockpit + 3 receipt formats; errored rows say "errored, no output".
+Keyless mock default (mocks pre-selected, bare-id, model=None); Proof Run is the DEFAULT view; both run
+endpoints route through build_candidates; /api/selection + /api/catalog + /api/recipes leak NO secrets;
+/api/credentials NEVER echoes a key + writes ONLY whitelisted cloud providers to a 0o600 .env.local;
+the global 422 input-stripping handler stays. Test-contract strings ("Orionfold Proof", "Connected",
+button /Run proof/, regions Leaderboard / Failure cases / Proof Receipt export, "Export
+Markdown|HTML|JSON", "100% (5/5)", "Failure cases (5)", "simulated provider failure"). Verdict
+vocabulary includes "No clear winner"; the receipt also shows a "Scored by" line + "Run cost" summary.
+Tailwind v4: CSS vars use the PARENTHESIS shorthand bg-(--color-x), never bg-[--color-x].
 
 NOTES (non-blocking):
 - A sibling orionfold-proof-codex checkout runs its own servers; leave its processes/tabs alone and
   bind a PROVABLY-FREE port (assert the listener PID is yours). uvicorn does NOT hot-reload backend
   code OR the @cache load_catalog()/load_recipes() data — RESTART `orionfold up` after backend/catalog/
   recipe changes. The embedded cockpit is served from src/orionfold/server/static (gitignored; rebuilt
-  by `bash scripts/build.sh` — REBUILD before any e2e or browser check). catalog.json + recipes.json
-  ship in the wheel automatically.
-- The harness emits STALE TS "cannot find module / @playwright/test" diagnostics mid-edit — false
-  alarms; this session one mid-edit snapshot even claimed `error_count` / `DecisionSummary` errors that
-  were ALREADY fixed. Trust `pnpm --dir web build` (tsc --noEmit && vite build) + the actual e2e run.
+  by `bash scripts/build.sh` — REBUILD before any e2e or browser check). catalog.json + recipes.json +
+  the bundled dataset (with keypoints) ship in the wheel automatically.
+- The harness emits STALE TS diagnostics mid-edit (false "cannot find module" / "no exported member",
+  e.g. it claimed scoredBy/cost_summary/ScoringMethod were missing AFTER they were added). False
+  alarms — trust `pnpm --dir web build` (tsc --noEmit && vite build) + the actual test/e2e runs.
+  @playwright/test "cannot find module" in e2e specs is a perennial false alarm (resolves at runtime).
+- The Playwright e2e uses a fresh DB; a STALE local server/DB (reuseExistingServer when not CI) can
+  cause a false failure — kill the port + delete /tmp/orionfold-e2e.db, rebuild the embed, re-run.
 - create-dataset route field is `text` (not `content`): POST /api/datasets {name, format, text}.
-- Regenerate sample receipts after ANY receipt change: `uv run python scripts/gen_samples.py` (the
-  bundled sample keeps mock_good as a 5/5 winner; mock_bad shows a non-zero error_count).
+- Regenerate sample receipts after ANY receipt change: `uv run python scripts/gen_samples.py` (now uses
+  default_rubric_for(dataset) → keypoint; mock_good stays 5/5 ⭐, mock_bad error_count=1).
 Start in plan mode for anything substantial; brainstorm creative/feature work first. Verify with
 uv run pytest, uv run ruff check src tests, pnpm --dir web test, the Playwright e2e (rebuild embed
 first), and a real browser/server check on a free port. Open review-bound markdown in Obsidian one at
@@ -138,23 +122,24 @@ a time. Append a docs/worklog entry and overwrite HANDOFF.md.
 
 ## Where to look (durable context)
 
-- `docs/worklog/2026-06-20-leaderboard-recommendation-fix.md` — this session's evidence (latest).
-- `docs/superpowers/specs/2026-06-20-leaderboard-recommendation-fix-design.md` ·
-  `docs/superpowers/plans/2026-06-20-leaderboard-recommendation-fix.md` — design + 5-task plan.
-- `docs/worklog/2026-06-20-decision-recipes.md` — recipes (#5) + the §Findings that scoped this work
-  (incl. the still-open Finding 2 details).
+- `docs/worklog/2026-06-21-meaning-aware-scoring.md` — this session's evidence (latest).
+- `docs/superpowers/specs/2026-06-21-meaning-aware-scoring-design.md` ·
+  `docs/superpowers/plans/2026-06-21-meaning-aware-scoring.md` — design + 12-task plan.
+- `docs/worklog/2026-06-20-leaderboard-recommendation-fix.md` · `2026-06-20-decision-recipes.md` —
+  the three live-review findings (all now addressed) + recipes thread.
 - `docs/ux/product-design-system.md` — the three-pane target + Theming subsection.
 - `docs/adr/0001-…-architecture.md` · `0002-provider-integration-and-credentials.md` ·
   `0003-streaming-run-progress.md` — Accepted.
 - `docs/release-charter.md` — v0 scope, journey, acceptance criteria (Accepted; all met).
-- `CHANGELOG.md` ([Unreleased] now covers the leaderboard fix + fable-5 removal) · `docs/demo-script.md`.
+- `CHANGELOG.md` ([Unreleased] now covers meaning-aware scoring + run-cost + RECEIPT_VERSION 5) ·
+  `docs/demo-script.md`.
 - `.claude/rules/{providers,receipts,storage}.md` — enforced constraints.
 - `CLAUDE.md` — operating guide and release gates.
 
 ## Ship-candidate quick reference
 
 - Build wheel: `bash scripts/build.sh` → `dist/orionfold_proof-0.1.0-py3-none-any.whl`
-  (cockpit + dataset embedded, RECEIPT_VERSION=4, catalog.json + recipes.json bundled). dist/ and
+  (cockpit + dataset embedded, RECEIPT_VERSION=5, catalog.json + recipes.json bundled). dist/ and
   src/orionfold/server/static are gitignored.
 - Clean-install check: `uv venv /tmp/x && uv pip install --python /tmp/x/bin/python dist/*.whl`
   then `/tmp/x/bin/orionfold up --port <free>` — bind a PROVABLY-FREE port; confirm the listener

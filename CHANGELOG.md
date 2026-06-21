@@ -8,6 +8,25 @@ for [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Meaning-aware scoring.** The receipt no longer fails a correct summary just because it is worded
+  or formatted differently from the expected text. Two scoring methods join the v0 similarity rubric:
+  **keypoint coverage** (deterministic, keyless) scores the fraction of authored required facts an
+  output contains and is now the **default** when a dataset carries keypoints; an opt-in **LLM judge**
+  grades meaning against the expected answer (0..1). A new **Scoring method** control in the Proof Run
+  setup lets you pick Auto · Keypoint · Similarity · LLM judge, and choose a judge model — reusing the
+  same availability + inline-key machinery as the candidate picker (a keyless **Mock judge** is always
+  offered for deterministic, no-key runs). The bundled demo dataset ships with keypoints, so the
+  keyless demo scores by meaning out of the box. Live evidence that prompted this: a factually complete
+  Markdown table scored 0.12/Fail under similarity; it now passes under keypoint coverage.
+
+- **Full run cost accounting.** The receipt now reports a run-level cost summary —
+  **candidate cost · judge cost · total** — across the cockpit and all three receipt formats. Judge
+  calls are tracked **separately** (`ResultRow.judge_cost_usd` + a run-level `RunCostSummary`) and
+  are never folded into a candidate's own measured cost or the leaderboard ranking, so per-candidate
+  comparisons and the "what to trust" recommendation stay undistorted while every dollar is still
+  accounted for. The receipt also shows a **"Scored by"** line (e.g. _Keypoint coverage_ or
+  _LLM judge · &lt;model&gt;_). The judge API key never appears in a receipt, log, or response.
+
 - **Decision recipes.** Named comparison presets that turn "pick models" into "pick the decision
   you're making." A recipe row above the Proof setup offers cards like _Cost vs quality for client
   summaries_, _Local vs cloud (privacy)_, _Cheapest model that still passes_, and _Same model,
@@ -52,6 +71,14 @@ for [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   in-app preview is pinned to the cockpit's theme. Every light token meets WCAG 2.2 AA.
 
 ### Changed
+
+- **Proof Receipt schema `RECEIPT_VERSION` 4 → 5** — receipts now carry a `scored_by` descriptor
+  (the scoring method, e.g. _Keypoint coverage_ / _LLM judge · &lt;model&gt;_) and a `cost` block
+  (candidate / judge / total). Because the scoring contract changed, `config_hash` inputs grew by the
+  additive `Example.keypoints` and `Rubric.judge_provider_id` / `judge_model` fields, so hashes for new
+  runs differ from prior ones — this is intentional (a run scored a different way is a different run);
+  bundled sample receipts were regenerated. Old persisted reports without a `cost_summary` still read
+  back (it defaults to a zeroed summary).
 
 - **Catalog refreshed to current (mid-2026) models** with dated, sourced list prices: OpenAI
   GPT-5.x (replacing the retired GPT-4o line), Google Gemini 3.x, Claude (Haiku 4.5 / Sonnet 4.6 /
