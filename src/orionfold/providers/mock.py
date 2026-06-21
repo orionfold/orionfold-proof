@@ -9,6 +9,7 @@ inputs so the run always exercises the error path and produces a real failure ca
 from __future__ import annotations
 
 import hashlib
+from math import ceil
 
 from orionfold.domain.models import Candidate, Example, Privacy, ProviderResult
 
@@ -25,6 +26,35 @@ def _tokens(text: str) -> int:
     return len(text.split())
 
 
+# Concise-instruction cues → a verbosity budget (fraction of words kept). The mocks are
+# deterministic simulations: a prompt that asks for brevity drops trailing content (and so
+# trailing keypoints), giving the keyless prompt-compare demo a real, explainable signal.
+# Strong cues truncate harder than mild ones; the strongest (smallest budget) present wins.
+_STRONG_CUES = ("as few words as possible", "fewest", "terse", "one sentence", "tl;dr")
+_MILD_CUES = ("concise", "brief", "short", "minimal")
+
+
+def _shape_for_prompt(base: str, system_prompt: str | None) -> str:
+    """Shape a mock's base output by concise cues in ``system_prompt``.
+
+    Returns ``base`` UNCHANGED (same object) when there is no system prompt or no recognized
+    cue — the model-compare path stays byte-identical. A concise cue truncates to a prefix.
+    """
+    if system_prompt is None:
+        return base
+    prompt = system_prompt.lower()
+    budget = 1.0
+    if any(cue in prompt for cue in _STRONG_CUES):
+        budget = 0.4
+    elif any(cue in prompt for cue in _MILD_CUES):
+        budget = 0.6
+    if budget >= 1.0:
+        return base
+    words = base.split()
+    keep = max(1, ceil(budget * len(words)))
+    return " ".join(words[:keep])
+
+
 class MockGoodProvider:
     """A strong candidate: returns the expected text with deterministic local latency."""
 
@@ -33,7 +63,7 @@ class MockGoodProvider:
     privacy: Privacy = "local"
 
     def generate(self, example: Example, candidate: Candidate) -> ProviderResult:
-        output = example.expected_text
+        output = _shape_for_prompt(example.expected_text, candidate.system_prompt)
         latency = 40 + _stable_int(example.input_text) % 40
         return ProviderResult(
             output_text=output,
@@ -58,7 +88,7 @@ class MockBadProvider:
         if _stable_int(example.input_text) % 5 == 0:
             raise RuntimeError("mock_bad: simulated provider failure")
 
-        output = _GENERIC_ANSWER
+        output = _shape_for_prompt(_GENERIC_ANSWER, candidate.system_prompt)
         latency = 120 + _stable_int(example.input_text) % 80
         return ProviderResult(
             output_text=output,

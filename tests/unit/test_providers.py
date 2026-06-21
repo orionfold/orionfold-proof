@@ -1,9 +1,11 @@
 """Mock providers must be deterministic, keyless, and error-safe across the boundary."""
 
+from math import ceil
+
 from orionfold.data import load_dataset
 from orionfold.domain.models import Candidate, Example, ProviderResult
 from orionfold.providers.base import Provider, redact_secrets, safe_generate
-from orionfold.providers.mock import MockBadProvider, MockGoodProvider
+from orionfold.providers.mock import MockBadProvider, MockGoodProvider, _shape_for_prompt
 from orionfold.providers.registry import available_candidates, get_provider
 
 
@@ -77,3 +79,73 @@ def test_redact_secrets_covers_common_credential_shapes():
     assert "sk-" not in redact_secrets("token sk-ABCDEF123456")
     assert "[redacted]" in redact_secrets("Authorization: Bearer abc.def.ghi")
     assert "[redacted]" in redact_secrets("api_key=supersecretvalue")
+
+
+def _demo_ex0():
+    # The bundled example whose expected_text carries 4 keypoints (22%, $48.2M, 118%, 79%).
+    return load_dataset("investment-memo-summarization").examples[0]
+
+
+def test_shape_verbatim_when_system_prompt_is_none():
+    base = "Revenue grew 22% to $48.2M, with 118% net retention and 79% margins."
+    # Identity (same object) — model-compare path must not even re-join whitespace.
+    assert _shape_for_prompt(base, None) is base
+
+
+def test_shape_verbatim_when_no_concise_cue():
+    base = "Revenue grew 22% to $48.2M, with 118% net retention and 79% margins."
+    assert _shape_for_prompt(base, "Be neutral and complete.") is base
+
+
+def test_shape_strong_cue_truncates_to_40_percent():
+    base = " ".join(f"w{i}" for i in range(10))  # 10 words
+    out = _shape_for_prompt(base, "Answer in as few words as possible.")
+    assert out == " ".join(f"w{i}" for i in range(ceil(0.4 * 10)))  # first 4 words
+
+
+def test_shape_mild_cue_keeps_more_than_strong_cue():
+    base = " ".join(f"w{i}" for i in range(10))
+    mild = _shape_for_prompt(base, "Be concise.")
+    strong = _shape_for_prompt(base, "Be terse.")
+    assert len(mild.split()) > len(strong.split())
+
+
+def test_shape_strongest_cue_wins_when_both_present():
+    base = " ".join(f"w{i}" for i in range(10))
+    both = _shape_for_prompt(base, "Be concise and terse.")  # mild + strong
+    assert both == _shape_for_prompt(base, "terse")  # strong (0.4) dominates
+
+
+def test_shape_keeps_at_least_one_word():
+    assert _shape_for_prompt("solo", "as few words as possible") == "solo"
+
+
+def test_mock_good_drops_keypoints_under_concise_prompt():
+    provider = MockGoodProvider()
+    ex = _demo_ex0()
+    full = provider.generate(ex, Candidate(id="m", label="m", provider_id="mock_good"))
+    concise = provider.generate(
+        ex,
+        Candidate(id="m#c", label="c", provider_id="mock_good",
+                  system_prompt="Answer in as few words as possible."),
+    )
+    def present(kps, text):
+        return sum(1 for k in kps if k in text)
+
+    assert full.output_text == ex.expected_text  # baseline still perfect
+    assert len(concise.output_text) < len(full.output_text)
+    assert present(ex.keypoints, concise.output_text) < present(ex.keypoints, full.output_text)
+
+
+def test_mock_good_prompt_shaping_is_deterministic():
+    provider = MockGoodProvider()
+    ex = _demo_ex0()
+    cand = Candidate(id="m#c", label="c", provider_id="mock_good", system_prompt="Be terse.")
+    assert provider.generate(ex, cand) == provider.generate(ex, cand)
+
+
+def test_mock_bad_still_errors_regardless_of_system_prompt():
+    provider = MockBadProvider()
+    cand = Candidate(id="b#c", label="b", provider_id="mock_bad", system_prompt="Be terse.")
+    results = [safe_generate(provider, _example(f"input number {i}"), cand) for i in range(40)]
+    assert any(r.error is not None for r in results)
