@@ -10,7 +10,7 @@ from __future__ import annotations
 import re
 from difflib import SequenceMatcher
 
-from orionfold.domain.models import Rubric
+from orionfold.domain.models import Dataset, Rubric
 
 _WHITESPACE = re.compile(r"\s+")
 
@@ -44,3 +44,25 @@ def score(expected: str, output: str, rubric: Rubric) -> float:
 def passed(score_value: float, rubric: Rubric) -> bool:
     """True when a score clears the rubric threshold."""
     return score_value >= rubric.threshold
+
+
+def score_keypoints(keypoints: list[str], output: str, rubric: Rubric) -> float:
+    """Fraction of ``keypoints`` whose normalized text appears in the normalized output.
+
+    Empty keypoints returns 0.0; the engine treats an empty list as a signal to fall back to
+    similarity scoring for that row, so this primitive never has to know about the fallback.
+    """
+    if not keypoints:
+        return 0.0
+    out = normalize(output, case_sensitive=rubric.case_sensitive)
+    hits = sum(
+        1 for kp in keypoints if normalize(kp, case_sensitive=rubric.case_sensitive) in out
+    )
+    return hits / len(keypoints)
+
+
+def default_rubric_for(dataset: Dataset) -> Rubric:
+    """Pick the default rubric for a dataset: keypoint when any example carries keypoints."""
+    if any(ex.keypoints for ex in dataset.examples):
+        return Rubric(kind="keypoint")
+    return Rubric(kind="similarity")
