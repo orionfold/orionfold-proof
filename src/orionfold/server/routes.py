@@ -25,7 +25,7 @@ from orionfold.config.keys import CLOUD_KEY_NAMES, has_key
 from orionfold.providers.selection import SelectionPanel, selection_panel
 from orionfold.recipes.resolution import RecipesPanel, resolve_recipes
 from orionfold.data.importers import DatasetParseError, ImportFormat, ParseResult, parse_dataset
-from orionfold.domain.models import Candidate, Dataset, ProofBrief, ProofReport, ProofRun, Rubric
+from orionfold.domain.models import Candidate, Dataset, ProofBrief, ProofReport, ProofRun, PromptVariant, Rubric
 from orionfold.proof.engine import build_cost_summary, config_hash, iter_matrix, run_proof
 from orionfold.proof.leaderboard import build_leaderboard
 from orionfold.scoring.judge import build_judge
@@ -34,6 +34,7 @@ from orionfold.providers.registry import (
     UnknownCandidateError,
     available_candidates,
     build_candidates,
+    expand_prompt_variants,
 )
 from orionfold.receipts import export
 from orionfold.storage.db import apply_migrations, connect
@@ -68,6 +69,7 @@ class RunRequest(BaseModel):
     candidate_ids: list[str]
     rubric: Rubric | None = None
     brief: ProofBrief
+    prompt_variants: list[PromptVariant] | None = None
 
 
 class CredentialRequest(BaseModel):
@@ -179,6 +181,31 @@ def set_credential(body: CredentialRequest) -> CredentialStatus:
     return CredentialStatus(provider_id=body.provider_id, available=has_key(key_name))
 
 
+def _resolve_candidates(body: RunRequest) -> list[Candidate]:
+    """Resolve the run's candidates, fanning out prompt variants when requested.
+
+    Model-compare (no prompt_variants): today's behavior exactly. Prompt-compare: exactly one
+    model, at least two non-empty variants, fanned out via expand_prompt_variants.
+    """
+    try:
+        base = build_candidates(body.candidate_ids)
+    except UnknownCandidateError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    if not body.prompt_variants:
+        return base
+    if len(base) != 1:
+        raise HTTPException(status_code=422, detail="Prompt comparison needs exactly one model.")
+    variants = body.prompt_variants
+    if len(variants) < 2:
+        raise HTTPException(status_code=422, detail="Add at least two prompt variants to compare.")
+    for v in variants:
+        if not v.name.strip() or not v.system_prompt.strip():
+            raise HTTPException(
+                status_code=422, detail="Each prompt variant needs a name and prompt text."
+            )
+    return expand_prompt_variants(base[0], variants)
+
+
 @router.post("/runs")
 def create_run(request: Request, body: RunRequest) -> ProofReport:
     conn = _conn(request)
@@ -189,10 +216,7 @@ def create_run(request: Request, body: RunRequest) -> ProofReport:
 
         if not body.candidate_ids:
             raise HTTPException(status_code=400, detail="Select at least one candidate")
-        try:
-            candidates = build_candidates(body.candidate_ids)
-        except UnknownCandidateError as exc:
-            raise HTTPException(status_code=400, detail=str(exc))
+        candidates = _resolve_candidates(body)
 
         rubric = body.rubric or default_rubric_for(dataset)
         if rubric.kind == "judge":
@@ -245,10 +269,7 @@ def create_run_stream(request: Request, body: RunRequest) -> StreamingResponse:
         raise HTTPException(status_code=404, detail="Unknown dataset")
     if not body.candidate_ids:
         raise HTTPException(status_code=400, detail="Select at least one candidate")
-    try:
-        candidates = build_candidates(body.candidate_ids)
-    except UnknownCandidateError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
+    candidates = _resolve_candidates(body)
     rubric = body.rubric or default_rubric_for(dataset)
     if rubric.kind == "judge":
         try:

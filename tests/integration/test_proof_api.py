@@ -402,3 +402,63 @@ def test_run_judge_with_unavailable_provider_is_422(client, tmp_path, monkeypatc
         },
     )
     assert resp.status_code == 422, f"Expected 422, got {resp.status_code}: {resp.text}"
+
+
+# ---------------------------------------------------------------------------
+# Task 4: RunRequest.prompt_variants — fan one model into N prompts
+# ---------------------------------------------------------------------------
+
+
+def test_prompt_variant_run_produces_one_entry_per_variant(client):
+    body = {
+        "dataset_id": "investment-memo-summarization",
+        "candidate_ids": ["mock_good"],
+        "prompt_variants": [
+            {"name": "Baseline", "system_prompt": "Be neutral."},
+            {"name": "Concise", "system_prompt": "Be terse."},
+        ],
+        "brief": {"task_name": "t", "decision_question": "q", "success_criteria": ""},
+    }
+    r = client.post("/api/runs", json=body)
+    assert r.status_code == 200, r.text
+    report = r.json()
+    ids = [e["candidate_id"] for e in report["leaderboard"]]
+    assert ids == ["mock_good#baseline", "mock_good#concise"]
+    labels = sorted(e["label"] for e in report["leaderboard"])
+    assert labels == ["Baseline", "Concise"]
+
+
+def test_prompt_variant_run_rejects_multiple_models(client):
+    body = {
+        "dataset_id": "investment-memo-summarization",
+        "candidate_ids": ["mock_good", "mock_bad"],
+        "prompt_variants": [
+            {"name": "A", "system_prompt": "x"},
+            {"name": "B", "system_prompt": "y"},
+        ],
+        "brief": {"task_name": "t", "decision_question": "q", "success_criteria": ""},
+    }
+    assert client.post("/api/runs", json=body).status_code == 422
+
+
+def test_prompt_variant_run_rejects_fewer_than_two(client):
+    body = {
+        "dataset_id": "investment-memo-summarization",
+        "candidate_ids": ["mock_good"],
+        "prompt_variants": [{"name": "Only", "system_prompt": "x"}],
+        "brief": {"task_name": "t", "decision_question": "q", "success_criteria": ""},
+    }
+    assert client.post("/api/runs", json=body).status_code == 422
+
+
+def test_prompt_variant_run_rejects_empty_fields(client):
+    body = {
+        "dataset_id": "investment-memo-summarization",
+        "candidate_ids": ["mock_good"],
+        "prompt_variants": [
+            {"name": "A", "system_prompt": "  "},
+            {"name": "  ", "system_prompt": "y"},
+        ],
+        "brief": {"task_name": "t", "decision_question": "q", "success_criteria": ""},
+    }
+    assert client.post("/api/runs", json=body).status_code == 422
