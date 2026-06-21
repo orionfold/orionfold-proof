@@ -207,7 +207,7 @@ def test_create_dataset_round_trips_and_appears_in_list(client):
     assert resp.status_code == 201
     created = resp.json()
     assert created["id"] == "client-summaries"
-    assert created["examples"] == [{"input_text": "hello", "expected_text": "world"}]
+    assert created["examples"] == [{"input_text": "hello", "expected_text": "world", "keypoints": []}]
     ids = {d["id"] for d in client.get("/api/datasets").json()}
     assert "client-summaries" in ids
 

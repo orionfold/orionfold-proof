@@ -1,7 +1,9 @@
-"""The matrix engine must be deterministic, error-safe, and produce a ranked leaderboard."""
+"""The matrix engine must be deterministic, error-safe, and produces a ranked leaderboard."""
+
+import pytest
 
 from orionfold.data import load_dataset
-from orionfold.domain.models import Candidate, ProofBrief, Rubric
+from orionfold.domain.models import Candidate, Dataset, Example, ProofBrief, Rubric
 from orionfold.proof.engine import config_hash, run_proof
 
 _CANDS = [
@@ -56,3 +58,52 @@ def test_config_hash_changes_with_rubric():
     h1 = config_hash(ds, _CANDS, Rubric(threshold=0.8))
     h2 = config_hash(ds, _CANDS, Rubric(threshold=0.5))
     assert h1 != h2
+
+
+# ─── Task 4: keypoint branch, judge branch, cost rollup ───────────────────────
+
+
+def _ds():
+    return Dataset(id="d", name="d", examples=[
+        Example(input_text="Q3 rev $48.2M up 22%", expected_text="Revenue grew 22% to $48.2M.",
+                keypoints=["22%", "$48.2M"]),
+    ])
+
+
+def _run(rubric):
+    return run_proof(
+        run_id="r1", created_at="2026-06-21T00:00:00Z",
+        brief=ProofBrief(task_name="t", decision_question="q"),
+        dataset=_ds(),
+        candidates=[Candidate(id="mock_good", label="g", provider_id="mock_good")],
+        rubric=rubric,
+    )
+
+
+def test_keypoint_run_passes_for_mock_good():
+    report = _run(Rubric(kind="keypoint"))
+    assert report.results[0].score == 1.0 and report.results[0].passed
+
+
+def test_judge_run_via_mock_is_deterministic_and_costed():
+    report = _run(Rubric(kind="judge", judge_provider_id="mock_judge"))
+    row = report.results[0]
+    assert row.judge_cost_usd == 0.0001 and row.judge_latency_ms == 5
+    assert report.cost_summary.judge_cost_usd == pytest.approx(0.0001)
+
+
+def test_judge_without_provider_id_raises():
+    with pytest.raises(ValueError):
+        _run(Rubric(kind="judge"))
+
+
+def test_cost_summary_totals():
+    report = _run(Rubric(kind="judge", judge_provider_id="mock_judge"))
+    cs = report.cost_summary
+    assert cs.total_cost_usd == pytest.approx(cs.candidate_cost_usd + cs.judge_cost_usd)
+
+
+def test_non_judge_run_has_zero_judge_cost():
+    report = _run(Rubric(kind="keypoint"))
+    assert report.cost_summary.judge_cost_usd == 0.0
+    assert report.cost_summary.total_cost_usd == report.cost_summary.candidate_cost_usd

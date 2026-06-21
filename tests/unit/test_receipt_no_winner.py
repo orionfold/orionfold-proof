@@ -9,6 +9,7 @@ from orionfold.domain.models import (
     ProofRun,
     ResultRow,
     Rubric,
+    RunCostSummary,
 )
 from orionfold.proof.leaderboard import build_leaderboard
 from orionfold.receipts.export import build_receipt, to_markdown
@@ -47,7 +48,12 @@ def _run(candidates: list[Candidate], results: list[ResultRow]) -> ProofReport:
         created_at="2026-06-20T00:00:00Z",
     )
     leaderboard = build_leaderboard(candidates, results)
-    return ProofReport(run=run, leaderboard=leaderboard, results=results)
+    return ProofReport(
+        run=run,
+        leaderboard=leaderboard,
+        results=results,
+        cost_summary=RunCostSummary(candidate_cost_usd=0.0, judge_cost_usd=0.0, total_cost_usd=0.0),
+    )
 
 
 def test_no_winner_verdict_and_reason():

@@ -26,7 +26,7 @@ from orionfold.providers.selection import SelectionPanel, selection_panel
 from orionfold.recipes.resolution import RecipesPanel, resolve_recipes
 from orionfold.data.importers import DatasetParseError, ImportFormat, ParseResult, parse_dataset
 from orionfold.domain.models import Candidate, Dataset, ProofBrief, ProofReport, ProofRun, Rubric
-from orionfold.proof.engine import config_hash, iter_matrix, run_proof
+from orionfold.proof.engine import build_cost_summary, config_hash, iter_matrix, run_proof
 from orionfold.proof.leaderboard import build_leaderboard
 from orionfold.providers.registry import (
     UnknownCandidateError,
@@ -277,7 +277,12 @@ def create_run_stream(request: Request, body: RunRequest) -> StreamingResponse:
             config_hash=config_hash(dataset, candidates, body.rubric),
             created_at=now,
         )
-        report = ProofReport(run=run, leaderboard=build_leaderboard(candidates, rows), results=rows)
+        report = ProofReport(
+            run=run,
+            leaderboard=build_leaderboard(candidates, rows),
+            results=rows,
+            cost_summary=build_cost_summary(rows),
+        )
         write = connect(db_path)
         try:
             save_report(write, report)

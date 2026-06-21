@@ -21,11 +21,15 @@ from orionfold.domain.models import (
     ProofRun,
     ResultRow,
     Rubric,
+    RunCostSummary,
 )
 from orionfold.proof.leaderboard import build_leaderboard
 from orionfold.providers.base import safe_generate
 from orionfold.providers.registry import get_provider
-from orionfold.scoring.rubric import passed, score
+from orionfold.scoring.judge import Judge, build_judge
+from orionfold.scoring.rubric import passed, score, score_keypoints
+
+_SIMILARITY = Rubric(kind="similarity")
 
 
 def config_hash(dataset: Dataset, candidates: list[Candidate], rubric: Rubric) -> str:
@@ -64,12 +68,29 @@ def iter_matrix(
     count a faithful position in the matrix — the basis for streamed progress (ADR-0003). The
     cell logic is identical to a batch run; only the shape (generator vs. list) differs.
     """
+    judge: Judge | None = build_judge(rubric) if rubric.kind == "judge" else None
     for candidate in candidates:
         provider = get_provider(candidate.provider_id)
         for index, example in enumerate(dataset.examples):
             result = safe_generate(provider, example, candidate)
+            judge_cost, judge_latency, judge_error = 0.0, 0, None
             if result.error is not None:
                 score_value, did_pass = 0.0, False
+            elif rubric.kind == "keypoint":
+                score_value = (
+                    score_keypoints(example.keypoints, result.output_text, rubric)
+                    if example.keypoints
+                    else score(example.expected_text, result.output_text, _SIMILARITY)
+                )
+                did_pass = passed(score_value, rubric)
+            elif rubric.kind == "judge":
+                assert judge is not None
+                outcome = judge.score(example.expected_text, result.output_text)
+                score_value = outcome.score
+                judge_cost, judge_latency, judge_error = (
+                    outcome.cost_usd, outcome.latency_ms, outcome.error
+                )
+                did_pass = judge_error is None and passed(score_value, rubric)
             else:
                 score_value = score(example.expected_text, result.output_text, rubric)
                 did_pass = passed(score_value, rubric)
@@ -83,8 +104,10 @@ def iter_matrix(
                 passed=did_pass,
                 latency_ms=result.latency_ms,
                 estimated_cost_usd=result.estimated_cost_usd,
+                judge_cost_usd=judge_cost,
+                judge_latency_ms=judge_latency,
                 privacy=result.privacy,
-                error=result.error,
+                error=result.error if result.error is not None else judge_error,
             )
 
 
@@ -93,6 +116,15 @@ def run_matrix(
 ) -> list[ResultRow]:
     """Execute candidates × examples, returning one scored :class:`ResultRow` per cell."""
     return list(iter_matrix(dataset, candidates, rubric))
+
+
+def build_cost_summary(rows: list[ResultRow]) -> RunCostSummary:
+    """Roll per-row costs up into the full run cost picture (candidate + judge + total)."""
+    candidate = sum(r.estimated_cost_usd for r in rows)
+    judge = sum(r.judge_cost_usd for r in rows)
+    return RunCostSummary(
+        candidate_cost_usd=candidate, judge_cost_usd=judge, total_cost_usd=candidate + judge
+    )
 
 
 def run_proof(
@@ -117,4 +149,5 @@ def run_proof(
         config_hash=config_hash(dataset, candidates, rubric),
         created_at=created_at,
     )
-    return ProofReport(run=run, leaderboard=leaderboard, results=results)
+    cost_summary = build_cost_summary(results)
+    return ProofReport(run=run, leaderboard=leaderboard, results=results, cost_summary=cost_summary)
