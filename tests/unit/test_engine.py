@@ -107,3 +107,39 @@ def test_non_judge_run_has_zero_judge_cost():
     report = _run(Rubric(kind="keypoint"))
     assert report.cost_summary.judge_cost_usd == 0.0
     assert report.cost_summary.total_cost_usd == report.cost_summary.candidate_cost_usd
+
+
+# ─── Task 3: config_hash includes system_prompt only when set ─────────────────
+
+
+def test_config_hash_unchanged_for_model_compare_runs():
+    # A run whose candidates have system_prompt=None must hash identically to the pre-feature
+    # payload — i.e. the system_prompt key must be ABSENT, not present-and-null. Lock the value.
+    from orionfold.domain.models import Candidate, Dataset, Example, Rubric
+
+    ds = Dataset(id="d1", name="d1", description="", examples=[Example(input_text="a", expected_text="b")])
+    cands = [Candidate(id="mock_good", label="Mock", provider_id="mock_good")]
+    import hashlib
+    import json
+
+    from orionfold import __version__
+    payload = {
+        "version": __version__,
+        "dataset": {"id": ds.id, "examples": [e.model_dump() for e in ds.examples]},
+        "candidates": [{"id": "mock_good", "provider_id": "mock_good", "privacy": "local", "model": None}],
+        "rubric": Rubric(threshold=0.8).model_dump(),
+    }
+    expected = hashlib.sha256(json.dumps(payload, sort_keys=True, ensure_ascii=False).encode()).hexdigest()[:12]
+    assert config_hash(ds, cands, Rubric(threshold=0.8)) == expected
+
+
+def test_config_hash_distinguishes_prompt_variants():
+    from orionfold.domain.models import Candidate, Dataset, Example, Rubric
+
+    ds = Dataset(id="d1", name="d1", description="", examples=[Example(input_text="a", expected_text="b")])
+    v1 = [Candidate(id="ollama#a", label="A", provider_id="ollama", model="llama3.2", system_prompt="terse")]
+    v2 = [Candidate(id="ollama#b", label="B", provider_id="ollama", model="llama3.2", system_prompt="verbose")]
+    assert config_hash(ds, v1, Rubric()) != config_hash(ds, v2, Rubric())
+    # Same prompts reproduce the same hash (repeatability).
+    v1_again = [Candidate(id="ollama#a", label="A", provider_id="ollama", model="llama3.2", system_prompt="terse")]
+    assert config_hash(ds, v1, Rubric()) == config_hash(ds, v1_again, Rubric())

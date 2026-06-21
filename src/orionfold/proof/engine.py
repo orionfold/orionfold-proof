@@ -32,6 +32,14 @@ from orionfold.scoring.rubric import passed, score, score_keypoints
 _SIMILARITY = Rubric(kind="similarity")
 
 
+def _candidate_hash_fields(c: Candidate) -> dict:
+    fields = {"id": c.id, "provider_id": c.provider_id, "privacy": c.privacy, "model": c.model}
+    # Add system_prompt ONLY when set, so model-compare runs (None) keep byte-identical hashes.
+    if c.system_prompt is not None:
+        fields["system_prompt"] = c.system_prompt
+    return fields
+
+
 def config_hash(dataset: Dataset, candidates: list[Candidate], rubric: Rubric) -> str:
     """Stable 12-char hash of everything that defines a run's identity.
 
@@ -45,12 +53,7 @@ def config_hash(dataset: Dataset, candidates: list[Candidate], rubric: Rubric) -
             "examples": [e.model_dump() for e in dataset.examples],
         },
         "candidates": [
-            {
-                "id": c.id,
-                "provider_id": c.provider_id,
-                "privacy": c.privacy,
-                "model": c.model,
-            }
+            _candidate_hash_fields(c)
             for c in candidates
         ],
         "rubric": rubric.model_dump(),
