@@ -12,8 +12,10 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
-from fastapi.responses import HTMLResponse
+from fastapi import FastAPI, Request
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from orionfold import __version__
@@ -80,6 +82,15 @@ def create_app(db_path: Path | str | None = None) -> FastAPI:
 
     app = FastAPI(title="Orionfold Proof", version=__version__, lifespan=lifespan)
     app.state.db_path = resolved_db
+
+    @app.exception_handler(RequestValidationError)
+    async def _strip_input_from_validation_errors(
+        request: Request, exc: RequestValidationError
+    ) -> JSONResponse:
+        # A 422 body normally echoes the offending input; for routes that accept secrets
+        # (POST /api/credentials) that would leak the API key. Strip "input" from every error.
+        cleaned = [{k: v for k, v in err.items() if k != "input"} for err in exc.errors()]
+        return JSONResponse(status_code=422, content={"detail": jsonable_encoder(cleaned)})
 
     @app.get("/api/health")
     def health() -> dict[str, str]:

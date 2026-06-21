@@ -53,3 +53,14 @@ def test_credentials_rejects_unknown_provider(client):
 
 def test_credentials_rejects_empty_key(client):
     assert client.post("/api/credentials", json={"provider_id": "anthropic", "key": "  "}).status_code == 422
+
+
+def test_credentials_validation_error_never_echoes_key(client):
+    # FastAPI's 422 fires BEFORE the handler; the raw body (incl. the key) must not be echoed.
+    res = client.post("/api/credentials", json={"key": "sk-LEAKTEST-123"})
+    assert res.status_code == 422
+    assert "sk-LEAKTEST-123" not in res.text
+
+    res2 = client.post("/api/credentials", json={"provider_id": "anthropic", "key": 99887766})
+    assert res2.status_code == 422
+    assert "99887766" not in res2.text

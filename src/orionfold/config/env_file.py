@@ -42,7 +42,10 @@ def set_key_in_env_local(key_name: str, value: str) -> Path:
         out.append(new_line)
 
     tmp = path.with_name(path.name + ".tmp")
-    tmp.write_text("\n".join(out) + "\n", encoding="utf-8")
-    os.chmod(tmp, 0o600)
+    # Create the temp file with 0o600 from the start so the secret is never world-readable,
+    # even briefly (the umask could otherwise leave a write+chmod window at 0o644).
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as handle:
+        handle.write("\n".join(out) + "\n")
     os.replace(tmp, path)
     return path
