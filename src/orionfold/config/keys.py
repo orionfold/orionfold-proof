@@ -115,3 +115,15 @@ def resolve(name: str, default: str) -> str:
     """
     value = resolve_key(name)
     return value if value is not None else default
+
+
+# The four cloud providers that resolve on a key, mapped to their env-var NAME. Single source of
+# truth for both the registry's availability gate and the credential-entry whitelist. Local
+# providers (ollama, lmstudio) and mocks are deliberately absent — they need no key, and the
+# credential endpoint rejects any provider id not in this map (no arbitrary env writes).
+CLOUD_KEY_NAMES: dict[str, str] = {
+    "openai": "OPENAI_API_KEY",
+    "openrouter": "OPENROUTER_API_KEY",
+    "gemini": "GEMINI_API_KEY",
+    "anthropic": "ANTHROPIC_API_KEY",
+}
