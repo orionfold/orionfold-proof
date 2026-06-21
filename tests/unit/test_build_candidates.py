@@ -54,6 +54,15 @@ def test_composite_for_unavailable_provider_is_rejected():
     assert exc.value.unknown == ["anthropic:claude-opus-4-8"]
 
 
+def test_composite_id_on_a_mock_provider_is_rejected():
+    # Mocks must stay bare-id + model=None (this protects mock-run config_hash). A crafted
+    # ``mock_good:foo`` must NOT mint a composite mock candidate — mocks are model=None in the
+    # registry, so the composite branch excludes them.
+    with pytest.raises(UnknownCandidateError) as exc:
+        build_candidates(["mock_good:foo"])
+    assert exc.value.unknown == ["mock_good:foo"]
+
+
 def test_empty_model_and_unknown_provider_are_rejected():
     with pytest.raises(UnknownCandidateError) as exc:
         build_candidates(["ollama:", "nope:x", "garbage"])

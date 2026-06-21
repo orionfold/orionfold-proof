@@ -10,7 +10,7 @@ export function renderWithQuery(ui: ReactElement) {
   return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>);
 }
 
-// Routes a mocked fetch by URL so a test can serve health/datasets/candidates together.
+// Routes a mocked fetch by URL so a test can serve health/datasets/selection together.
 export function mockFetchByUrl(routes: Record<string, unknown>) {
   return (input: RequestInfo | URL) => {
     const url = typeof input === "string" ? input : input.toString();

@@ -132,8 +132,10 @@ def build_candidates(candidate_ids: list[str]) -> list[Candidate]:
     - A bare id already offered by ``available_candidates()`` (a mock, or a real provider's
       default model) resolves unchanged — backward compatible.
     - A composite ``provider:model`` id (split on the FIRST colon) resolves iff the provider is
-      currently available and ``model`` is a non-empty string. The model becomes part of the
-      candidate's identity, which already feeds ``config_hash``.
+      a currently-available **model-bearing** provider and ``model`` is a non-empty string. The
+      model becomes part of the candidate's identity, which already feeds ``config_hash``. The
+      keyless mocks carry ``model=None`` and are deliberately excluded here, so a crafted id
+      like ``mock_good:foo`` can never mint a composite mock candidate — mocks stay bare-id.
     - Anything else is collected and raised as :class:`UnknownCandidateError` (keyless-safe: an
       unavailable provider is never in ``_build()``).
     """
@@ -147,7 +149,9 @@ def build_candidates(candidate_ids: list[str]) -> list[Candidate]:
             resolved.append(existing)
             continue
         provider_id, sep, model = cid.partition(":")
-        if sep and model and provider_id in registry:
+        # ``registry[pid] == (provider, default_model)``; mocks have ``default_model is None``,
+        # so this guard accepts composite ids only for real, model-bearing providers.
+        if sep and model and provider_id in registry and registry[provider_id][1] is not None:
             provider = registry[provider_id][0]
             resolved.append(
                 Candidate(
