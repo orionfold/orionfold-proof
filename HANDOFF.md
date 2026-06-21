@@ -26,7 +26,8 @@ verified. Commits on `main` (NOT pushed — no remote): 6479d66 6275102 8a5b96a 
 >
 > **NEXT SESSION: build #5 DECISION RECIPES.** Full creative/feature work → brainstorm → spec →
 > plan → subagent-driven, same loop. Assume #4 has shipped (recipes compose model-bearing
-> candidates using the picker)._
+> candidates using the picker). Operator decided 2026-06-20 to power through — catalog
+> price/source accuracy is a roadmap refinement, NOT a gate on #5._
 
 ## Paste prompt for the next session
 
@@ -64,13 +65,14 @@ THE DECISION-RECIPES THREAD (operator's strategic bet). Done: #1 catalog, #4 pic
    "Cost vs quality for client summaries", "Local vs cloud (privacy)", "Cheapest model that still
    passes", "Same model, different providers (arbitrage)". BRAINSTORM before plan/code.
 
-OTHER (non-blocking, do when convenient — NOT before #5):
-- OPERATOR PRICE/SOURCE VERIFICATION PASS for catalog.json: the catalog refresh used researched list
-  prices dated 2026-06-20 with per-model source URLs, but a few values were flagged UNVERIFIED
-  (OpenAI cached-input/long-context surcharges; Gemini gemini-3.1-pro-preview is a PREVIEW id;
-  OpenRouter :free slug). Verify each input/output price against the source URL; consider swapping
-  gemini-3.1-pro-preview → gemini-3.5-flash if a GA-only frontier is wanted. Bump pricing as_of on
-  any change.
+OTHER (non-blocking — operator decided 2026-06-20 to POWER THROUGH; do NOT gate #5 on these):
+- CATALOG PRICE/SOURCE accuracy is a ROADMAP item, refined opportunistically as we find better
+  sources — NOT a near-term verification gate. Current prices are researched list prices dated
+  2026-06-20 with per-model source URLs; a few values are approximate/UNVERIFIED (OpenAI
+  cached-input/long-context surcharges; Gemini gemini-3.1-pro-preview is a PREVIEW id — swap to
+  gemini-3.5-flash if a GA-only frontier is ever wanted; OpenRouter :free slug). A measured receipt
+  cost always outranks a catalog list price downstream, so this never blocks the proof loop. Bump
+  pricing as_of when a value is updated.
 - Set up a git remote + PUSH (none configured; ALL main commits — this session + the whole backlog —
   are local only).
 
