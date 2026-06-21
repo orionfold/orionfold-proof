@@ -10,6 +10,7 @@ import {
   scoredByLabel,
   type LeaderboardEntry,
   type ProofBrief,
+  type PromptVariant,
   type ProofReport,
   type ResolvedRecipe,
   type ResultRow,
@@ -17,6 +18,7 @@ import {
   type RunStartEvent,
   type RunCostSummary,
 } from "../../lib/api";
+import { STARTER_VARIANTS, cleanVariants, defaultPromptModel } from "./promptVariants";
 import { type Rubric } from "./ScoringMethod";
 import { ProviderTag } from "./badges";
 import { FailureCases } from "./FailureCases";
@@ -53,6 +55,9 @@ export function ProofCockpit({
   const [selected, setSelected] = useState<string[]>([]);
   const [brief, setBrief] = useState<ProofBrief>(DEFAULT_BRIEF);
   const [rubric, setRubric] = useState<Rubric | null>(null);
+  const [compareBy, setCompareBy] = useState<"models" | "prompts">("models");
+  const [promptVariants, setPromptVariants] = useState<PromptVariant[]>(STARTER_VARIANTS);
+  const [promptModel, setPromptModel] = useState("");
   // The Task name headlines the receipt, so it should describe the dataset under test. Until the
   // user types their own, mirror it from the selected dataset — otherwise a receipt for an
   // imported set would inherit the bundled dataset's name. Editing the field locks it.
@@ -92,6 +97,7 @@ export function ProofCockpit({
       .filter((g) => g.candidate_id)
       .map((g) => g.candidate_id as string);
   }, [selected, selection.data]);
+  const resolvedPromptModel = promptModel || defaultPromptModel(selection.data);
 
   const runMutation = useMutation({
     mutationFn: (body: RunRequest) =>
@@ -174,13 +180,29 @@ export function ProofCockpit({
           hasRun={report !== null}
           rubric={rubric}
           onRubricChange={setRubric}
+          compareBy={compareBy}
+          onCompareByChange={setCompareBy}
+          promptVariants={promptVariants}
+          onPromptVariantsChange={setPromptVariants}
+          promptModel={resolvedPromptModel}
+          onPromptModelChange={setPromptModel}
           onRun={() =>
-            runMutation.mutate({
-              dataset_id: resolvedDatasetId,
-              candidate_ids: resolvedSelected,
-              brief: effectiveBrief,
-              ...(rubric ? { rubric } : {}),
-            })
+            runMutation.mutate(
+              compareBy === "prompts"
+                ? {
+                    dataset_id: resolvedDatasetId,
+                    candidate_ids: [resolvedPromptModel],
+                    prompt_variants: cleanVariants(promptVariants),
+                    brief: effectiveBrief,
+                    ...(rubric ? { rubric } : {}),
+                  }
+                : {
+                    dataset_id: resolvedDatasetId,
+                    candidate_ids: resolvedSelected,
+                    brief: effectiveBrief,
+                    ...(rubric ? { rubric } : {}),
+                  },
+            )
           }
         />
 

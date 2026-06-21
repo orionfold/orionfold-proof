@@ -1,6 +1,8 @@
-import type { Dataset, ProofBrief, SelectionPanel } from "../../lib/api";
+import type { Dataset, ProofBrief, PromptVariant, SelectionPanel } from "../../lib/api";
 import { CandidatePicker } from "./CandidatePicker";
+import { PromptVariants } from "./PromptVariants.tsx";
 import { ScoringMethod, type Rubric } from "./ScoringMethod";
+import { validPromptVariants } from "./promptVariants";
 
 // The setup is deliberately small: pick a dataset, pick candidates, frame the decision, run.
 // A Proof Brief (not a wizard in v0) keeps the receipt anchored to a real decision.
@@ -19,6 +21,12 @@ export interface RunSetupProps {
   error: string | null;
   rubric: Rubric | null;
   onRubricChange: (next: Rubric | null) => void;
+  compareBy: "models" | "prompts";
+  onCompareByChange: (mode: "models" | "prompts") => void;
+  promptVariants: PromptVariant[];
+  onPromptVariantsChange: (next: PromptVariant[]) => void;
+  promptModel: string;
+  onPromptModelChange: (id: string) => void;
 }
 
 const inputCls =
@@ -40,9 +48,19 @@ export function RunSetup(props: RunSetupProps) {
     error,
     rubric,
     onRubricChange,
+    compareBy,
+    onCompareByChange,
+    promptVariants,
+    onPromptVariantsChange,
+    promptModel,
+    onPromptModelChange,
   } = props;
 
-  const canRun = selectedCandidates.length > 0 && brief.task_name.trim().length > 0;
+  const canRun =
+    brief.task_name.trim().length > 0 &&
+    (compareBy === "prompts"
+      ? Boolean(promptModel) && validPromptVariants(promptVariants)
+      : selectedCandidates.length > 0);
   // Before the very first run, give the primary action a gentle, one-glance affordance.
   const firstRun = !hasRun && !isRunning;
 
@@ -74,11 +92,38 @@ export function RunSetup(props: RunSetupProps) {
           </span>
         </label>
 
-        <CandidatePicker
-          panel={panel}
-          selected={selectedCandidates}
-          onToggle={onToggleCandidate}
-        />
+        <div className="grid gap-3">
+          <div role="group" aria-label="Compare by" className="inline-flex w-fit rounded-lg border border-(--color-panel-line) p-0.5 text-sm">
+            {(["models", "prompts"] as const).map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                aria-pressed={compareBy === mode}
+                onClick={() => onCompareByChange(mode)}
+                className={
+                  "rounded-md px-3 py-1.5 capitalize transition-colors " +
+                  (compareBy === mode
+                    ? "bg-(--color-accent-strong) text-(--color-accent-ink)"
+                    : "text-(--color-ink-muted) hover:text-(--color-ink)")
+                }
+              >
+                {mode}
+              </button>
+            ))}
+          </div>
+
+          {compareBy === "prompts" ? (
+            <PromptVariants
+              variants={promptVariants}
+              modelId={promptModel}
+              panel={panel}
+              onChangeVariants={onPromptVariantsChange}
+              onChangeModel={onPromptModelChange}
+            />
+          ) : (
+            <CandidatePicker panel={panel} selected={selectedCandidates} onToggle={onToggleCandidate} />
+          )}
+        </div>
 
         <label className="grid gap-1.5 text-sm">
           <span className="text-(--color-ink-muted)">Task name</span>
