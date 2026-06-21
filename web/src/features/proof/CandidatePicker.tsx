@@ -3,14 +3,7 @@ import { useState } from "react";
 import type { SelectionGroup, SelectionModel, SelectionPanel } from "../../lib/api";
 import { KeyEntry } from "./KeyEntry";
 import { ProviderLogo } from "./ProviderLogo";
-
-// The four cloud providers resolve on a key; derive the env-var name the picker prompts for.
-const CLOUD_KEY_NAMES: Record<string, string> = {
-  anthropic: "ANTHROPIC_API_KEY",
-  openai: "OPENAI_API_KEY",
-  openrouter: "OPENROUTER_API_KEY",
-  gemini: "GEMINI_API_KEY",
-};
+import { CLOUD_KEY_NAMES } from "./selectionMeta";
 
 export interface CandidatePickerProps {
   panel: SelectionPanel;
