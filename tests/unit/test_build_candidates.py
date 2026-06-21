@@ -5,10 +5,12 @@ from __future__ import annotations
 
 import pytest
 
+from orionfold.domain.models import PromptVariant
 from orionfold.providers.registry import (
     UnknownCandidateError,
     available_candidates,
     build_candidates,
+    expand_prompt_variants,
 )
 
 
@@ -73,3 +75,28 @@ def test_error_message_matches_route_contract():
     with pytest.raises(UnknownCandidateError) as exc:
         build_candidates(["nope:x"])
     assert str(exc.value) == "Unknown candidate(s): ['nope:x']"
+
+
+def test_expand_prompt_variants_mints_one_candidate_per_prompt():
+    [base] = build_candidates(["mock_good"])  # model=None, bare mock
+    variants = [
+        PromptVariant(name="Baseline", system_prompt="Be neutral."),
+        PromptVariant(name="Step by step", system_prompt="Think step by step."),
+    ]
+    out = expand_prompt_variants(base, variants)
+    assert [c.id for c in out] == ["mock_good#baseline", "mock_good#step-by-step"]
+    assert [c.label for c in out] == ["Baseline", "Step by step"]
+    assert [c.system_prompt for c in out] == ["Be neutral.", "Think step by step."]
+    # Provider/model/privacy copied from the base, so the engine routes + hashes correctly.
+    assert all(c.provider_id == "mock_good" and c.model is None and c.privacy == "local" for c in out)
+
+
+def test_expand_prompt_variants_dedupes_clashing_slugs():
+    [base] = build_candidates(["ollama:llama3.2"])
+    variants = [
+        PromptVariant(name="Terse", system_prompt="a"),
+        PromptVariant(name="terse!", system_prompt="b"),  # slugifies to the same "terse"
+    ]
+    out = expand_prompt_variants(base, variants)
+    assert [c.id for c in out] == ["ollama:llama3.2#terse", "ollama:llama3.2#terse-2"]
+    assert all(c.model == "llama3.2" and c.provider_id == "ollama" for c in out)

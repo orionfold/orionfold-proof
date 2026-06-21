@@ -17,9 +17,11 @@ feeds the run's ``config_hash``.
 
 from __future__ import annotations
 
+import re
+
 from orionfold.catalog import default_model_for
 from orionfold.config.keys import has_key, resolve
-from orionfold.domain.models import Candidate
+from orionfold.domain.models import Candidate, PromptVariant
 from orionfold.providers import anthropic as _anthropic
 from orionfold.providers import gemini as _gemini
 from orionfold.providers import ollama as _ollama
@@ -167,3 +169,38 @@ def build_candidates(candidate_ids: list[str]) -> list[Candidate]:
     if unknown:
         raise UnknownCandidateError(unknown)
     return resolved
+
+
+def _slug(name: str) -> str:
+    """Lowercase, alphanumeric-with-hyphens slug for a variant id segment."""
+    s = re.sub(r"[^a-z0-9]+", "-", name.strip().lower()).strip("-")
+    return s or "variant"
+
+
+def expand_prompt_variants(
+    base: Candidate, variants: list[PromptVariant]
+) -> list[Candidate]:
+    """Fan one model-bearing ``base`` candidate out into one candidate per prompt variant.
+
+    Each variant becomes a candidate sharing ``base``'s provider/model/privacy but carrying its
+    own ``system_prompt`` and a ``{base.id}#{slug}`` id. Slugs are deduped within the run so two
+    same-named variants still get distinct ids (and distinct config_hash entries).
+    """
+    out: list[Candidate] = []
+    seen: dict[str, int] = {}
+    for v in variants:
+        slug = _slug(v.name)
+        seen[slug] = seen.get(slug, 0) + 1
+        if seen[slug] > 1:
+            slug = f"{slug}-{seen[slug]}"
+        out.append(
+            Candidate(
+                id=f"{base.id}#{slug}",
+                label=v.name,
+                provider_id=base.provider_id,
+                privacy=base.privacy,
+                model=base.model,
+                system_prompt=v.system_prompt,
+            )
+        )
+    return out
