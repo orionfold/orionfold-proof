@@ -8,6 +8,16 @@ for [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Model-per-candidate picker.** The Proof Run setup now lets you choose a specific model per
+  provider — and compare **several models of the same provider in one run** (the cost/latency-vs-
+  quality proof, e.g. Claude Opus vs Haiku). Provider-grouped chips mark the latest (★) and
+  recommended models with a cost-class badge, plus a free-text **custom-model** escape hatch;
+  unavailable providers (no key) are shown greyed. Each `(provider, model)` is its own candidate
+  with a composite `provider:model` id that already feeds `config_hash`; the keyless mocks stay
+  bare-id. Served by a new read-only `GET /api/selection` (availability resolved server-side, no
+  secrets). Each provider row carries its **official brand logo** in place of the status bullet
+  (dimmed when unavailable).
+
 - **Model catalog.** A bundled `provider → model → capabilities` catalog (`orionfold.catalog`)
   describing the six real providers and their curated models — `family`, quality `tier`, privacy,
   context window, cost class, and dated/sourced list prices (local models are free/unpriced). The
@@ -25,10 +35,19 @@ for [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **Catalog refreshed to current (mid-2026) models** with dated, sourced list prices: OpenAI
+  GPT-5.x (replacing the retired GPT-4o line), Google Gemini 3.x, Claude (Haiku 4.5 / Sonnet 4.6 /
+  Opus 4.8 / Fable 5), and Llama 4 Scout. OpenRouter display names dropped the "(via OpenRouter)"
+  suffix (the provider row already names it). Run-time cost estimation (`pricing.py`) covers the
+  new models and OpenRouter slugs.
+
 - **Proof Run Task name auto-syncs to the selected dataset** until you edit it, so an imported
   dataset's receipt heading no longer inherits the bundled dataset's name.
 
 ### Fixed
+
+- **Claude Opus 4.8 catalog price/context corrected** — list price `$15/$75` → `$5/$25` per MTok
+  and context `200K` → `1M` (Sonnet 4.6 context also `1M`).
 
 - **Rail footer stays pinned.** The left rail is now viewport-height and sticky on desktop, so
   the theme switcher and engine-status pill no longer scroll away on long run pages.
