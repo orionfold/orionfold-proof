@@ -61,7 +61,7 @@
     <dt>Run id</dt><dd><code>run_sampledemo01</code></dd>
     <dt>Config hash</dt><dd><code>467ddd96c9a5</code></dd>
     <dt>Generated</dt><dd>2026-06-19T12:00:00Z</dd>
-    <dt>Receipt schema</dt><dd>v5</dd>
+    <dt>Receipt schema</dt><dd>v6</dd>
   </dl>
   <h2>Leaderboard</h2>
   <table>
@@ -74,11 +74,12 @@
   <p class="muted">Run cost: candidate $0.0000 · judge $0.0000 · total $0.0000</p>
   <h2>Failure cases (5)</h2>
   <ul class='failures'><li><strong>mock_bad</strong> · example 0 · score 0.00<div class='case'><span>input</span> Q3 revenue reached $48.2M, up 22% year over year, driven by enterprise seat expansion. Net revenue retention held at 118%. Gross margin improved to 79% as infrastructure costs were renegotiated.</div><div class='case'><span>expected</span> Revenue grew 22% to $48.2M on enterprise expansion, with 118% net retention and margins improving to 79%.</div><div class='case'><span>output</span> This document discusses various financial topics and market conditions.</div></li><li><strong>mock_bad</strong> · example 1 · score 0.00<div class='case'><span>input</span> The company burned $6.1M in the quarter against $52M cash on hand, giving roughly eight quarters of runway. Management paused hiring outside of engineering and reaffirmed a path to breakeven by late next year.</div><div class='case'><span>expected</span> Burn of $6.1M leaves about eight quarters of runway; hiring paused except engineering, with breakeven targeted late next year.</div><div class='case'><span>output</span> This document discusses various financial topics and market conditions.</div></li><li><strong>mock_bad</strong> · example 2 · error: RuntimeError: mock_bad: simulated provider failure<div class='case'><span>input</span> Churn ticked up to 4.2% monthly among self-serve customers, concentrated in accounts under ten seats. Enterprise churn remained under 1%. The team is shifting acquisition spend toward larger accounts. Management is testing onboarding fixes.</div><div class='case'><span>expected</span> Self-serve churn rose to 4.2% in small accounts while enterprise stayed under 1%, prompting a shift to larger-account acquisition.</div><div class='case'><span>output</span> —</div></li><li><strong>mock_bad</strong> · example 3 · score 0.00<div class='case'><span>input</span> A new competitor launched an aggressively priced tier and captured several mid-market logos. The company responded with annual-contract discounts, protecting retention but compressing average selling price by 9%.</div><div class='case'><span>expected</span> Competitive pricing pressure cost mid-market logos; annual discounts defended retention but cut average selling price 9%.</div><div class='case'><span>output</span> This document discusses various financial topics and market conditions.</div></li><li><strong>mock_bad</strong> · example 4 · score 0.00<div class='case'><span>input</span> The founders are raising a $15M Series B at a $90M post-money valuation, a 2.1x markup from the prior round. Lead investor is requesting a board seat and a standard 1x non-participating liquidation preference.</div><div class='case'><span>expected</span> Raising $15M Series B at $90M post (2.1x markup); lead seeks a board seat and a 1x non-participating preference.</div><div class='case'><span>output</span> This document discusses various financial topics and market conditions.</div></li></ul>
+  
   <h2>Repro</h2>
   <dl>
     <dt>Run id</dt><dd><code>run_sampledemo01</code></dd>
     <dt>Config hash</dt><dd><code>467ddd96c9a5</code></dd>
-    <dt>Rerun</dt><dd><code>POST /api/runs {&quot;dataset_id&quot;: &quot;investment-memo-summarization&quot;, &quot;candidate_ids&quot;: [&#x27;mock_good&#x27;, &#x27;mock_bad&#x27;]}</code></dd>
+    <dt>Rerun</dt><dd><code>POST /api/runs {&quot;dataset_id&quot;: &quot;investment-memo-summarization&quot;, &quot;candidate_ids&quot;: [&quot;mock_good&quot;, &quot;mock_bad&quot;]}</code></dd>
   </dl>
 </main>
 </body>

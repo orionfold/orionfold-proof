@@ -19,8 +19,10 @@ from orionfold.domain.models import LeaderboardEntry, ProofReport, ResultRow
 # and is never recommended, and the receipt shows a "No clear winner" state when none passed.
 # v5: meaning-aware scoring — a "Scored by" descriptor (keypoint coverage / similarity / LLM
 # judge · <model>) and a run-level cost summary (candidate + judge + total).
+# v6: prompt-variant runs — each leaderboard entry carries its system_prompt; the receipt adds a
+# "Prompt variants" section (name + full prompt text) for provenance. Empty for model-compare runs.
 # Bump on any schema change so downstream consumers can detect drift.
-RECEIPT_VERSION = 5
+RECEIPT_VERSION = 6
 
 
 def _verdict(top: LeaderboardEntry) -> str:
@@ -74,6 +76,21 @@ def _md_inline(text: str) -> str:
     return " ".join(text.split())
 
 
+def _rerun_command(run) -> str:
+    """The POST body that reproduces this run — prompt-variant shape when variants are present."""
+    variants = [
+        {"name": c.label, "system_prompt": c.system_prompt}
+        for c in run.candidates
+        if c.system_prompt is not None
+    ]
+    if variants:
+        model_id = run.candidates[0].id.split("#", 1)[0]
+        body = {"dataset_id": run.dataset_id, "candidate_ids": [model_id], "prompt_variants": variants}
+    else:
+        body = {"dataset_id": run.dataset_id, "candidate_ids": [c.id for c in run.candidates]}
+    return "POST /api/runs " + json.dumps(body, ensure_ascii=False)
+
+
 def build_receipt(report: ProofReport) -> dict:
     """Canonical receipt data — the single structure every format renders from."""
     run = report.run
@@ -110,6 +127,11 @@ def build_receipt(report: ProofReport) -> dict:
             )
         ),
         "leaderboard": [e.model_dump() for e in report.leaderboard],
+        "prompt_variants": [
+            {"name": e["label"], "system_prompt": e["system_prompt"]}
+            for e in (entry.model_dump() for entry in report.leaderboard)
+            if e.get("system_prompt")
+        ],
         "failure_cases": [r.model_dump() for r in _failure_cases(report)],
         "repro": {
             "run_id": run.id,
@@ -118,10 +140,7 @@ def build_receipt(report: ProofReport) -> dict:
             "dataset_id": run.dataset_id,
             "candidate_ids": candidate_ids,
             "rubric": run.rubric.model_dump(),
-            "rerun": (
-                "POST /api/runs "
-                f'{{"dataset_id": "{run.dataset_id}", "candidate_ids": {candidate_ids}}}'
-            ),
+            "rerun": _rerun_command(run),
         },
     }
 
@@ -187,6 +206,13 @@ def to_markdown(report: ProofReport) -> str:
             f"  - output: {_md_inline(f['output_text']) or '—'}",
         ]
 
+    variants = data["prompt_variants"]
+    if variants:
+        lines += ["", "## Prompt variants", "",
+                  f"_Same model, {len(variants)} system prompts compared._", ""]
+        for v in variants:
+            lines += [f"- **{_md_inline(v['name'])}:** {_md_inline(v['system_prompt'])}"]
+
     lines += [
         "",
         "## Repro",
@@ -240,6 +266,16 @@ def to_html(report: ProofReport, theme: str | None = None) -> str:
         failures_html = f"<ul class='failures'>{items}</ul>"
     else:
         failures_html = "<p class='muted'>No failures — every candidate passed every example.</p>"
+
+    variants = data["prompt_variants"]
+    if variants:
+        items = "".join(
+            f"<li><strong>{html.escape(v['name'])}:</strong> {html.escape(v['system_prompt'])}</li>"
+            for v in variants
+        )
+        variants_html = f"<h2>Prompt variants</h2><ul class='variants'>{items}</ul>"
+    else:
+        variants_html = ""
 
     return f"""<!doctype html>
 <html lang="en"{f' data-theme="{theme}"' if theme in ("light", "dark") else ""}>
@@ -317,6 +353,7 @@ def to_html(report: ProofReport, theme: str | None = None) -> str:
   <p class="muted">Run cost: candidate ${data['cost']['candidate']:.4f} · judge ${data['cost']['judge']:.4f} · total ${data['cost']['total']:.4f}</p>
   <h2>Failure cases ({len(failures)})</h2>
   {failures_html}
+  {variants_html}
   <h2>Repro</h2>
   <dl>
     <dt>Run id</dt><dd><code>{html.escape(data['repro']['run_id'])}</code></dd>

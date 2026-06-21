@@ -12,7 +12,7 @@ _2 candidate(s) × 5 example(s) · rubric keypoint ≥ 0.8_
 - **Run id:** `run_sampledemo01`
 - **Config hash:** `467ddd96c9a5`
 - **Generated:** 2026-06-19T12:00:00Z
-- **Receipt schema:** v5
+- **Receipt schema:** v6
 
 ## Leaderboard
 
@@ -51,4 +51,4 @@ _Run cost: candidate $0.0000 · judge $0.0000 · total $0.0000_
 - **Run id:** `run_sampledemo01`
 - **Config hash:** `467ddd96c9a5` (identical inputs reproduce this hash)
 - **Generated:** 2026-06-19T12:00:00Z
-- **Rerun:** `POST /api/runs {"dataset_id": "investment-memo-summarization", "candidate_ids": ['mock_good', 'mock_bad']}`
+- **Rerun:** `POST /api/runs {"dataset_id": "investment-memo-summarization", "candidate_ids": ["mock_good", "mock_bad"]}`

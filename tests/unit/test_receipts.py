@@ -123,8 +123,8 @@ def make_report():
     return _make
 
 
-def test_receipt_version_is_5():
-    assert export.RECEIPT_VERSION == 5
+def test_receipt_version_is_6():
+    assert export.RECEIPT_VERSION == 6
 
 
 def test_scored_by_keypoint(make_report):
@@ -150,3 +150,53 @@ def test_markdown_has_scored_by_and_run_cost(make_report):
 def test_html_has_scored_by_and_run_cost(make_report):
     h = export.to_html(make_report(kind="keypoint"))
     assert "Scored by" in h and "Run cost" in h
+
+
+# ---------------------------------------------------------------------------
+# v6 tests — prompt-variants section, JSON field, honest repro
+# ---------------------------------------------------------------------------
+
+def test_receipt_records_prompt_variants_and_text():
+    from orionfold.domain.models import (
+        Candidate, LeaderboardEntry, ProofBrief, ProofReport, ProofRun,
+        Rubric, RunCostSummary,
+    )
+
+    cands = [
+        Candidate(id="mock_good#baseline", label="Baseline", provider_id="mock_good",
+                  system_prompt="Be neutral."),
+        Candidate(id="mock_good#concise", label="Concise", provider_id="mock_good",
+                  system_prompt="Be terse."),
+    ]
+    run = ProofRun(
+        id="run_x", brief=ProofBrief(task_name="t", decision_question="q"),
+        dataset_id="d1", dataset_name="D1", rubric=Rubric(threshold=0.8),
+        candidates=cands, config_hash="abc123abc123", created_at="2026-06-21T00:00:00Z",
+    )
+    lb = [
+        LeaderboardEntry(candidate_id="mock_good#baseline", label="Baseline",
+                         provider_id="mock_good", privacy="local", system_prompt="Be neutral.",
+                         total=1, pass_count=1, pass_rate=1.0, avg_score=1.0, avg_latency_ms=10,
+                         total_estimated_cost_usd=0.0, failure_count=0, error_count=0,
+                         recommended=True),
+        LeaderboardEntry(candidate_id="mock_good#concise", label="Concise",
+                         provider_id="mock_good", privacy="local", system_prompt="Be terse.",
+                         total=1, pass_count=1, pass_rate=1.0, avg_score=1.0, avg_latency_ms=10,
+                         total_estimated_cost_usd=0.0, failure_count=0, error_count=0),
+    ]
+    report = ProofReport(run=run, leaderboard=lb, results=[],
+                         cost_summary=RunCostSummary(candidate_cost_usd=0, judge_cost_usd=0, total_cost_usd=0))
+
+    data = export.build_receipt(report)
+    assert data["receipt_version"] == 6
+    assert data["prompt_variants"] == [
+        {"name": "Baseline", "system_prompt": "Be neutral."},
+        {"name": "Concise", "system_prompt": "Be terse."},
+    ]
+    md = export.to_markdown(report)
+    assert "## Prompt variants" in md
+    assert "Be neutral." in md and "Be terse." in md
+    html = export.to_html(report)
+    assert "Prompt variants" in html and "Be terse." in html
+    # Provenance, not secrets: nothing key-shaped leaks (sanity).
+    assert "API_KEY" not in md and "API_KEY" not in html
