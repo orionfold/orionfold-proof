@@ -278,6 +278,23 @@ def test_catalog_endpoint_returns_validated_catalog(client):
     assert providers["ollama"].privacy == "local"
 
 
+def test_run_rejects_composite_id_for_unavailable_provider(client, tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    for name in ("OPENAI_API_KEY", "OPENROUTER_API_KEY", "GEMINI_API_KEY", "ANTHROPIC_API_KEY"):
+        monkeypatch.delenv(name, raising=False)
+    datasets = client.get("/api/datasets").json()
+    resp = client.post(
+        "/api/runs",
+        json={
+            "dataset_id": datasets[0]["id"],
+            "candidate_ids": ["anthropic:claude-opus-4-8"],
+            "brief": {"task_name": "t", "decision_question": "q", "success_criteria": ""},
+        },
+    )
+    assert resp.status_code == 400
+    assert "Unknown candidate(s)" in resp.json()["detail"]
+
+
 def test_catalog_endpoint_leaks_no_secrets(client, monkeypatch):
     # Even with keys present in the environment, the catalog body must contain no credential-ish
     # strings — it is static reference data with no key fields.

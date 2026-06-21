@@ -24,7 +24,11 @@ from orionfold.data.importers import DatasetParseError, ImportFormat, ParseResul
 from orionfold.domain.models import Candidate, Dataset, ProofBrief, ProofReport, ProofRun, Rubric
 from orionfold.proof.engine import config_hash, iter_matrix, run_proof
 from orionfold.proof.leaderboard import build_leaderboard
-from orionfold.providers.registry import available_candidates
+from orionfold.providers.registry import (
+    UnknownCandidateError,
+    available_candidates,
+    build_candidates,
+)
 from orionfold.receipts import export
 from orionfold.storage.db import apply_migrations, connect
 from orionfold.storage.repository import (
@@ -131,13 +135,12 @@ def create_run(request: Request, body: RunRequest) -> ProofReport:
         if dataset is None:
             raise HTTPException(status_code=404, detail="Unknown dataset")
 
-        available = {c.id: c for c in available_candidates()}
         if not body.candidate_ids:
             raise HTTPException(status_code=400, detail="Select at least one candidate")
-        unknown = [cid for cid in body.candidate_ids if cid not in available]
-        if unknown:
-            raise HTTPException(status_code=400, detail=f"Unknown candidate(s): {unknown}")
-        candidates = [available[cid] for cid in body.candidate_ids]
+        try:
+            candidates = build_candidates(body.candidate_ids)
+        except UnknownCandidateError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
 
         # Normalize to the trailing-Z form so live receipts match the fixtures/samples.
         now = datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
@@ -179,13 +182,12 @@ def create_run_stream(request: Request, body: RunRequest) -> StreamingResponse:
         conn.close()
     if dataset is None:
         raise HTTPException(status_code=404, detail="Unknown dataset")
-    available = {c.id: c for c in available_candidates()}
     if not body.candidate_ids:
         raise HTTPException(status_code=400, detail="Select at least one candidate")
-    unknown = [cid for cid in body.candidate_ids if cid not in available]
-    if unknown:
-        raise HTTPException(status_code=400, detail=f"Unknown candidate(s): {unknown}")
-    candidates = [available[cid] for cid in body.candidate_ids]
+    try:
+        candidates = build_candidates(body.candidate_ids)
+    except UnknownCandidateError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
     db_path = request.app.state.db_path
 
     def events() -> Iterator[str]:

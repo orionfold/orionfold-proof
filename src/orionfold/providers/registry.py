@@ -116,3 +116,50 @@ def available_candidates() -> list[Candidate]:
             )
         )
     return candidates
+
+
+class UnknownCandidateError(ValueError):
+    """A requested candidate id can't be resolved to an available provider + model."""
+
+    def __init__(self, unknown: list[str]) -> None:
+        self.unknown = unknown
+        super().__init__(f"Unknown candidate(s): {unknown}")
+
+
+def build_candidates(candidate_ids: list[str]) -> list[Candidate]:
+    """Resolve request ids into validated candidates.
+
+    - A bare id already offered by ``available_candidates()`` (a mock, or a real provider's
+      default model) resolves unchanged — backward compatible.
+    - A composite ``provider:model`` id (split on the FIRST colon) resolves iff the provider is
+      currently available and ``model`` is a non-empty string. The model becomes part of the
+      candidate's identity, which already feeds ``config_hash``.
+    - Anything else is collected and raised as :class:`UnknownCandidateError` (keyless-safe: an
+      unavailable provider is never in ``_build()``).
+    """
+    registry = _build()
+    by_id = {c.id: c for c in available_candidates()}
+    resolved: list[Candidate] = []
+    unknown: list[str] = []
+    for cid in candidate_ids:
+        existing = by_id.get(cid)
+        if existing is not None:
+            resolved.append(existing)
+            continue
+        provider_id, sep, model = cid.partition(":")
+        if sep and model and provider_id in registry:
+            provider = registry[provider_id][0]
+            resolved.append(
+                Candidate(
+                    id=cid,
+                    label=f"{provider.label} · {model}",
+                    provider_id=provider_id,
+                    privacy=provider.privacy,
+                    model=model,
+                )
+            )
+        else:
+            unknown.append(cid)
+    if unknown:
+        raise UnknownCandidateError(unknown)
+    return resolved
