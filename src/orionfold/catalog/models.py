@@ -30,7 +30,7 @@ class ModelPricing(BaseModel):
 class CatalogModel(BaseModel):
     id: str  # exact string sent to the provider API (e.g. "claude-opus-4-8")
     display_name: str
-    family: str  # "claude" | "gpt-4o" | "gemini" | "llama" — enables "same family across providers"
+    family: str  # "claude" | "gpt" | "gemini" | "llama" — enables "same family across providers"
     tier: Tier
     context_window: int | None = None
     cost_class: CostClass  # stable selection signal; local = "free"

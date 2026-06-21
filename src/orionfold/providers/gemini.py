@@ -17,7 +17,7 @@ from orionfold.providers.http import (
     post_json,
 )
 
-DEFAULT_MODEL = "gemini-2.5-flash"
+DEFAULT_MODEL = "gemini-3.1-flash-lite"
 _BASE = "https://generativelanguage.googleapis.com/v1beta/models"
 KEY_NAME = "GEMINI_API_KEY"
 

@@ -75,14 +75,15 @@ def test_provider_rejects_duplicate_model_ids():
         )
 
 
-# The behavior-preserving regression target: these are the exact defaults the registry used
-# before consolidation. They MUST NOT change.
+# The curated per-provider defaults (each provider's cheap "first-click" starter). Pinned so a
+# catalog content edit that moves a default is a deliberate, reviewed change — and so the
+# registry and direct instantiation never silently diverge.
 _CURRENT_DEFAULTS = {
-    "openai": "gpt-4o-mini",
-    "openrouter": "openai/gpt-4o-mini",
+    "openai": "gpt-5.4-nano",
+    "openrouter": "meta-llama/llama-3.1-8b-instruct",
     "lmstudio": "local-model",
     "ollama": "llama3.2",
-    "gemini": "gemini-2.5-flash",
+    "gemini": "gemini-3.1-flash-lite",
     "anthropic": "claude-haiku-4-5",
 }
 

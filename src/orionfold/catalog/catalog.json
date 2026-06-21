@@ -21,7 +21,7 @@
             "output_per_mtok": 5.0,
             "currency": "USD",
             "as_of": "2026-06-20",
-            "source": "https://www.anthropic.com/pricing"
+            "source": "https://platform.claude.com/docs/en/about-claude/pricing"
           }
         },
         {
@@ -29,14 +29,14 @@
           "display_name": "Claude Sonnet 4.6",
           "family": "claude",
           "tier": "balanced",
-          "context_window": 200000,
+          "context_window": 1000000,
           "cost_class": "$$",
           "pricing": {
             "input_per_mtok": 3.0,
             "output_per_mtok": 15.0,
             "currency": "USD",
             "as_of": "2026-06-20",
-            "source": "https://www.anthropic.com/pricing"
+            "source": "https://platform.claude.com/docs/en/about-claude/pricing"
           }
         },
         {
@@ -44,15 +44,30 @@
           "display_name": "Claude Opus 4.8",
           "family": "claude",
           "tier": "frontier",
-          "context_window": 200000,
+          "context_window": 1000000,
+          "cost_class": "$$$",
+          "pricing": {
+            "input_per_mtok": 5.0,
+            "output_per_mtok": 25.0,
+            "currency": "USD",
+            "as_of": "2026-06-20",
+            "source": "https://platform.claude.com/docs/en/about-claude/pricing"
+          }
+        },
+        {
+          "id": "claude-fable-5",
+          "display_name": "Claude Fable 5",
+          "family": "claude",
+          "tier": "frontier",
+          "context_window": 1000000,
           "cost_class": "$$$",
           "latest": true,
           "pricing": {
-            "input_per_mtok": 15.0,
-            "output_per_mtok": 75.0,
+            "input_per_mtok": 10.0,
+            "output_per_mtok": 50.0,
             "currency": "USD",
             "as_of": "2026-06-20",
-            "source": "https://www.anthropic.com/pricing"
+            "source": "https://platform.claude.com/docs/en/about-claude/pricing"
           }
         }
       ]
@@ -61,37 +76,53 @@
       "id": "openai",
       "label": "OpenAI",
       "privacy": "cloud",
-      "default_model": "gpt-4o-mini",
+      "default_model": "gpt-5.4-nano",
       "models": [
         {
-          "id": "gpt-4o-mini",
-          "display_name": "GPT-4o mini",
-          "family": "gpt-4o",
+          "id": "gpt-5.4-nano",
+          "display_name": "GPT-5.4 nano",
+          "family": "gpt",
           "tier": "economy",
-          "context_window": 128000,
+          "context_window": 400000,
           "cost_class": "$",
           "recommended": true,
           "pricing": {
-            "input_per_mtok": 0.15,
-            "output_per_mtok": 0.6,
+            "input_per_mtok": 0.2,
+            "output_per_mtok": 1.25,
             "currency": "USD",
             "as_of": "2026-06-20",
-            "source": "https://openai.com/api/pricing/"
+            "source": "https://developers.openai.com/api/docs/pricing"
           }
         },
         {
-          "id": "gpt-4o",
-          "display_name": "GPT-4o",
-          "family": "gpt-4o",
+          "id": "gpt-5.4-mini",
+          "display_name": "GPT-5.4 mini",
+          "family": "gpt",
           "tier": "balanced",
-          "context_window": 128000,
+          "context_window": 400000,
           "cost_class": "$$",
           "pricing": {
-            "input_per_mtok": 2.5,
-            "output_per_mtok": 10.0,
+            "input_per_mtok": 0.75,
+            "output_per_mtok": 4.5,
             "currency": "USD",
             "as_of": "2026-06-20",
-            "source": "https://openai.com/api/pricing/"
+            "source": "https://developers.openai.com/api/docs/pricing"
+          }
+        },
+        {
+          "id": "gpt-5.5",
+          "display_name": "GPT-5.5",
+          "family": "gpt",
+          "tier": "frontier",
+          "context_window": 1050000,
+          "cost_class": "$$$",
+          "latest": true,
+          "pricing": {
+            "input_per_mtok": 5.0,
+            "output_per_mtok": 30.0,
+            "currency": "USD",
+            "as_of": "2026-06-20",
+            "source": "https://developers.openai.com/api/docs/pricing"
           }
         }
       ]
@@ -100,35 +131,50 @@
       "id": "gemini",
       "label": "Gemini",
       "privacy": "cloud",
-      "default_model": "gemini-2.5-flash",
+      "default_model": "gemini-3.1-flash-lite",
       "models": [
         {
-          "id": "gemini-2.5-flash",
-          "display_name": "Gemini 2.5 Flash",
+          "id": "gemini-3.1-flash-lite",
+          "display_name": "Gemini 3.1 Flash-Lite",
           "family": "gemini",
           "tier": "economy",
-          "context_window": 1000000,
+          "context_window": 1048576,
           "cost_class": "$",
           "recommended": true,
           "pricing": {
-            "input_per_mtok": 0.3,
-            "output_per_mtok": 2.5,
+            "input_per_mtok": 0.25,
+            "output_per_mtok": 1.5,
             "currency": "USD",
             "as_of": "2026-06-20",
             "source": "https://ai.google.dev/gemini-api/docs/pricing"
           }
         },
         {
-          "id": "gemini-2.5-pro",
-          "display_name": "Gemini 2.5 Pro",
+          "id": "gemini-3.5-flash",
+          "display_name": "Gemini 3.5 Flash",
+          "family": "gemini",
+          "tier": "balanced",
+          "context_window": 1048576,
+          "cost_class": "$$",
+          "pricing": {
+            "input_per_mtok": 1.5,
+            "output_per_mtok": 9.0,
+            "currency": "USD",
+            "as_of": "2026-06-20",
+            "source": "https://ai.google.dev/gemini-api/docs/pricing"
+          }
+        },
+        {
+          "id": "gemini-3.1-pro-preview",
+          "display_name": "Gemini 3.1 Pro",
           "family": "gemini",
           "tier": "frontier",
-          "context_window": 1000000,
+          "context_window": 1048576,
           "cost_class": "$$",
           "latest": true,
           "pricing": {
-            "input_per_mtok": 1.25,
-            "output_per_mtok": 10.0,
+            "input_per_mtok": 2.0,
+            "output_per_mtok": 12.0,
             "currency": "USD",
             "as_of": "2026-06-20",
             "source": "https://ai.google.dev/gemini-api/docs/pricing"
@@ -140,52 +186,67 @@
       "id": "openrouter",
       "label": "OpenRouter",
       "privacy": "cloud",
-      "default_model": "openai/gpt-4o-mini",
+      "default_model": "meta-llama/llama-3.1-8b-instruct",
       "models": [
         {
-          "id": "openai/gpt-4o-mini",
-          "display_name": "GPT-4o mini (via OpenRouter)",
-          "family": "gpt-4o",
+          "id": "meta-llama/llama-3.1-8b-instruct",
+          "display_name": "Llama 3.1 8B Instruct",
+          "family": "llama",
           "tier": "economy",
-          "context_window": 128000,
+          "context_window": 131072,
           "cost_class": "$",
           "recommended": true,
           "pricing": {
-            "input_per_mtok": 0.15,
-            "output_per_mtok": 0.6,
+            "input_per_mtok": 0.02,
+            "output_per_mtok": 0.03,
             "currency": "USD",
             "as_of": "2026-06-20",
-            "source": "https://openrouter.ai/models"
-          }
-        },
-        {
-          "id": "anthropic/claude-haiku-4-5",
-          "display_name": "Claude Haiku 4.5 (via OpenRouter)",
-          "family": "claude",
-          "tier": "economy",
-          "context_window": 200000,
-          "cost_class": "$",
-          "pricing": {
-            "input_per_mtok": 1.0,
-            "output_per_mtok": 5.0,
-            "currency": "USD",
-            "as_of": "2026-06-20",
-            "source": "https://openrouter.ai/models"
+            "source": "https://openrouter.ai/meta-llama/llama-3.1-8b-instruct"
           }
         },
         {
           "id": "meta-llama/llama-3.3-70b-instruct",
-          "display_name": "Llama 3.3 70B Instruct (via OpenRouter)",
+          "display_name": "Llama 3.3 70B Instruct",
           "family": "llama",
           "tier": "balanced",
-          "context_window": 128000,
+          "context_window": 131072,
           "cost_class": "$",
           "pricing": {
-            "input_per_mtok": 0.12,
-            "output_per_mtok": 0.3,
+            "input_per_mtok": 0.1,
+            "output_per_mtok": 0.32,
             "currency": "USD",
             "as_of": "2026-06-20",
-            "source": "https://openrouter.ai/models"
+            "source": "https://openrouter.ai/meta-llama/llama-3.3-70b-instruct"
+          }
+        },
+        {
+          "id": "openai/gpt-5.4-mini",
+          "display_name": "GPT-5.4 mini",
+          "family": "gpt",
+          "tier": "balanced",
+          "context_window": 400000,
+          "cost_class": "$$",
+          "pricing": {
+            "input_per_mtok": 0.75,
+            "output_per_mtok": 4.5,
+            "currency": "USD",
+            "as_of": "2026-06-20",
+            "source": "https://openrouter.ai/openai/gpt-5.4-mini"
+          }
+        },
+        {
+          "id": "anthropic/claude-opus-4.8",
+          "display_name": "Claude Opus 4.8",
+          "family": "claude",
+          "tier": "frontier",
+          "context_window": 1000000,
+          "cost_class": "$$$",
+          "pricing": {
+            "input_per_mtok": 5.0,
+            "output_per_mtok": 25.0,
+            "currency": "USD",
+            "as_of": "2026-06-20",
+            "source": "https://openrouter.ai/anthropic/claude-opus-4.8"
           }
         }
       ]
@@ -201,7 +262,7 @@
           "display_name": "Llama 3.2 (local)",
           "family": "llama",
           "tier": "economy",
-          "context_window": 128000,
+          "context_window": 131072,
           "cost_class": "free",
           "recommended": true,
           "pricing": null
@@ -211,8 +272,18 @@
           "display_name": "Llama 3.3 (local)",
           "family": "llama",
           "tier": "balanced",
-          "context_window": 128000,
+          "context_window": 131072,
           "cost_class": "free",
+          "pricing": null
+        },
+        {
+          "id": "llama4",
+          "display_name": "Llama 4 Scout (local)",
+          "family": "llama",
+          "tier": "frontier",
+          "context_window": 10485760,
+          "cost_class": "free",
+          "latest": true,
           "pricing": null
         }
       ]
