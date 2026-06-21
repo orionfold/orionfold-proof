@@ -47,3 +47,14 @@ test("proof loop: run → leaderboard → failure case → receipts", async ({ p
     await expect(page.getByRole("link", { name: label, exact: true })).toBeVisible();
   }
 });
+
+test("decision recipes pre-fill the setup", async ({ page }) => {
+  await page.goto("/");
+  // The recipe row renders above setup.
+  await expect(page.getByRole("heading", { name: "Start from a decision recipe" })).toBeVisible();
+  // A recipe with a keyless local arm pre-fills the decision question.
+  const recipe = page.getByRole("button", { name: /Same model, different providers/i });
+  await expect(recipe).toBeVisible();
+  await recipe.click();
+  await expect(page.getByLabel(/decision question/i)).toHaveValue(/different hosts/i);
+});
