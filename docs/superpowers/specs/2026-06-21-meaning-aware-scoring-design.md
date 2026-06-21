@@ -31,6 +31,7 @@ Add **meaning-aware scoring** without losing two charter-protected invariants:
 | Judge basis | The judge grades the candidate output's meaning **vs `expected_text`**, 0..1. |
 | Sequencing | **One slice** covering keypoint + judge + UI. |
 | Judge UI | **Full in-app judge picker** (scoring-method + judge-model selector, reusing the selection machinery). |
+| Judge cost | **Tracked separately, accounted for in full.** Kept out of the candidate's number (and the leaderboard ranking); rolled up into a run-level total for cost control. |
 
 ## Architecture
 
@@ -61,10 +62,29 @@ class Rubric(BaseModel):
     case_sensitive: bool = False
     judge_provider_id: str | None = None  # only used when kind == "judge"
     judge_model: str | None = None        # recorded in provenance
+
+class ResultRow(BaseModel):
+    ...                                  # existing fields unchanged
+    estimated_cost_usd: float            # CANDIDATE cost only (meaning unchanged)
+    judge_cost_usd: float = 0.0          # cost of the judge call for THIS cell (0 for non-judge)
+    judge_latency_ms: int = 0            # judge latency for this cell (0 for non-judge)
+
+class RunCostSummary(BaseModel):         # NEW — the full cost picture for cost control
+    candidate_cost_usd: float            # sum of row.estimated_cost_usd
+    judge_cost_usd: float                # sum of row.judge_cost_usd
+    total_cost_usd: float                # candidate + judge (the grand total)
+
+class ProofReport(BaseModel):
+    run: ProofRun
+    leaderboard: list[LeaderboardEntry]
+    results: list[ResultRow]
+    cost_summary: RunCostSummary         # NEW — computed in run_proof
 ```
 
-Both surfaces flow into `config_hash` for free — `keypoints` via the dataset dump, the judge
-fields via `rubric.model_dump()`.
+`Example.keypoints` and the `Rubric.judge_*` fields flow into `config_hash` for free
+(`keypoints` via the dataset dump, the judge fields via `rubric.model_dump()`). The new
+`ResultRow`/`ProofReport` cost fields are run **output**, not run **identity**, so they do
+**not** touch `config_hash` — the `RECEIPT_VERSION 5` bump covers their serialized shape.
 
 **Intentional `config_hash` change (NOT a regression).** Once these fields exist, every run's
 dump gains `keypoints: []` / `judge_*: null`, so `config_hash` moves even for non-users.
@@ -103,11 +123,12 @@ per-row path in `iter_matrix` gains a judge branch:
   and grade each non-errored row through the `Judge` seam. A candidate's own provider error
   still short-circuits to `score 0.0 / error` before the judge is consulted.
 
-The judge runs **once per (candidate × example) cell** — N×M judge calls. Cost/latency of the
-judge is **not** folded into the candidate's measured cost/latency (that would distort the
-candidate's own numbers); v0 keeps judge cost out of the candidate columns and the receipt
-states the judge model so the cost is attributable. (Surfacing aggregate judge cost is a
-possible follow-up, not in scope.)
+The judge runs **once per (candidate × example) cell** — N×M judge calls. Judge cost/latency
+is **not** folded into the candidate's `estimated_cost_usd`/`latency_ms` (that would distort
+the candidate's own numbers and the leaderboard ranking). Instead each judge call's cost and
+latency are captured **separately** on the row (`judge_cost_usd`, `judge_latency_ms`) and
+rolled up into a run-level `RunCostSummary` (candidate total + judge total + grand total) so
+**all costs are accounted for** for cost control. See §6a.
 
 `run_proof` validates up front: `kind == "judge"` requires a resolvable `judge_provider_id` +
 `judge_model`; if missing/unavailable → a clear error at run start (no silent fallback —
@@ -128,6 +149,21 @@ reformatted-but-correct output that scored 0.12 now passes.
   was measured.
 - **The judge key never appears** in any receipt, log, or screenshot (security-secrets-review
   gate). `judge_provider_id`/`judge_model` are safe to show; the key is not.
+
+### 6a. Cost rollup (cost control)
+
+- `run_proof` computes `RunCostSummary` from the rows: `candidate_cost_usd` (Σ candidate
+  cost), `judge_cost_usd` (Σ judge cost), `total_cost_usd` (the grand total). For deterministic
+  keyless kinds judge cost is `0.0`, so `total == candidate` and non-judge receipts simply gain
+  a visible, correct total.
+- A calm **Run cost** summary across cockpit + all 3 receipt formats:
+  `Candidate cost $X · Judge cost $Y · Total $Z`. When judge cost is 0 the judge line may be
+  omitted or shown as `$0.00` (calm, not noisy) — the grand total is always shown.
+- The **leaderboard is unchanged**: its per-candidate `total_estimated_cost_usd` stays
+  **candidate-only** and remains the cost tiebreak input (§ non-regressions). Judge cost lives
+  only at the run level so it never influences which candidate is recommended.
+- `MockJudge` returns a **fixed, deterministic cost** per call so the rollup is testable and
+  the keyless suite stays reproducible.
 
 ### 7. Frontend — full in-app judge picker
 
@@ -165,8 +201,12 @@ A small **Scoring method** section in the cockpit run config:
   new fields.
 - **Engine**: a keyless keypoint run is deterministic and produces the expected pass/fail; a
   judge run via `MockJudge` is deterministic; judge-without-model raises at run start.
-- **Receipt**: `RECEIPT_VERSION == 5`; the "Scored by" line renders per kind in MD/HTML/JSON;
-  no secrets (`receipt-quality-review` + `security-secrets-review`).
+- **Cost rollup**: `RunCostSummary` = candidate + judge + total; a non-judge run has
+  `judge_cost_usd == 0` and `total == candidate`; a `MockJudge` run has a non-zero,
+  deterministic judge total; the leaderboard's `total_estimated_cost_usd` stays candidate-only
+  (judge cost does not change the recommended candidate).
+- **Receipt**: `RECEIPT_VERSION == 5`; the "Scored by" line and the Run cost summary render per
+  kind in MD/HTML/JSON; no secrets (`receipt-quality-review` + `security-secrets-review`).
 - **Frontend (Vitest)**: scoring-method selector renders; judge selection surfaces the judge
   model; "Scored by" displays per kind.
 - **e2e (Playwright)**: the keyless proof the fix works — on the keypointed demo dataset a
@@ -177,7 +217,8 @@ A small **Scoring method** section in the cockpit run config:
 
 - Finding-1 invariants: leaderboard never recommends a 0-pass/all-errored candidate; calm
   NEUTRAL no-winner state; errored rows say "errored, no output". A judge error is an
-  *error*, not a low-scoring fail.
+  *error*, not a low-scoring fail. The leaderboard cost tiebreak stays **candidate-cost-only**
+  — judge cost lives at the run level and must never enter the ranking.
 - `similarity`/`exact`/`contains` scoring is byte-for-byte unchanged.
 - Keyless mock default still Just Works (default selection never picks judge; `MockJudge`
   keeps the suite keyless).
@@ -187,7 +228,8 @@ A small **Scoring method** section in the cockpit run config:
 ## Out of scope (YAGNI)
 
 - Fuzzy/numeric keypoint matching (author canonical tokens instead).
-- Folding judge cost/latency into candidate columns (judge model is named for attribution).
+- Folding judge cost/latency into the candidate columns (kept separate by design; tracked at
+  the run level instead — §6a).
 - Multi-judge panels / judge ensembles. Per-criterion rubric weights.
 - Auto-extracting keypoints from `expected_text`.
 ```
