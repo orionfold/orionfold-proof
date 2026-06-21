@@ -7,7 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 import { z } from "zod";
 
 import { getSelection, rubricSchema } from "../../lib/api";
-import type { SelectionGroup } from "../../lib/api";
+import type { SelectionGroup, SelectionPanel } from "../../lib/api";
 import { KeyEntry } from "./KeyEntry";
 import { CLOUD_KEY_NAMES } from "./selectionMeta";
 
@@ -116,11 +116,9 @@ interface JudgePickerProps {
 }
 
 function JudgePicker({ selectedProviderId, selectedModel, onPick }: JudgePickerProps) {
-  const { data: panel } = useQuery({ queryKey: ["selection"], queryFn: getSelection });
+  const { data: panel } = useQuery<SelectionPanel>({ queryKey: ["selection"], queryFn: getSelection });
 
-  // The real SelectionPanel uses `providers`; the test mock returns `groups` (different shape).
-  // We defensively coerce both so the component works in tests and in production.
-  const groups: SelectionGroup[] = (panel as unknown as Record<string, unknown>)?.providers as SelectionGroup[] ?? [];
+  const groups: SelectionGroup[] = panel?.providers ?? [];
 
   return (
     <div className="grid gap-3">
@@ -188,8 +186,8 @@ function JudgeProviderRow({
   selectedModel,
   onPick,
 }: JudgeProviderRowProps) {
-  // "Mock judge" has no model chips — selecting the provider IS the selection.
-  const isMock = models.length === 0;
+  // "Mock judge" is identified by provider id, not by empty models list.
+  const isMock = providerId === "mock_judge";
   const isMockSelected = selectedProviderId === providerId && selectedModel === null;
 
   return (
