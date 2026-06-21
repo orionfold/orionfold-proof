@@ -195,6 +195,11 @@ def create_run(request: Request, body: RunRequest) -> ProofReport:
             raise HTTPException(status_code=400, detail=str(exc))
 
         rubric = body.rubric or default_rubric_for(dataset)
+        if rubric.kind == "judge":
+            try:
+                build_judge(rubric)
+            except (ValueError, KeyError) as exc:
+                raise HTTPException(status_code=422, detail=f"Judge not available: {exc}")
         # Normalize to the trailing-Z form so live receipts match the fixtures/samples.
         now = datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
         try:
@@ -248,8 +253,8 @@ def create_run_stream(request: Request, body: RunRequest) -> StreamingResponse:
     if rubric.kind == "judge":
         try:
             build_judge(rubric)
-        except ValueError as exc:
-            raise HTTPException(status_code=422, detail=str(exc))
+        except (ValueError, KeyError) as exc:
+            raise HTTPException(status_code=422, detail=f"Judge not available: {exc}")
     db_path = request.app.state.db_path
 
     def events() -> Iterator[str]:

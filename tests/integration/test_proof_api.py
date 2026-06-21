@@ -377,3 +377,28 @@ def test_run_report_has_cost_summary(client):
     )
     assert resp.status_code == 200
     assert "cost_summary" in resp.json()
+
+
+def test_run_judge_with_unavailable_provider_is_422(client, tmp_path, monkeypatch):
+    """Regression: unavailable but well-formed judge_provider_id must return 422, not 500."""
+    # Ensure openai is NOT available (no key set).
+    monkeypatch.setenv("ORIONFOLD_ENV_FILE", str(tmp_path / "absent.env"))
+    for name in ("OPENAI_API_KEY", "GEMINI_API_KEY", "OPENROUTER_API_KEY", "ANTHROPIC_API_KEY"):
+        monkeypatch.delenv(name, raising=False)
+
+    resp = client.post(
+        "/api/runs",
+        json={
+            "dataset_id": _DEMO_DATASET_ID,
+            "candidate_ids": ["mock_good"],
+            "rubric": {
+                "kind": "judge",
+                "threshold": 0.8,
+                "case_sensitive": False,
+                "judge_provider_id": "openai",
+                "judge_model": "x",
+            },
+            "brief": {"task_name": "t", "decision_question": "q"},
+        },
+    )
+    assert resp.status_code == 422, f"Expected 422, got {resp.status_code}: {resp.text}"

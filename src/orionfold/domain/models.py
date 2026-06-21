@@ -153,4 +153,8 @@ class ProofReport(BaseModel):
     run: ProofRun
     leaderboard: list[LeaderboardEntry]
     results: list[ResultRow]
-    cost_summary: RunCostSummary
+    cost_summary: RunCostSummary = Field(
+        default_factory=lambda: RunCostSummary(
+            candidate_cost_usd=0.0, judge_cost_usd=0.0, total_cost_usd=0.0
+        )
+    )
