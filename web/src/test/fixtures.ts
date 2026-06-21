@@ -38,6 +38,7 @@ export const SAMPLE_REPORT: ProofReport = {
     },
   ],
   results: [],
+  cost_summary: { candidate_cost_usd: 0, judge_cost_usd: 0, total_cost_usd: 0 },
 };
 
 // No candidate passed: one ran-but-failed, one fully errored. Nothing recommended.

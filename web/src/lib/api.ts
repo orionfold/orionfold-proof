@@ -65,9 +65,11 @@ export const parseResultSchema = z.object({
 export type ParseResult = z.infer<typeof parseResultSchema>;
 
 export const rubricSchema = z.object({
-  kind: z.enum(["exact", "contains", "similarity"]),
+  kind: z.enum(["exact", "contains", "similarity", "keypoint", "judge"]),
   threshold: z.number(),
   case_sensitive: z.boolean(),
+  judge_provider_id: z.string().nullable().optional(),
+  judge_model: z.string().nullable().optional(),
 });
 
 export const leaderboardEntrySchema = z.object({
@@ -98,6 +100,8 @@ export const resultRowSchema = z.object({
   passed: z.boolean(),
   latency_ms: z.number(),
   estimated_cost_usd: z.number(),
+  judge_cost_usd: z.number().default(0),
+  judge_latency_ms: z.number().default(0),
   privacy: Privacy,
   error: z.string().nullable(),
 });
@@ -123,10 +127,17 @@ export const proofRunSchema = z.object({
   status: z.literal("complete"),
 });
 
+export const runCostSummarySchema = z.object({
+  candidate_cost_usd: z.number(),
+  judge_cost_usd: z.number(),
+  total_cost_usd: z.number(),
+});
+
 export const proofReportSchema = z.object({
   run: proofRunSchema,
   leaderboard: z.array(leaderboardEntrySchema),
   results: z.array(resultRowSchema),
+  cost_summary: runCostSummarySchema,
 });
 export type ProofReport = z.infer<typeof proofReportSchema>;
 
@@ -255,7 +266,14 @@ export function getRuns(): Promise<ProofReport[]> {
 export interface RunRequest {
   dataset_id: string;
   candidate_ids: string[];
+  rubric?: z.infer<typeof rubricSchema> | null;
   brief: ProofBrief;
+}
+
+export function scoredByLabel(rubric: z.infer<typeof rubricSchema>): string {
+  if (rubric.kind === "keypoint") return "Keypoint coverage";
+  if (rubric.kind === "judge") return `LLM judge · ${rubric.judge_model ?? rubric.judge_provider_id ?? "model"}`;
+  return { similarity: "Similarity", exact: "Exact match", contains: "Contains" }[rubric.kind] ?? rubric.kind;
 }
 
 export async function createRun(body: RunRequest): Promise<ProofReport> {
