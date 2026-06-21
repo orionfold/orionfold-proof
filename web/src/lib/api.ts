@@ -192,6 +192,59 @@ export function getSelection(): Promise<SelectionPanel> {
   return getJson("/api/selection", selectionPanelSchema);
 }
 
+export const resolvedSelectorSchema = z.object({
+  label: z.string(),
+  candidate_id: z.string(),
+  display_name: z.string(),
+  provider_id: z.string(),
+  cost_class: z.enum(["free", "$", "$$", "$$$"]),
+});
+export type ResolvedSelector = z.infer<typeof resolvedSelectorSchema>;
+
+export const unmetSelectorSchema = z.object({
+  label: z.string(),
+  needs_provider_id: z.string(),
+  needs_provider_label: z.string(),
+  key_name: z.string(),
+});
+export type UnmetSelector = z.infer<typeof unmetSelectorSchema>;
+
+export const resolvedRecipeSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  subtitle: z.string(),
+  decision_question: z.string(),
+  candidate_ids: z.array(z.string()),
+  resolved: z.array(resolvedSelectorSchema),
+  unmet: z.array(unmetSelectorSchema),
+});
+export type ResolvedRecipe = z.infer<typeof resolvedRecipeSchema>;
+
+export const recipesPanelSchema = z.object({ recipes: z.array(resolvedRecipeSchema) });
+export type RecipesPanel = z.infer<typeof recipesPanelSchema>;
+
+export function getRecipes(): Promise<RecipesPanel> {
+  return getJson("/api/recipes", recipesPanelSchema);
+}
+
+const credentialStatusSchema = z.object({ provider_id: z.string(), available: z.boolean() });
+
+export async function setProviderKey(
+  providerId: string,
+  key: string,
+): Promise<z.infer<typeof credentialStatusSchema>> {
+  const res = await fetch("/api/credentials", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ provider_id: providerId, key }),
+  });
+  if (!res.ok) {
+    const detail = await res.json().catch(() => ({}));
+    throw new Error(detail?.detail ?? `Saving the key failed (HTTP ${res.status})`);
+  }
+  return credentialStatusSchema.parse(await res.json());
+}
+
 // Past runs, newest first — each is a full report, so the Receipts view can show the winner
 // and reopen the run in the cockpit without a second fetch.
 export function getRuns(): Promise<ProofReport[]> {
