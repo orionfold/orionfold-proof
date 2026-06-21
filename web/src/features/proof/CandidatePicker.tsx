@@ -1,6 +1,7 @@
 import { useState } from "react";
 
 import type { SelectionGroup, SelectionModel, SelectionPanel } from "../../lib/api";
+import { ProviderLogo } from "./ProviderLogo";
 
 export interface CandidatePickerProps {
   panel: SelectionPanel;
@@ -44,12 +45,12 @@ function ProviderRow({
   return (
     <div className="grid gap-2 sm:grid-cols-[8rem_minmax(0,1fr)] sm:items-start">
       <div className="flex items-center gap-1.5 pt-1.5 text-(--color-ink-muted)">
-        <span
-          aria-hidden
-          className={
-            "h-2 w-2 rounded-full " +
-            (group.available ? "bg-(--color-accent)" : "bg-(--color-panel-line-strong)")
-          }
+        {/* The provider's logo doubles as the availability signal (full ink when available,
+            dimmed when not); mocks have no brand and fall back to a status dot. */}
+        <ProviderLogo
+          providerId={group.provider_id}
+          available={group.available}
+          label={group.label}
         />
         {/* Mocks carry their full label on the chip, so the left column stays generic to avoid
             repeating the same text twice in one row. */}
