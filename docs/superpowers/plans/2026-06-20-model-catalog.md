@@ -17,7 +17,7 @@
 - **Pricing honesty:** every `pricing` block carries `as_of` (ISO date) + `source` (URL). Local models set `pricing: null`, `cost_class: "free"`. Prices are list prices, dated and sourced — never a claim.
 - **Secrets:** the catalog contains zero credentials; the endpoint must leak none. Never log/print keys.
 - Tests run keyless/offline: `uv run pytest`. No network in unit tests.
-- Run from repo root: `/Users/manavsehgal/orionfold-proof-claude`.
+- Run from repo root: `/Users/manavsehgal/orionfold-proof`.
 
 ---
 

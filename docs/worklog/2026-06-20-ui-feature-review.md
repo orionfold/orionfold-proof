@@ -5,7 +5,7 @@
 > Severity: **P0** blocker · **P1** should-fix · **P2** polish · **idea** future.
 
 ## How this session ran
-- App: `orionfold-proof-claude` rebuilt + embedded, `orionfold up` on port 8799, fresh temp DB.
+- App: `orionfold-proof` rebuilt + embedded, `orionfold up` on port 8799, fresh temp DB.
 - Operator drives the browser; Claude observes (screenshots / read_page) and records feedback.
 
 ## Findings
