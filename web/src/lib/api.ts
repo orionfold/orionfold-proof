@@ -11,6 +11,7 @@ export const candidateSchema = z.object({
   provider_id: z.string(),
   privacy: Privacy,
   model: z.string().nullable().optional(),
+  system_prompt: z.string().nullable().optional(),
 });
 export type Candidate = z.infer<typeof candidateSchema>;
 
@@ -80,6 +81,7 @@ export const leaderboardEntrySchema = z.object({
   provider_id: z.string(),
   privacy: Privacy,
   model: z.string().nullable().optional(),
+  system_prompt: z.string().nullable().optional(),
   total: z.number(),
   pass_count: z.number(),
   pass_rate: z.number(),
@@ -266,11 +268,17 @@ export function getRuns(): Promise<ProofReport[]> {
   return getJson("/api/runs", z.array(proofReportSchema));
 }
 
+export interface PromptVariant {
+  name: string;
+  system_prompt: string;
+}
+
 export interface RunRequest {
   dataset_id: string;
   candidate_ids: string[];
   rubric?: z.infer<typeof rubricSchema> | null;
   brief: ProofBrief;
+  prompt_variants?: PromptVariant[];
 }
 
 export function scoredByLabel(rubric: z.infer<typeof rubricSchema>): string {
