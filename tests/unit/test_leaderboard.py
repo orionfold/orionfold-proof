@@ -83,3 +83,28 @@ def test_error_count_is_computed():
     [entry] = build_leaderboard(cands, results)
     assert entry.error_count == 1
     assert entry.failure_count == 2
+
+
+def test_leaderboard_entry_carries_candidate_system_prompt():
+    from orionfold.domain.models import Candidate, ResultRow
+    from orionfold.proof.leaderboard import build_leaderboard
+
+    cand = Candidate(id="ollama#terse", label="Terse", provider_id="ollama",
+                     model="llama3.2", system_prompt="Be terse.")
+    rows = [ResultRow(candidate_id="ollama#terse", example_index=0, input_text="a",
+                      expected_text="b", output_text="b", score=1.0, passed=True,
+                      latency_ms=10, estimated_cost_usd=0.0, privacy="local", error=None)]
+    [entry] = build_leaderboard([cand], rows)
+    assert entry.system_prompt == "Be terse."
+
+
+def test_leaderboard_entry_system_prompt_none_for_model_compare():
+    from orionfold.domain.models import Candidate, ResultRow
+    from orionfold.proof.leaderboard import build_leaderboard
+
+    cand = Candidate(id="mock_good", label="Mock", provider_id="mock_good")
+    rows = [ResultRow(candidate_id="mock_good", example_index=0, input_text="a",
+                      expected_text="b", output_text="b", score=1.0, passed=True,
+                      latency_ms=10, estimated_cost_usd=0.0, privacy="local", error=None)]
+    [entry] = build_leaderboard([cand], rows)
+    assert entry.system_prompt is None

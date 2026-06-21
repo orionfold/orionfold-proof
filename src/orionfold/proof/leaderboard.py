@@ -36,6 +36,7 @@ def build_leaderboard(
                 provider_id=cand.provider_id,
                 privacy=cand.privacy,
                 model=cand.model,
+                system_prompt=cand.system_prompt,
                 total=total,
                 pass_count=pass_count,
                 pass_rate=pass_count / total if total else 0.0,

@@ -108,6 +108,7 @@ class LeaderboardEntry(BaseModel):
     provider_id: str
     privacy: Privacy
     model: str | None = None
+    system_prompt: str | None = None  # set for prompt-variant entries; None for model-compare
     total: int
     pass_count: int
     pass_rate: float
