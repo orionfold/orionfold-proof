@@ -6,3 +6,18 @@ export const CLOUD_KEY_NAMES: Record<string, string> = {
   openrouter: "OPENROUTER_API_KEY",
   gemini: "GEMINI_API_KEY",
 };
+
+// Per-method copy for the grouped scoring cards. `group` drives the free-vs-paid section.
+export const METHOD_META = {
+  auto: { label: "Auto", group: "free", cost: "Free", guidance: "We pick the right free check for your dataset." },
+  keypoint: { label: "Keypoint", group: "free", cost: "Free", guidance: "Checks your authored key facts appear in the answer." },
+  similarity: { label: "Similarity", group: "free", cost: "Free", guidance: "Scores by semantic closeness to the expected answer." },
+  judge: { label: "LLM judge", group: "paid", cost: "$ per run · slower", guidance: "A model grades each answer against the expected one." },
+} as const;
+
+// The "Optimize" axis of the judge filter, ordered cheapest → best. Maps UI labels to catalog tiers.
+export const JUDGE_TIERS = [
+  { id: "economy", label: "Cheapest" },
+  { id: "balanced", label: "Balanced" },
+  { id: "frontier", label: "Best" },
+] as const;

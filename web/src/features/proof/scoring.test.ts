@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { resolveAutoKind } from "./scoring";
-import type { Dataset } from "../../lib/api";
+import { resolveAutoKind, filterJudgeModels } from "./scoring";
+import type { Dataset, SelectionPanel } from "../../lib/api";
 
 function ds(keypoints: string[][]): Dataset {
   return {
@@ -20,5 +20,57 @@ describe("resolveAutoKind", () => {
   });
   it("returns similarity for an undefined dataset", () => {
     expect(resolveAutoKind(undefined)).toBe("similarity");
+  });
+});
+
+function model(over: Partial<import("../../lib/api").SelectionModel> = {}) {
+  return {
+    candidate_id: "c", model: "m", display_name: "M", tier: "economy" as const,
+    cost_class: "$" as const, context_window: null, latest: false, recommended: false, ...over,
+  };
+}
+const panel: SelectionPanel = {
+  providers: [
+    { provider_id: "mock_good", label: "Mock", privacy: "local", available: true, supports_custom: false, candidate_id: null, models: [] },
+    { provider_id: "ollama", label: "Ollama", privacy: "local", available: true, supports_custom: false, candidate_id: null,
+      models: [model({ model: "llama-eco", display_name: "Llama eco", tier: "economy", recommended: true })] },
+    { provider_id: "anthropic", label: "Anthropic", privacy: "cloud", available: true, supports_custom: false, candidate_id: null,
+      models: [
+        model({ model: "haiku", display_name: "Haiku", tier: "economy", recommended: true }),
+        model({ model: "opus", display_name: "Opus", tier: "frontier", latest: true }),
+      ] },
+    { provider_id: "openai", label: "OpenAI", privacy: "cloud", available: false, supports_custom: false, candidate_id: null, models: [] },
+  ],
+};
+
+describe("filterJudgeModels", () => {
+  it("defaults Local+Cheapest to keyless Mock judge", () => {
+    const r = filterJudgeModels(panel, "local", "economy");
+    expect(r.options[0]).toMatchObject({ providerId: "mock_judge", model: null });
+    expect(r.defaultProviderId).toBe("mock_judge");
+    expect(r.defaultModel).toBeNull();
+  });
+  it("excludes mock_good / mock_bad from options", () => {
+    const r = filterJudgeModels(panel, "local", "economy");
+    expect(r.options.some((o) => o.providerId === "mock_good")).toBe(false);
+  });
+  it("filters Hosted+Cheapest to economy cloud models and prefers a recommended default", () => {
+    const r = filterJudgeModels(panel, "cloud", "economy");
+    expect(r.options.map((o) => o.model)).toEqual(["haiku"]);
+    expect(r.defaultProviderId).toBe("anthropic");
+    expect(r.defaultModel).toBe("haiku");
+  });
+  it("falls back to latest when no recommended survives the tier filter", () => {
+    const r = filterJudgeModels(panel, "cloud", "frontier");
+    expect(r.defaultModel).toBe("opus");
+  });
+  it("lists unavailable cloud providers as gated (key needed)", () => {
+    const r = filterJudgeModels(panel, "cloud", "economy");
+    expect(r.gated).toEqual([{ providerId: "openai", label: "OpenAI", keyName: "OPENAI_API_KEY" }]);
+  });
+  it("returns no options for an empty local Best combo", () => {
+    const r = filterJudgeModels(panel, "local", "frontier");
+    expect(r.options).toEqual([]);
+    expect(r.defaultProviderId).toBeNull();
   });
 });
