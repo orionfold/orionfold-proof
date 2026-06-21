@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { ChevronRight, Download } from "lucide-react";
 
-import { getRuns, receiptUrl, type LeaderboardEntry, type ProofReport } from "../../lib/api";
+import { getRuns, receiptUrl, scoredByLabel, type LeaderboardEntry, type ProofReport } from "../../lib/api";
 import { ProviderTag } from "./badges";
 import { ViewNotice, ViewShell } from "./ViewShell";
 
@@ -77,6 +77,9 @@ function ReceiptCard({ report, onOpen }: { report: ProofReport; onOpen: () => vo
             <ProviderTag candidate={winner} />
             <span>
               {Math.round(winner.pass_rate * 100)}% ({winner.pass_count}/{winner.total})
+            </span>
+            <span className="text-(--color-ink-faint)">
+              Scored by {scoredByLabel(report.run.rubric)}
             </span>
           </div>
         )}

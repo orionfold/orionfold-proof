@@ -7,6 +7,7 @@ import {
   getSelection,
   getDatasets,
   getRecipes,
+  scoredByLabel,
   type LeaderboardEntry,
   type ProofBrief,
   type ProofReport,
@@ -14,7 +15,9 @@ import {
   type ResultRow,
   type RunRequest,
   type RunStartEvent,
+  type RunCostSummary,
 } from "../../lib/api";
+import { ScoringMethod, type Rubric } from "./ScoringMethod";
 import { ProviderTag } from "./badges";
 import { FailureCases } from "./FailureCases";
 import { Inspector } from "./Inspector";
@@ -49,6 +52,7 @@ export function ProofCockpit({
   const [datasetId, setDatasetId] = useState("");
   const [selected, setSelected] = useState<string[]>([]);
   const [brief, setBrief] = useState<ProofBrief>(DEFAULT_BRIEF);
+  const [rubric, setRubric] = useState<Rubric | null>(null);
   // The Task name headlines the receipt, so it should describe the dataset under test. Until the
   // user types their own, mirror it from the selected dataset — otherwise a receipt for an
   // imported set would inherit the bundled dataset's name. Editing the field locks it.
@@ -173,9 +177,12 @@ export function ProofCockpit({
               dataset_id: resolvedDatasetId,
               candidate_ids: resolvedSelected,
               brief: effectiveBrief,
+              ...(rubric ? { rubric } : {}),
             })
           }
         />
+
+        <ScoringMethod value={rubric} onChange={setRubric} />
 
         {runMutation.isPending ? (
           progress ? (
@@ -185,7 +192,12 @@ export function ProofCockpit({
           )
         ) : report ? (
           <div className="flex flex-col gap-8 motion-safe:animate-reveal">
-            <DecisionSummary brief={report.run.brief} leaderboard={report.leaderboard} />
+            <DecisionSummary
+              brief={report.run.brief}
+              leaderboard={report.leaderboard}
+              scoredBy={scoredByLabel(report.run.rubric)}
+              cost={report.cost_summary}
+            />
             <Leaderboard entries={report.leaderboard} />
             <FailureCases report={report} selected={openFailure} onSelect={setOpenFailure} />
           </div>
@@ -214,9 +226,13 @@ function CenteredNotice({ children }: { children: React.ReactNode }) {
 export function DecisionSummary({
   brief,
   leaderboard,
+  scoredBy,
+  cost,
 }: {
   brief: ProofBrief;
   leaderboard: LeaderboardEntry[];
+  scoredBy?: string;
+  cost?: RunCostSummary;
 }) {
   const winner = leaderboard.find((e) => e.recommended) ?? null;
   if (leaderboard.length === 0) return null;
@@ -234,6 +250,12 @@ export function DecisionSummary({
             No candidate passed the rubric. See the standings below — least-bad first; an
             errored candidate produced no output.
           </p>
+          {scoredBy && (
+            <p className="mt-1 text-sm text-(--color-ink-faint)">
+              Scored by {scoredBy}
+              {cost && ` · Run cost: candidate $${cost.candidate_cost_usd.toFixed(4)} · judge $${cost.judge_cost_usd.toFixed(4)} · total $${cost.total_cost_usd.toFixed(4)}`}
+            </p>
+          )}
         </div>
       </section>
     );
@@ -257,6 +279,12 @@ export function DecisionSummary({
           %) · avg score {winner.avg_score.toFixed(2)} · {winner.avg_latency_ms}ms avg · $
           {winner.total_estimated_cost_usd.toFixed(2)} est.
         </p>
+        {scoredBy && (
+          <p className="mt-1 text-sm text-(--color-ink-faint)">
+            Scored by {scoredBy}
+            {cost && ` · Run cost: candidate $${cost.candidate_cost_usd.toFixed(4)} · judge $${cost.judge_cost_usd.toFixed(4)} · total $${cost.total_cost_usd.toFixed(4)}`}
+          </p>
+        )}
       </div>
     </section>
   );

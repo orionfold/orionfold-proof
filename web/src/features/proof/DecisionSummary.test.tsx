@@ -16,3 +16,17 @@ describe("DecisionSummary no-winner state", () => {
     expect(screen.getByText(/Recommended/)).toBeInTheDocument();
   });
 });
+
+it("shows the scoring method and run cost when provided", () => {
+  render(
+    <DecisionSummary
+      brief={SAMPLE_REPORT.run.brief}
+      leaderboard={SAMPLE_REPORT.leaderboard}
+      scoredBy="Keypoint coverage"
+      cost={{ candidate_cost_usd: 0.01, judge_cost_usd: 0.002, total_cost_usd: 0.012 }}
+    />,
+  );
+  expect(screen.getByText(/Scored by/i)).toBeInTheDocument();
+  expect(screen.getByText(/Keypoint coverage/i)).toBeInTheDocument();
+  expect(screen.getByText(/Run cost/i)).toBeInTheDocument();
+});

@@ -132,6 +132,7 @@ export const runCostSummarySchema = z.object({
   judge_cost_usd: z.number(),
   total_cost_usd: z.number(),
 });
+export type RunCostSummary = z.infer<typeof runCostSummarySchema>;
 
 export const proofReportSchema = z.object({
   run: proofRunSchema,
