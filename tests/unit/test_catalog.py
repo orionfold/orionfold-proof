@@ -98,6 +98,20 @@ def test_default_model_for_unknown_provider_raises():
         default_model_for("does-not-exist")
 
 
+def test_fable_5_not_in_catalog():
+    catalog = load_catalog()
+    ids = [m.id for p in catalog.providers for m in p.models]
+    assert "claude-fable-5" not in ids
+
+
+def test_anthropic_frontier_is_opus_and_flagged_latest():
+    catalog = load_catalog()
+    anthropic = next(p for p in catalog.providers if p.id == "anthropic")
+    frontier = [m for m in anthropic.models if m.tier == "frontier"]
+    assert [m.id for m in frontier] == ["claude-opus-4-8"]
+    assert frontier[0].latest is True
+
+
 def test_provider_module_defaults_match_catalog():
     # The provider modules' __init__ fallbacks must agree with the catalog so direct
     # instantiation and the registry never diverge.

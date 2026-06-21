@@ -46,25 +46,10 @@
           "tier": "frontier",
           "context_window": 1000000,
           "cost_class": "$$$",
+          "latest": true,
           "pricing": {
             "input_per_mtok": 5.0,
             "output_per_mtok": 25.0,
-            "currency": "USD",
-            "as_of": "2026-06-20",
-            "source": "https://platform.claude.com/docs/en/about-claude/pricing"
-          }
-        },
-        {
-          "id": "claude-fable-5",
-          "display_name": "Claude Fable 5",
-          "family": "claude",
-          "tier": "frontier",
-          "context_window": 1000000,
-          "cost_class": "$$$",
-          "latest": true,
-          "pricing": {
-            "input_per_mtok": 10.0,
-            "output_per_mtok": 50.0,
             "currency": "USD",
             "as_of": "2026-06-20",
             "source": "https://platform.claude.com/docs/en/about-claude/pricing"
