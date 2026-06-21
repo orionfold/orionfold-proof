@@ -12,7 +12,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 Privacy = Literal["local", "cloud"]
-RubricKind = Literal["exact", "contains", "similarity"]
+RubricKind = Literal["exact", "contains", "similarity", "keypoint", "judge"]
 
 
 class Example(BaseModel):
@@ -20,6 +20,7 @@ class Example(BaseModel):
 
     input_text: str
     expected_text: str
+    keypoints: list[str] = []  # authored required facts; [] = none
 
 
 class Dataset(BaseModel):
@@ -40,6 +41,8 @@ class Rubric(BaseModel):
     kind: RubricKind = "similarity"
     threshold: float = Field(default=0.8, ge=0.0, le=1.0)
     case_sensitive: bool = False
+    judge_provider_id: str | None = None  # only used when kind == "judge"
+    judge_model: str | None = None  # recorded in provenance; shown in the receipt
 
 
 class Candidate(BaseModel):
@@ -88,6 +91,8 @@ class ResultRow(BaseModel):
     estimated_cost_usd: float
     privacy: Privacy
     error: str | None = None
+    judge_cost_usd: float = 0.0  # cost of the judge call for this cell (0 for non-judge)
+    judge_latency_ms: int = 0  # judge latency for this cell (0 for non-judge)
 
 
 class LeaderboardEntry(BaseModel):
@@ -131,6 +136,14 @@ class ProofRun(BaseModel):
     status: Literal["complete"] = "complete"
 
 
+class RunCostSummary(BaseModel):
+    """The full cost picture for a run — candidate, judge, and grand total (USD)."""
+
+    candidate_cost_usd: float
+    judge_cost_usd: float
+    total_cost_usd: float
+
+
 class ProofReport(BaseModel):
     """The full assembled result: run provenance + leaderboard + every result row.
 
@@ -140,3 +153,4 @@ class ProofReport(BaseModel):
     run: ProofRun
     leaderboard: list[LeaderboardEntry]
     results: list[ResultRow]
+    cost_summary: RunCostSummary
