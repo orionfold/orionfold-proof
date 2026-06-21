@@ -9,7 +9,7 @@ afterEach(() => vi.restoreAllMocks());
 
 test("paste → preview → freeze calls createDataset and closes", async () => {
   vi.spyOn(api, "previewDataset").mockResolvedValue({
-    examples: [{ input_text: "a", expected_text: "b" }],
+    examples: [{ input_text: "a", expected_text: "b", keypoints: [] }],
     warnings: ["Line 2: not valid JSON — skipped."],
     count: 1,
   });
@@ -17,7 +17,7 @@ test("paste → preview → freeze calls createDataset and closes", async () => 
     id: "my-set",
     name: "My Set",
     description: "",
-    examples: [{ input_text: "a", expected_text: "b" }],
+    examples: [{ input_text: "a", expected_text: "b", keypoints: [] }],
   });
   const onClose = vi.fn();
   renderWithQuery(<DatasetImportPanel onClose={onClose} />);
