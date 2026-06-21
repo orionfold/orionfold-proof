@@ -195,28 +195,38 @@ function CustomChip({
       </button>
     );
   }
+  function submit() {
+    const value = text.trim();
+    if (value) onToggle(`${providerId}:${value}`);
+    setText("");
+    setOpen(false);
+  }
   return (
-    <form
-      onSubmit={(e) => {
-        e.preventDefault();
-        const value = text.trim();
-        if (value) onToggle(`${providerId}:${value}`);
-        setText("");
-        setOpen(false);
-      }}
-      className="flex items-center gap-1"
-    >
+    <div className="flex items-center gap-1">
       <input
         autoFocus
         aria-label={`custom ${providerLabel} model`}
         value={text}
         onChange={(e) => setText(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            submit();
+          } else if (e.key === "Escape") {
+            setText("");
+            setOpen(false);
+          }
+        }}
         placeholder="model id"
         className="w-40 rounded-lg border border-(--color-panel-line) bg-(--color-panel) px-2 py-1.5 text-(--color-ink)"
       />
-      <button type="submit" className="rounded-lg bg-(--color-accent-strong) px-2 py-1.5 text-(--color-accent-ink)">
+      <button
+        type="button"
+        onClick={submit}
+        className="rounded-lg bg-(--color-accent-strong) px-2 py-1.5 text-(--color-accent-ink)"
+      >
         Add
       </button>
-    </form>
+    </div>
   );
 }

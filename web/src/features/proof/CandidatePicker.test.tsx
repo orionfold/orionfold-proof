@@ -64,6 +64,21 @@ test("custom entry builds a provider:model candidate id", () => {
   render(<CandidatePicker panel={PANEL} selected={[]} onToggle={onToggle} />);
   fireEvent.click(screen.getByRole("button", { name: /custom model for Ollama/i }));
   fireEvent.change(screen.getByLabelText(/custom Ollama model/i), { target: { value: "phi3:mini" } });
-  fireEvent.submit(screen.getByLabelText(/custom Ollama model/i).closest("form")!);
+  fireEvent.click(screen.getByRole("button", { name: "Add" }));
   expect(onToggle).toHaveBeenCalledWith("ollama:phi3:mini");
+});
+
+test("custom Add adds a candidate without submitting a surrounding form", () => {
+  const onToggle = vi.fn();
+  const onSubmit = vi.fn((e) => e.preventDefault());
+  render(
+    <form onSubmit={onSubmit}>
+      <CandidatePicker panel={PANEL} selected={[]} onToggle={onToggle} />
+    </form>,
+  );
+  fireEvent.click(screen.getByRole("button", { name: /custom model for Ollama/i }));
+  fireEvent.change(screen.getByLabelText(/custom Ollama model/i), { target: { value: "phi3:mini" } });
+  fireEvent.click(screen.getByRole("button", { name: "Add" }));
+  expect(onToggle).toHaveBeenCalledWith("ollama:phi3:mini");
+  expect(onSubmit).not.toHaveBeenCalled();
 });
