@@ -24,10 +24,17 @@ unlocks a recipe with no restart; key in neither response nor log). Commits on `
 no remote): a6ebaaf 397c0c3 cfaa23d ad3d55c 6f5484d d95f87d f58f8d6 692e70a 79a532c d740113 7bfcccd
 1289cd4 (+ spec b… see git log, plan)._
 >
-> **NEXT SESSION: build #6 PROMPT-VARIANT CANDIDATES** (the next candidate axis — same model,
-> different system prompt; still text-in/text-out, no new provider machinery) **OR** the catalog
-> price/source verification pass. Full creative/feature work → brainstorm → spec → plan →
-> subagent-driven, same loop._
+> **NEXT SESSION: three findings from the live operator review (2026-06-20) take priority over #6.**
+> (1) **Leaderboard recommendation bug** — `leaderboard.py:48-50` recommends an ERRORED candidate
+> because a 0/5 error reports 0ms/$0.00 and wins the tiebreak; verified twice live (it crowned a
+> model that returned HTTP 404). Fix the sort `(-pass_rate, -avg_score, latency, cost)` + only mark
+> `recommended` when `pass_count>0` + a "no clear winner" UI/receipt state. Its own slice (touches
+> the receipt output → `receipt-quality-review`). (2) **Remove `claude-fable-5` from catalog.json**
+> (or tag unavailable) — it errors (not available) and the cost-vs-quality "Frontier" arm resolves to
+> it; removing it makes Frontier resolve to `claude-opus-4-8`. (3) **Similarity rubric too crude** —
+> @0.8 fails a correct Markdown-table summary (scored 0.12) because it's format-sensitive; points to
+> an LLM-as-judge/semantic rubric (charter "optional, later"). THEN #6 prompt-variant candidates.
+> Full creative/feature work → brainstorm → spec → plan → subagent-driven, same loop._
 
 ## Paste prompt for the next session
 
@@ -62,11 +69,27 @@ RECENT WORK (committed to main, not pushed — no git remote configured):
 
 THE DECISION-RECIPES THREAD (operator's strategic bet). Done: #1 catalog, #4 picker, #5 recipes.
 
->> START HERE — choose with the operator: #6 PROMPT-VARIANT CANDIDATES (same model, different system
-   prompt — the natural next candidate axis after models; still text-in/text-out, no new provider
-   machinery; would compose with recipes/picker as another candidate dimension), OR the CATALOG
-   PRICE/SOURCE verification pass (refine UNVERIFIED list prices with better sources). Workflows/RAG
-   remain explicit post-v0. BRAINSTORM before plan/code.
+>> START HERE — THREE LIVE-REVIEW FINDINGS (2026-06-20) BEFORE #6 (details in
+   docs/worklog/2026-06-20-decision-recipes.md §Findings):
+   (1) LEADERBOARD RECOMMENDATION BUG (highest priority) — src/orionfold/proof/leaderboard.py:48-50
+       sorts (-pass_rate, avg_latency_ms, total_cost) and unconditionally marks entries[0]
+       recommended. An errored candidate reports 0ms/$0.00 so it WINS the 0%-pass tiebreak and gets
+       "RECOMMENDED" — verified twice live (crowned claude-fable-5 then ollama:llama3.2, the latter a
+       404 "model not found"). Fix: sort (-pass_rate, -avg_score, avg_latency_ms, total_cost); mark
+       recommended ONLY if entries[0].pass_count>0; add a "no candidate passed" state to
+       DecisionSummary (ProofCockpit.tsx) + receipts/export.py. ResultRow already carries the error,
+       so errored rows can rank last. Own slice; regenerate sample receipts; receipt-quality-review.
+   (2) REMOVE claude-fable-5 FROM src/orionfold/catalog/catalog.json (or tag unavailable) — it errors
+       (not available on the account); the cost-vs-quality "Frontier" selector resolves to it.
+       Removing → Frontier resolves to claude-opus-4-8. Keep default_model_for("anthropic") +
+       test_catalog.py pinned defaults in sync (drift-guard). Small; pairs with the price/source pass.
+   (3) SIMILARITY RUBRIC TOO CRUDE — default similarity@0.8 fails a correct Markdown-table summary
+       (Haiku scored 0.12) because it matches phrasing/format, not meaning. Points to an
+       LLM-as-judge/semantic rubric (charter "optional, later"); interim = lower threshold / document
+       format-sensitivity. Own brainstorm.
+   THEN #6 PROMPT-VARIANT CANDIDATES (same model, different system prompt — next candidate axis;
+   composes with recipes/picker), and the CATALOG PRICE/SOURCE pass. Workflows/RAG remain post-v0.
+   BRAINSTORM before plan/code.
 
 OTHER (non-blocking — do NOT gate #6 on these):
 - CATALOG PRICE/SOURCE accuracy is a ROADMAP item (a few values approximate/UNVERIFIED: OpenAI
