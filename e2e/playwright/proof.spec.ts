@@ -89,3 +89,34 @@ test("decision recipes pre-fill the setup", async ({ page }) => {
   await recipe.click();
   await expect(page.getByLabel(/decision question/i)).toHaveValue(/different hosts/i);
 });
+
+test("prompt compare: one model, two prompts → leaderboard + receipt section", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: "Orionfold Proof" })).toBeVisible();
+
+  // Switch the comparison axis to Prompts.
+  await page.getByRole("button", { name: "prompts", exact: true }).click();
+
+  // The prompt editor appears, seeded with two starter variants on a keyless mock model.
+  await expect(page.getByLabel(/Prompt model/i)).toBeVisible();
+  await expect(page.getByLabel(/Variant prompt 1/i)).toBeVisible();
+  await expect(page.getByLabel(/Variant prompt 2/i)).toBeVisible();
+
+  // Run keyless (mock model) and confirm a leaderboard row per variant.
+  await page.getByRole("button", { name: /Run proof/ }).click();
+  const leaderboard = page.getByRole("region", { name: "Leaderboard" });
+  await expect(leaderboard).toBeVisible();
+  await expect(leaderboard.getByText("Baseline")).toBeVisible();
+  await expect(leaderboard.getByText("Concise")).toBeVisible();
+
+  // The receipt records the prompt variants — fetch the JSON receipt for THIS run.
+  // (The iframe approach is blocked by the receipt's Content-Security-Policy: sandbox header.)
+  // Extract the run ID from the "Export JSON" link in the inspector (unique to this run).
+  const exportJsonLink = page.getByRole("link", { name: "Export JSON" });
+  const href = await exportJsonLink.getAttribute("href");
+  const runId = href!.match(/runs\/(run_[a-f0-9]+)\//)?.[1];
+  expect(runId).toBeTruthy();
+  const receiptRes = await page.request.get(`/api/runs/${runId}/receipt.json`);
+  const receipt = await receiptRes.json();
+  expect(receipt.prompt_variants.length).toBe(2);
+});
