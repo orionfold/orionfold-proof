@@ -6,25 +6,29 @@
 > To resume: in a fresh session say **"read from handoff"** (or "continue from last
 > session"), or `/clear` and paste the prompt below.
 
-_Last updated: 2026-06-21 · **Meaning-aware scoring (live-review Finding 2) SHIPPED & merge-ready.**
-The receipt no longer fails a correct summary for being worded/formatted differently. Two scoring
-methods join v0 similarity: **keypoint coverage** (deterministic, keyless — fraction of authored
-required facts present; the new DEFAULT when a dataset has keypoints) and an opt-in **LLM judge**
-(grades meaning vs expected 0..1 via a `Judge` seam reusing `safe_generate`; keyless deterministic
-`MockJudge` via `judge_provider_id="mock_judge"`). A full **cost rollup** (`RunCostSummary` =
-candidate · judge · total) accounts for judge cost SEPARATELY — never folded into a candidate's own
-cost or the leaderboard ranking. Receipt gains a "Scored by" line + "Run cost" summary
-(**RECEIPT_VERSION 4 → 5**); an in-app **Scoring method** picker (Auto · Keypoint · Similarity · LLM
-judge) reuses the candidate-picker availability + inline-KeyEntry machinery. The bundled demo dataset
-ships with keypoints (each a normalized substring of its expected text → mock_good stays 5/5), so the
-keyless demo scores by meaning out of the box. config_hash intentionally changed (additive
-`Example.keypoints` + `Rubric.judge_*`); samples regenerated. brainstorm → spec → plan → 12-task
-subagent-driven (Task 3 + Task 9 each one fix loop; Opus whole-branch review = Ready-to-merge + a
-security/receipt review → two robustness fixes). pytest 200 · ruff clean · vitest 55 · build clean ·
-e2e 4/4 (incl. keyless "Scored by Keypoint coverage" proof) · security review clean (no key in
-receipt/log/response; judge receipt verified). Commits on `main` (NOT pushed — no remote):
-b595d06 ee0681a 5969652 db3467a 03de56d 93ae30c 4e30238 5299eb9 2da1e62 c029688 9a1e587 87adab9
-f81be3a c57846e ffacb4d (+ spec/plan/worklog docs)._
+_Last updated: 2026-06-21 · **Scoring-section redesign SHIPPED & merge-ready (frontend-only).**
+The cockpit's **Scoring method** section went from a flat segmented control + chip-wall to (a) **grouped
+method cards** — "Free · instant · repeatable" (Auto/Keypoint/Similarity) vs "Costs money · adds latency"
+(LLM judge), each with one-line guidance + a cost indicator (the free-vs-paid split is now structural,
+guarding against accidental paid runs), and (b) a **two-step judge filter** (Local/Hosted →
+Cheapest/Balanced/Best) feeding a model `<select>` with an opinionated default. The **Auto card shows
+what it resolves to** for the selected dataset; the control moved INTO the RunSetup form, above "Run
+proof". New web units: `scoring.ts` (`resolveAutoKind`, `filterJudgeModels`), `MethodCard.tsx`,
+`JudgeFilter.tsx`, slimmed `ScoringMethod.tsx` (308→54 lines); `selectionMeta.ts` += METHOD_META/JUDGE_TIERS;
+`api.ts` += `keypoints` field + exported `Privacy` TYPE. **No backend/scoring/receipt change —
+RECEIPT_VERSION stays 5, config_hash untouched.** KEYLESS INVARIANT: the synthetic **Mock judge**
+(`judge_provider_id="mock_judge"`) is the Local+Cheapest default — enforced in `filterJudgeModels`
+(`def = mockJudge ?? recommended ?? latest ?? first`; mock stays `recommended:false` so NO badge but IS
+the default); `mock_good`/`mock_bad` are EXCLUDED from judge options. brainstorm → spec → 7-task plan →
+subagent-driven (per-task review + Opus whole-branch review = Ready-to-merge; final review caught the
+keyless-default edge → fixed). vitest 72/72 · build clean · e2e 5/5 (keyless "Scored by Keypoint
+coverage" intact + new LLM-judge-filter spec) · pure-frontend (zero Python). Commits on `main` (NOT
+pushed — no remote): f41f12e af3ca34 8b92988 c4762df df5f9ef 8cb3e4e 3d269f3 5dfe3f2 8caf7e6 d7938b5
+7b9cfbd b85c4aa (+ spec/plan/worklog docs).
+LESSON: vitest does NOT typecheck — run `pnpm --dir web build` before committing frontend changes._
+
+_Prior session: **Meaning-aware scoring (Finding 2)** shipped keypoint-coverage + LLM-judge scoring,
+RunCostSummary, RECEIPT_VERSION 4→5, the Scoring-method picker. (This session redesigned that picker's UI.)_
 >
 > **NEXT SESSION — #6 PROMPT-VARIANT CANDIDATES** (the next candidate axis): same model, different
 > system prompt, compared in one run — composes with the picker (#4) + recipes (#5) and the new
@@ -41,7 +45,18 @@ ADR-0002 + ADR-0003, and the latest worklogs: 2026-06-21-meaning-aware-scoring,
 2026-06-20-leaderboard-recommendation-fix, 2026-06-20-decision-recipes).
 
 RECENT WORK (committed to main, not pushed — no git remote configured):
-- (this session) MEANING-AWARE SCORING (live-review Finding 2), merge-ready. RubricKind +=
+- (this session) SCORING-SECTION REDESIGN (frontend-only), merge-ready. Grouped method cards
+  (free=Auto/Keypoint/Similarity, paid=LLM judge) w/ guidance + cost indicators; two-step judge filter
+  (Local/Hosted=privacy → Cheapest/Balanced/Best=tier) → model <select> w/ opinionated default; Auto card
+  shows resolved kind; control moved INTO RunSetup form above Run proof. New web/src/features/proof units:
+  scoring.ts (resolveAutoKind; filterJudgeModels — excludes mock_good/bad, default = mockJudge ?? recommended
+  ?? latest ?? first, gated=unavailable cloud w/ KeyEntry), MethodCard.tsx, JudgeFilter.tsx; ScoringMethod.tsx
+  slimmed 308→54; selectionMeta.ts += METHOD_META/JUDGE_TIERS; api.ts += keypoints field + exported Privacy
+  TYPE; RunSetup/ProofCockpit placement. NO backend change (RECEIPT_VERSION 5, config_hash untouched). vitest
+  72/72, build clean, e2e 5/5, pure-frontend. Do NOT regress: Mock judge is the keyless Local+Cheapest default
+  (recommended:false but IS the default); mock_good/mock_bad never judge options; Auto omits rubric → server
+  resolves default_rubric_for. Spec/plan: docs/superpowers/{specs,plans}/2026-06-21-scoring-section-redesign*.
+- (prior session) MEANING-AWARE SCORING (live-review Finding 2), merge-ready. RubricKind +=
   keypoint, judge. scoring/rubric.py: score_keypoints(keypoints, output, rubric) = fraction whose
   normalized text is a substring of the normalized output (empty list → 0.0 sentinel; the ENGINE
   owns the fallback-to-similarity for keypoint-less rows via a module-level _SIMILARITY);
