@@ -17,7 +17,7 @@ import {
   type RunStartEvent,
   type RunCostSummary,
 } from "../../lib/api";
-import { ScoringMethod, type Rubric } from "./ScoringMethod";
+import { type Rubric } from "./ScoringMethod";
 import { ProviderTag } from "./badges";
 import { FailureCases } from "./FailureCases";
 import { Inspector } from "./Inspector";
@@ -172,6 +172,8 @@ export function ProofCockpit({
           isRunning={runMutation.isPending}
           error={runMutation.isError ? (runMutation.error as Error).message : null}
           hasRun={report !== null}
+          rubric={rubric}
+          onRubricChange={setRubric}
           onRun={() =>
             runMutation.mutate({
               dataset_id: resolvedDatasetId,
@@ -181,8 +183,6 @@ export function ProofCockpit({
             })
           }
         />
-
-        <ScoringMethod value={rubric} onChange={setRubric} />
 
         {runMutation.isPending ? (
           progress ? (

@@ -1,5 +1,6 @@
 import type { Dataset, ProofBrief, SelectionPanel } from "../../lib/api";
 import { CandidatePicker } from "./CandidatePicker";
+import { ScoringMethod, type Rubric } from "./ScoringMethod";
 
 // The setup is deliberately small: pick a dataset, pick candidates, frame the decision, run.
 // A Proof Brief (not a wizard in v0) keeps the receipt anchored to a real decision.
@@ -16,6 +17,8 @@ export interface RunSetupProps {
   isRunning: boolean;
   hasRun: boolean;
   error: string | null;
+  rubric: Rubric | null;
+  onRubricChange: (next: Rubric | null) => void;
 }
 
 const inputCls =
@@ -35,6 +38,8 @@ export function RunSetup(props: RunSetupProps) {
     isRunning,
     hasRun,
     error,
+    rubric,
+    onRubricChange,
   } = props;
 
   const canRun = selectedCandidates.length > 0 && brief.task_name.trim().length > 0;
@@ -95,6 +100,12 @@ export function RunSetup(props: RunSetupProps) {
             The question this proof should answer for you — it headlines the receipt.
           </span>
         </label>
+
+        <ScoringMethod
+          value={rubric}
+          onChange={onRubricChange}
+          dataset={datasets.find((d) => d.id === datasetId)}
+        />
 
         {error && (
           <p role="alert" className="text-sm text-rose-300">
