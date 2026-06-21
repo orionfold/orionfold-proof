@@ -105,6 +105,7 @@ class LeaderboardEntry(BaseModel):
     avg_latency_ms: int
     total_estimated_cost_usd: float
     failure_count: int
+    error_count: int = 0
     recommended: bool = False
 
 
