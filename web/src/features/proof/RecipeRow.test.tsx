@@ -62,4 +62,48 @@ describe("RecipeRow", () => {
     expect(screen.getByRole("button", { name: /add key/i })).toBeInTheDocument();
     expect(screen.getByText(/OpenRouter/)).toBeInTheDocument();
   });
+
+  it("labels each provider when a recipe has multiple distinct unmet providers", () => {
+    const multi: RecipesPanel = {
+      recipes: [
+        {
+          id: "cheapest",
+          title: "Cheapest that passes",
+          subtitle: "A spread of low-cost models",
+          decision_question: "Cheapest that passes?",
+          candidate_ids: [],
+          resolved: [],
+          unmet: [
+            { label: "Claude economy", needs_provider_id: "anthropic", needs_provider_label: "Anthropic", key_name: "ANTHROPIC_API_KEY" },
+            { label: "GPT economy", needs_provider_id: "openai", needs_provider_label: "OpenAI", key_name: "OPENAI_API_KEY" },
+          ],
+        },
+      ],
+    };
+    wrap(<RecipeRow panel={multi} activeRecipeId="cheapest" onSelectRecipe={vi.fn()} />);
+    expect(screen.getByText("Anthropic")).toBeInTheDocument();
+    expect(screen.getByText("OpenAI")).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /add key/i })).toHaveLength(2);
+  });
+
+  it("shows one key entry per provider when selectors repeat a provider", () => {
+    const dup: RecipesPanel = {
+      recipes: [
+        {
+          id: "cost",
+          title: "Cost vs quality",
+          subtitle: "Economy vs frontier",
+          decision_question: "Cost vs quality?",
+          candidate_ids: [],
+          resolved: [],
+          unmet: [
+            { label: "Economy", needs_provider_id: "anthropic", needs_provider_label: "Anthropic", key_name: "ANTHROPIC_API_KEY" },
+            { label: "Frontier", needs_provider_id: "anthropic", needs_provider_label: "Anthropic", key_name: "ANTHROPIC_API_KEY" },
+          ],
+        },
+      ],
+    };
+    wrap(<RecipeRow panel={dup} activeRecipeId="cost" onSelectRecipe={vi.fn()} />);
+    expect(screen.getAllByRole("button", { name: /add key/i })).toHaveLength(1);
+  });
 });

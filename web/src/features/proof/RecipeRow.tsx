@@ -2,6 +2,17 @@
 import type { RecipesPanel, ResolvedRecipe } from "../../lib/api";
 import { KeyEntry } from "./KeyEntry";
 
+// A recipe can have several unmet selectors that all need the SAME provider key (e.g. economy +
+// frontier of one family). Show each provider once so the user adds its key a single time.
+function dedupeByProvider(unmet: ResolvedRecipe["unmet"]): ResolvedRecipe["unmet"] {
+  const seen = new Set<string>();
+  return unmet.filter((u) => {
+    if (seen.has(u.needs_provider_id)) return false;
+    seen.add(u.needs_provider_id);
+    return true;
+  });
+}
+
 // "Start from a decision recipe": an optional accelerator above the setup form. Clicking a card
 // pre-fills the candidate panel + decision question below (pre-fill, not lock). The active recipe
 // stays highlighted; hand-editing the panel/question flips it back to "Custom" (handled upstream).
@@ -55,16 +66,18 @@ export function RecipeRow({
       {active && active.unmet.length > 0 ? (
         <div className="grid gap-2 rounded-xl border border-(--color-panel-line) bg-(--color-panel) p-4">
           <p className="text-xs text-(--color-ink-muted)">
-            This recipe needs a key for{" "}
-            {active.unmet.map((u) => u.needs_provider_label).join(", ")}.
+            This recipe needs an API key for the greyed providers below. Keys are saved locally to
+            .env.local and sent only to that provider.
           </p>
-          {active.unmet.map((u) => (
-            <KeyEntry
-              key={u.needs_provider_id}
-              providerId={u.needs_provider_id}
-              providerLabel={u.needs_provider_label}
-              keyName={u.key_name}
-            />
+          {dedupeByProvider(active.unmet).map((u) => (
+            <div key={u.needs_provider_id} className="flex items-center gap-2">
+              <span className="w-28 text-xs text-(--color-ink-faint)">{u.needs_provider_label}</span>
+              <KeyEntry
+                providerId={u.needs_provider_id}
+                providerLabel={u.needs_provider_label}
+                keyName={u.key_name}
+              />
+            </div>
           ))}
         </div>
       ) : null}
