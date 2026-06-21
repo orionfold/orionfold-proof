@@ -6,9 +6,11 @@ import {
   createRunStream,
   getSelection,
   getDatasets,
+  getRecipes,
   type LeaderboardEntry,
   type ProofBrief,
   type ProofReport,
+  type ResolvedRecipe,
   type ResultRow,
   type RunRequest,
   type RunStartEvent,
@@ -17,6 +19,7 @@ import { ProviderTag } from "./badges";
 import { FailureCases } from "./FailureCases";
 import { Inspector } from "./Inspector";
 import { Leaderboard } from "./Leaderboard";
+import { RecipeRow } from "./RecipeRow";
 import { RunProgress } from "./RunProgress";
 import { RunSetup } from "./RunSetup";
 import { StageStepper } from "./StageStepper";
@@ -41,6 +44,7 @@ export function ProofCockpit({
   const queryClient = useQueryClient();
   const datasets = useQuery({ queryKey: ["datasets"], queryFn: getDatasets });
   const selection = useQuery({ queryKey: ["selection"], queryFn: getSelection });
+  const recipes = useQuery({ queryKey: ["recipes"], queryFn: getRecipes });
 
   const [datasetId, setDatasetId] = useState("");
   const [selected, setSelected] = useState<string[]>([]);
@@ -49,6 +53,7 @@ export function ProofCockpit({
   // user types their own, mirror it from the selected dataset — otherwise a receipt for an
   // imported set would inherit the bundled dataset's name. Editing the field locks it.
   const [taskNameTouched, setTaskNameTouched] = useState(false);
+  const [activeRecipeId, setActiveRecipeId] = useState<string | null>(null);
   const [openFailure, setOpenFailure] = useState<ResultRow | null>(null);
   // Live progress for the streaming run: the plan from the `start` frame + a cumulative count.
   const [progress, setProgress] = useState<{ start: RunStartEvent; done: number } | null>(null);
@@ -72,6 +77,7 @@ export function ProofCockpit({
       : { ...brief, task_name: selectedDataset.name };
   const handleBriefChange = (next: ProofBrief) => {
     if (next.task_name !== effectiveBrief.task_name) setTaskNameTouched(true);
+    if (next.decision_question !== effectiveBrief.decision_question) setActiveRecipeId(null);
     setBrief(next);
   };
   const resolvedSelected = useMemo(() => {
@@ -99,8 +105,15 @@ export function ProofCockpit({
   });
 
   const toggleCandidate = (id: string) => {
+    setActiveRecipeId(null);
     const base = resolvedSelected;
     setSelected(base.includes(id) ? base.filter((c) => c !== id) : [...base, id]);
+  };
+
+  const onSelectRecipe = (recipe: ResolvedRecipe) => {
+    setSelected(recipe.candidate_ids);
+    setBrief({ ...effectiveBrief, decision_question: recipe.decision_question });
+    setActiveRecipeId(recipe.id);
   };
 
   if (datasets.isLoading || selection.isLoading) {
@@ -134,6 +147,14 @@ export function ProofCockpit({
           </div>
           <StageStepper stage={report ? "decide" : runMutation.isPending ? "run" : "configure"} />
         </header>
+
+        {recipes.data ? (
+          <RecipeRow
+            panel={recipes.data}
+            activeRecipeId={activeRecipeId}
+            onSelectRecipe={onSelectRecipe}
+          />
+        ) : null}
 
         <RunSetup
           datasets={datasets.data}
