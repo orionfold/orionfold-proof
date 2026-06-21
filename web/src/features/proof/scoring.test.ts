@@ -47,9 +47,9 @@ describe("filterJudgeModels", () => {
   it("defaults Local+Cheapest to keyless Mock judge", () => {
     const r = filterJudgeModels(panel, "local", "economy");
     expect(r.options[0]).toMatchObject({ providerId: "mock_judge", model: null });
-    // Mock judge has recommended: false, so default falls through to Ollama (recommended: true)
-    expect(r.defaultProviderId).toBe("ollama");
-    expect(r.defaultModel).toBe("llama-eco");
+    // Mock judge is the keyless default for Local+Cheapest even when a recommended local model exists.
+    expect(r.defaultProviderId).toBe("mock_judge");
+    expect(r.defaultModel).toBeNull();
   });
   it("excludes mock_good / mock_bad from options", () => {
     const r = filterJudgeModels(panel, "local", "economy");

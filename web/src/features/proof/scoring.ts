@@ -79,8 +79,10 @@ export function filterJudgeModels(
     }
   }
 
+  // Mock judge is the keyless, deterministic default for the Local+Cheapest cell (spec invariant),
+  // even when a recommended local model exists. Other cells fall back to recommended → latest → first.
   const def =
-    options.find((o) => o.recommended) ?? options.find((o) => o.latest) ?? options[0] ?? null;
+    mockJudge ?? options.find((o) => o.recommended) ?? options.find((o) => o.latest) ?? options[0] ?? null;
 
   return {
     options,

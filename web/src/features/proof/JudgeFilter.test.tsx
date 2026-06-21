@@ -65,6 +65,12 @@ describe("JudgeFilter", () => {
     expect(await screen.findByText(/add a key/i)).toBeInTheDocument();
   });
 
+  it("does not emit on mount (preserves the controlled selection)", () => {
+    const onPick = vi.fn();
+    render(wrap(<JudgeFilter selectedProviderId="mock_judge" selectedModel={null} onPick={onPick} />));
+    expect(onPick).not.toHaveBeenCalled();
+  });
+
   it("decodes a dropdown selection into provider + model", async () => {
     vi.mocked(getSelection).mockResolvedValueOnce({
       providers: [
