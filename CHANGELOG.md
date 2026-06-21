@@ -55,7 +55,7 @@ for [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - **Catalog refreshed to current (mid-2026) models** with dated, sourced list prices: OpenAI
   GPT-5.x (replacing the retired GPT-4o line), Google Gemini 3.x, Claude (Haiku 4.5 / Sonnet 4.6 /
-  Opus 4.8 / Fable 5), and Llama 4 Scout. OpenRouter display names dropped the "(via OpenRouter)"
+  Opus 4.8), and Llama 4 Scout. OpenRouter display names dropped the "(via OpenRouter)"
   suffix (the provider row already names it). Run-time cost estimation (`pricing.py`) covers the
   new models and OpenRouter slugs.
 
@@ -63,6 +63,20 @@ for [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   dataset's receipt heading no longer inherits the bundled dataset's name.
 
 ### Fixed
+
+- **Leaderboard never recommends a candidate that produced nothing.** An errored candidate reports
+  `0 ms / $0.00`, so at a 0%-pass tie it used to win the latency/cost tiebreak and get crowned
+  **Recommended** (a model returning HTTP 404 on every example was once "recommended"). A fully-
+  errored candidate now ranks **last** (ranking adds an `error_count` signal, then `avg_score`
+  before latency/cost), and a candidate is marked Recommended **only if it passed at least one
+  example**. When nothing passes, the cockpit and all three receipt formats show a calm **"No clear
+  winner"** state — "No candidate passed the rubric (threshold N)" — instead of badging a loser, and
+  fully-errored rows are annotated "errored, no output". The receipt schema adds the additive
+  `error_count` field (**`RECEIPT_VERSION` 3 → 4**); `config_hash` and run provenance are unchanged.
+
+- **Removed `claude-fable-5` from the catalog** — it is not generally available and made the
+  cost-vs-quality "Frontier" arm resolve to an unavailable model; the Frontier arm now resolves to
+  `claude-opus-4-8` (flagged ★ latest). The anthropic default (`claude-haiku-4-5`) is unchanged.
 
 - **Claude Opus 4.8 catalog price/context corrected** — list price `$15/$75` → `$5/$25` per MTok
   and context `200K` → `1M` (Sonnet 4.6 context also `1M`).
