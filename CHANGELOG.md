@@ -8,6 +8,24 @@ for [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Decision recipes.** Named comparison presets that turn "pick models" into "pick the decision
+  you're making." A recipe row above the Proof setup offers cards like _Cost vs quality for client
+  summaries_, _Local vs cloud (privacy)_, _Cheapest model that still passes_, and _Same model,
+  different providers_; clicking one **pre-fills** the candidate panel and the decision question
+  (you can still edit everything — hand-editing marks the recipe "Custom"). Recipes declare
+  **semantic** intent (family / tier / privacy / provider), resolved server-side against the live
+  catalog ∩ availability, so each recipe adapts to whatever you have configured. Served read-only at
+  `GET /api/recipes` (no secrets — provider labels, model ids, and the env-var _name_ a provider
+  needs). It is selection metadata only: recipes never affect a run's `config_hash` or the Proof
+  Receipt.
+
+- **Inline provider key entry.** A greyed (unavailable) cloud provider — in the picker or on a
+  recipe's "needs a key" banner — now offers an inline key field that writes the key to a local,
+  git-ignored `.env.local` (mode `0o600`), unlocking that provider's candidates **without a
+  restart**. Keys are never logged, echoed in any HTTP response (including validation errors), or
+  written to a receipt; only the four cloud providers are accepted (no arbitrary env writes). New
+  `POST /api/credentials` returns only `{provider_id, available}`.
+
 - **Model-per-candidate picker.** The Proof Run setup now lets you choose a specific model per
   provider — and compare **several models of the same provider in one run** (the cost/latency-vs-
   quality proof, e.g. Claude Opus vs Haiku). Provider-grouped chips mark the latest (★) and

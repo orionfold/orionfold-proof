@@ -6,83 +6,88 @@
 > To resume: in a fresh session say **"read from handoff"** (or "continue from last
 > session"), or `/clear` and paste the prompt below.
 
-_Last updated: 2026-06-20 · **Model-per-candidate picker (#4 of the decision-recipes thread)
-SHIPPED & merge-ready**, plus three operator follow-ups from a live review. The Proof Run now lets
-you pick a specific model per provider and compare several models of the same provider in one run
-(the cost/latency-vs-quality proof). Built brainstorm → spec → plan → subagent-driven (4 TDD tasks,
-per-task reviews, Opus whole-branch review: Ready to merge YES). New `build_candidates()` widens run
-validation to composite `provider:model` ids (keyless-safe, back-compat, first-colon split, mocks
-stay bare-id); new read-only `GET /api/selection` (server-merged availability + catalog models +
-mocks-first, no secrets); new `CandidatePicker` (provider-grouped chips, ★ latest, cost badge,
-multi-select per provider, custom-model escape hatch, greyed unavailable). Follow-ups: (a) FIXED a
-nested-`<form>` bug in the custom-model entry caught in the real browser; (b) CATALOG REFRESHED to
-current mid-2026 models with dated sources (OpenAI GPT-5.x, Gemini 3.x, Claude incl. Fable 5, Llama
-4 Scout) + FIXED Opus list price 15/75→5/25 and Sonnet/Opus context 200K→1M, dropped "(via
-OpenRouter)" suffix; (c) PROVIDER LOGOS replace the availability bullet (simple-icons CC0, dimmed
-when unavailable). config_hash + RECEIPT_VERSION (3) UNTOUCHED (final review verified empty diff on
-engine/export/domain). pytest 129 · vitest 34 · ruff clean · build clean · e2e 3/3 · live-browser
-verified. Commits on `main` (NOT pushed — no remote): 6479d66 6275102 8a5b96a 69b6e6e 0d9bd30
-18346af 7991ae2 1568dde (+ spec 217aee4, plan bed2f58)._
+_Last updated: 2026-06-20 · **Decision recipes (#5 of the decision-recipes thread) SHIPPED &
+merge-ready.** Named comparison presets that turn "pick models" into "pick the decision you're
+making": a recipe row above the Proof setup pre-fills the candidate panel + decision question from
+**semantic** selectors (family/tier/privacy/provider) resolved server-side against the live catalog
+∩ availability. Shipped together with operator-mandated **inline `.env.local` key entry** (greyed
+cloud providers + a recipe's "needs a key" banner) — its own security review was part of the slice.
+Built brainstorm → spec → plan → subagent-driven (11 TDD tasks, per-task reviews, Opus whole-branch
+review: Ready to merge YES; 0 Critical/0 Important). New `recipes/` package (schema + `recipes.json`
++ resolver), `CLOUD_KEY_NAMES` whitelist, atomic `0o600` `config/env_file.py` writer, `GET
+/api/recipes` (no secrets) + `POST /api/credentials` (whitelist; key never echoed), `RecipeRow` +
+nested-form-safe `KeyEntry` + picker/cockpit wiring. A security-review fix (`1289cd4`) closed a
+FastAPI-422 key-echo vector with a global `input`-stripping handler + regression test. config_hash +
+RECEIPT_VERSION (3) UNTOUCHED (whole-branch review verified zero diff on engine/export/domain).
+pytest 146 · vitest 44 · ruff clean · build clean · e2e 4/4 · live-server verified (key-entry flow
+unlocks a recipe with no restart; key in neither response nor log). Commits on `main` (NOT pushed —
+no remote): a6ebaaf 397c0c3 cfaa23d ad3d55c 6f5484d d95f87d f58f8d6 692e70a 79a532c d740113 7bfcccd
+1289cd4 (+ spec b… see git log, plan)._
 >
-> **NEXT SESSION: build #5 DECISION RECIPES.** Full creative/feature work → brainstorm → spec →
-> plan → subagent-driven, same loop. Assume #4 has shipped (recipes compose model-bearing
-> candidates using the picker). Operator decided 2026-06-20 to power through — catalog
-> price/source accuracy is a roadmap refinement, NOT a gate on #5._
+> **NEXT SESSION: build #6 PROMPT-VARIANT CANDIDATES** (the next candidate axis — same model,
+> different system prompt; still text-in/text-out, no new provider machinery) **OR** the catalog
+> price/source verification pass. Full creative/feature work → brainstorm → spec → plan →
+> subagent-driven, same loop._
 
 ## Paste prompt for the next session
 
 ```text
 Use the context-refresh skill to load current state from docs/ (release charter, ADR-0001 +
-ADR-0002 + ADR-0003, and the latest worklogs: 2026-06-20-model-per-candidate-picker,
-2026-06-20-model-catalog, 2026-06-20-ui-feature-review).
+ADR-0002 + ADR-0003, and the latest worklogs: 2026-06-20-decision-recipes,
+2026-06-20-model-per-candidate-picker, 2026-06-20-ui-feature-review).
 
 RECENT WORK (committed to main, not pushed — no git remote configured):
-- (this session) MODEL-PER-CANDIDATE PICKER (#4 of the decision-recipes thread), merge-ready.
-  build_candidates() (registry.py) widens run validation to composite provider:model ids — bare ids
-  still resolve (back-compat); composite resolves only for AVAILABLE, MODEL-BEARING providers +
-  non-empty model (split on FIRST colon); mocks excluded from composite (stay bare-id + model=None);
-  unavailable/unknown → UnknownCandidateError (400). Both run endpoints use it. GET /api/selection
-  (providers/selection.py): server-merged panel = catalog models + live availability + mocks-first,
-  read-only, no secrets, re-exports Tier/CostClass. CandidatePicker.tsx: provider-grouped chips
-  (★ latest, cost badge), multi-select per provider, custom-model escape hatch, greyed unavailable;
-  ProviderLogo.tsx swaps the availability bullet for the provider's brand logo. ProofCockpit/RunSetup
-  read /api/selection; mocks pre-selected by default.
-- (this session, follow-ups) Nested-<form> fix in CustomChip (Add was submitting RunSetup's outer
-  form). Catalog refresh to current models + Opus price/context fix + dropped "(via OpenRouter)"
-  suffix (gemini.py DEFAULT_MODEL + test_catalog.py defaults + pricing.py updated in lockstep).
-  Provider logos.
-- (prior) MODEL CATALOG (#1): orionfold.catalog package, default_model_for() single source of
-  truth, GET /api/catalog. LIGHT THEME + switcher. DATASET IMPORT (#9). Receipt preview (#8).
+- (this session) DECISION RECIPES (#5), merge-ready. New orionfold.recipes package:
+  models.py (Selector{label,family?,tier?,privacy?,provider?,pick} / Recipe / RecipeBook),
+  recipes.json (4 recipes), __init__ load_recipes() (@cache, mirrors catalog/). resolution.py
+  resolve_recipes() resolves each selector against load_catalog() ∩ set(_build()) availability →
+  ResolvedSelector / UnmetSelector / ResolvedRecipe{candidate_ids, resolved, unmet} / RecipesPanel;
+  pick = recommended|cheapest|latest; UNMET ALWAYS = a cloud provider needing a key (locals always
+  available). CLOUD_KEY_NAMES whitelist in config/keys.py (provider_id→ENV NAME; the single source
+  for the credential whitelist). config/env_file.py set_key_in_env_local: atomic os.replace, 0o600
+  via os.open up front, preserves other lines/export prefix, returns Path only (value never
+  logged/echoed). Routes: GET /api/recipes (read-only, no secrets), POST /api/credentials
+  ({provider_id,key}→whitelist 400 / empty 422 / {provider_id,available}, key NEVER echoed — a
+  GLOBAL RequestValidationError handler in server/app.py strips `input` from 422s so the framework
+  can't echo a posted key). Frontend: RecipeRow.tsx (cards pre-fill candidates + decision question;
+  active highlight; unmet banner dedup'd per provider with a per-row label + KeyEntry), KeyEntry.tsx
+  (shared, nested-form-safe: div/type=button/Enter preventDefault+stopPropagation; key in local
+  state only, type=password, cleared on success; onSuccess invalidates ["selection"]+["recipes"]),
+  CandidatePicker greyed CLOUD groups render KeyEntry (locals get "start the local server").
+  ProofCockpit: recipes query + activeRecipeId; onSelectRecipe seeds candidates + decision_question
+  ONLY (not task name/dataset/rubric); hand-editing → "Custom". e2e asserts recipe row + pre-fill.
+- (prior) MODEL-PER-CANDIDATE PICKER (#4): build_candidates() composite provider:model ids; GET
+  /api/selection; CandidatePicker. MODEL CATALOG (#1): orionfold.catalog, default_model_for, GET
+  /api/catalog. LIGHT THEME. DATASET IMPORT (#9). Receipt preview (#8).
 
-THE DECISION-RECIPES THREAD (operator's strategic bet). Done: #1 catalog, #4 picker.
+THE DECISION-RECIPES THREAD (operator's strategic bet). Done: #1 catalog, #4 picker, #5 recipes.
 
->> START HERE — #5 DECISION RECIPES. Named presets that compose a coherent candidate panel (USING
-   #4's model-bearing composite candidates) + seed the decision question (+ optional dataset/rubric).
-   Operator decisions locked: unavailable providers SHOW greyed + offer INLINE KEY ENTRY (writes to
-   .env.local) — that cross-cut needs its OWN security review (use security-secrets-review; NEVER
-   log/echo/commit keys). Recipes are best a bundled catalog-like JSON served by an endpoint (resolve
-   availability server-side, like /api/selection already does), pre-fill not lock. Example recipes:
-   "Cost vs quality for client summaries", "Local vs cloud (privacy)", "Cheapest model that still
-   passes", "Same model, different providers (arbitrage)". BRAINSTORM before plan/code.
+>> START HERE — choose with the operator: #6 PROMPT-VARIANT CANDIDATES (same model, different system
+   prompt — the natural next candidate axis after models; still text-in/text-out, no new provider
+   machinery; would compose with recipes/picker as another candidate dimension), OR the CATALOG
+   PRICE/SOURCE verification pass (refine UNVERIFIED list prices with better sources). Workflows/RAG
+   remain explicit post-v0. BRAINSTORM before plan/code.
 
-OTHER (non-blocking — operator decided 2026-06-20 to POWER THROUGH; do NOT gate #5 on these):
-- CATALOG PRICE/SOURCE accuracy is a ROADMAP item, refined opportunistically as we find better
-  sources — NOT a near-term verification gate. Current prices are researched list prices dated
-  2026-06-20 with per-model source URLs; a few values are approximate/UNVERIFIED (OpenAI
-  cached-input/long-context surcharges; Gemini gemini-3.1-pro-preview is a PREVIEW id — swap to
-  gemini-3.5-flash if a GA-only frontier is ever wanted; OpenRouter :free slug). A measured receipt
-  cost always outranks a catalog list price downstream, so this never blocks the proof loop. Bump
-  pricing as_of when a value is updated.
-- Set up a git remote + PUSH (none configured; ALL main commits — this session + the whole backlog —
-  are local only).
+OTHER (non-blocking — do NOT gate #6 on these):
+- CATALOG PRICE/SOURCE accuracy is a ROADMAP item (a few values approximate/UNVERIFIED: OpenAI
+  cached-input/long-context surcharges; Gemini gemini-3.x preview tier; OpenRouter :free slug). A
+  measured receipt cost always outranks a catalog list price downstream, so it never blocks the
+  proof loop. Bump pricing as_of when a value is updated.
+- COSMETIC POLISH (whole-branch-review Minors): recipes/resolution.py _pick/_resolve_one lack
+  return annotations; two redundant quoted annotations under `from __future__`; routes.py new
+  imports not strict-isort-ordered (ruff isort not enforced). CLOUD_KEY_NAMES is duplicated
+  (keys.py + a TS literal in CandidatePicker.tsx) — could surface key_name on SelectionGroup to
+  delete the copy.
+- Set up a git remote + PUSH (none configured; ALL main commits are local only).
 
-Do NOT regress: keyless mock default; mocks stay bare-id + model=None (composite ids ONLY for real
-model-bearing providers); Proof Run is the DEFAULT view; the 3-format receipt; both run endpoints
-(batch + stream) route through build_candidates; /api/selection leaks no secrets; /api/catalog +
-/api/candidates still served; dataset routes; Task-name sync; sticky rail footer; the THEME system;
-the MODEL CATALOG + PICKER (SELECTION-only, NEVER provenance — config_hash/RECEIPT_VERSION=3 stay
-untouched; default_model_for is the single source of truth; ORIONFOLD_<P>_MODEL override precedence;
-the drift-guard ties provider-module DEFAULT_MODEL constants to the catalog). Test-contract strings
+Do NOT regress: keyless mock default (mocks pre-selected, opt-in recipes); mocks stay bare-id +
+model=None (composite ids ONLY for real model-bearing providers — recipes can't select a mock since
+mocks aren't in the catalog); Proof Run is the DEFAULT view; the 3-format receipt; both run
+endpoints route through build_candidates; /api/selection + /api/catalog + /api/recipes leak NO
+secrets; /api/credentials NEVER echoes/logs a key and writes ONLY whitelisted cloud providers to a
+0o600 .env.local; the global 422 input-stripping handler stays; recipes/key-entry are SELECTION
+metadata, NEVER provenance (config_hash/RECEIPT_VERSION=3 untouched; default_model_for single source
+of truth; ORIONFOLD_<P>_MODEL override precedence; catalog drift-guard). Test-contract strings
 (heading "Orionfold Proof", "Connected", button /Run proof/, regions Leaderboard / Failure cases /
 Proof Receipt export, "Export Markdown|HTML|JSON", "100% (5/5)", "Failure cases (5)", "simulated
 provider failure"). Tailwind v4: CSS vars use the PARENTHESIS shorthand bg-(--color-x), never
@@ -91,54 +96,61 @@ bg-[--color-x].
 NOTES (non-blocking):
 - A sibling orionfold-proof-codex checkout runs its own servers; leave its processes alone and bind a
   PROVABLY-FREE port (assert the listener PID is yours). uvicorn does NOT hot-reload backend code OR
-  the @cache load_catalog() data — RESTART `orionfold up` after backend/catalog changes (a stale
-  server serves the OLD catalog even after build.sh). The embedded cockpit is served from
-  src/orionfold/server/static (gitignored; rebuilt by `bash scripts/build.sh` — REBUILD before any
-  e2e or browser check). catalog.json ships in the wheel automatically.
+  the @cache load_catalog()/load_recipes() data — RESTART `orionfold up` after backend/catalog/recipe
+  changes. BUT note: .env.local KEY resolution is NOT cached (resolve_key reads it fresh each call),
+  so inline key entry flips availability live with no restart — verified. The embedded cockpit is
+  served from src/orionfold/server/static (gitignored; rebuilt by `bash scripts/build.sh` — REBUILD
+  before any e2e or browser check). catalog.json AND recipes.json ship in the wheel automatically
+  (checked-in files under the package, like catalog.json).
 - The harness emits STALE TS "cannot find module / @playwright/test" diagnostics mid-edit — false
   alarms; trust pnpm test + build + the actual e2e run as truth.
 - create-dataset route field is `text` (not `content`): POST /api/datasets {name, format, text}.
 - Button copy is "Run proof"/"Rerun proof" (lowercase p) for the test contract.
-- Run-request contract UNCHANGED: POST /api/runs(/stream) takes candidate_ids: string[] — composite
-  provider:model ids (or bare mock ids) are just strings; the server resolves them via
-  build_candidates. The frontend custom field builds `${provider_id}:${text.trim()}`.
+- Recipe pre-fill seeds candidates + decision_question ONLY (operator decision). Recipe selectors
+  are SEMANTIC (resolve to whatever's available); unavailable cloud arms show greyed + inline key
+  entry. Recipe row stays visible; hand-edit → "Custom".
+- POST /api/credentials body: {provider_id, key}; the frontend client is web/src/lib/api.ts
+  setProviderKey(providerId, key).
 Start in plan mode for anything substantial; brainstorm creative/feature work first. Verify with
 uv run pytest, uv run ruff check, pnpm --dir web test, the Playwright e2e (rebuild embed first), and
-a real browser check on a free port (RESTART the server after catalog/backend edits). Open
-review-bound markdown in Obsidian one at a time. Append a docs/worklog entry and overwrite HANDOFF.md.
+a real browser/server check on a free port (RESTART the server after catalog/backend edits; key
+entry needs no restart). Open review-bound markdown in Obsidian one at a time. Append a docs/worklog
+entry and overwrite HANDOFF.md.
 ```
 
 ## Where to look (durable context)
 
-- `docs/worklog/2026-06-20-model-per-candidate-picker.md` — this session's evidence (latest).
-- `docs/superpowers/specs/2026-06-20-model-per-candidate-picker-design.md` ·
-  `…/plans/2026-06-20-model-per-candidate-picker.md` — design + 4-task plan.
-- `docs/worklog/2026-06-20-model-catalog.md` — the catalog foundation (#1).
-- `docs/worklog/2026-06-20-ui-feature-review.md` — the 10-finding review + the §Synthesis
+- `docs/worklog/2026-06-20-decision-recipes.md` — this session's evidence (latest).
+- `docs/superpowers/specs/2026-06-20-decision-recipes-design.md` ·
+  `docs/superpowers/plans/2026-06-20-decision-recipes.md` — design + 11-task plan.
+- `docs/worklog/2026-06-20-model-per-candidate-picker.md` — the picker (#4) recipes compose on.
+- `docs/worklog/2026-06-20-ui-feature-review.md` — the 10-finding review + §Synthesis
   "decision recipes" big idea (#5+#7+#4).
 - `docs/ux/product-design-system.md` — the three-pane target + Theming subsection.
 - `docs/adr/0001-…-architecture.md` · `0002-provider-integration-and-credentials.md` ·
   `0003-streaming-run-progress.md` — Accepted.
 - `docs/release-charter.md` — v0 scope, journey, acceptance criteria (Accepted; all met).
-- `CHANGELOG.md` ([Unreleased] now covers the picker + catalog refresh) · `docs/demo-script.md`.
+- `CHANGELOG.md` ([Unreleased] now covers recipes + inline key entry) · `docs/demo-script.md`.
 - `.claude/rules/{providers,receipts,storage}.md` — enforced constraints.
 - `CLAUDE.md` — operating guide and release gates.
 
 ## Ship-candidate quick reference
 
 - Build wheel: `bash scripts/build.sh` → `dist/orionfold_proof-0.1.0-py3-none-any.whl`
-  (cockpit + dataset embedded, RECEIPT_VERSION=3, catalog.json bundled). dist/ and
+  (cockpit + dataset embedded, RECEIPT_VERSION=3, catalog.json + recipes.json bundled). dist/ and
   src/orionfold/server/static are gitignored.
 - Clean-install check: `uv venv /tmp/x && uv pip install --python /tmp/x/bin/python dist/*.whl`
   then `/tmp/x/bin/orionfold up --port <free>` — bind a PROVABLY-FREE port; confirm the listener
-  PID is yours (a stale prior-session server can shadow a port and serve old code/catalog).
+  PID is yours.
 - Dev: `uv run orionfold dev` + `pnpm --dir web dev`. Tests: `uv run pytest` · `uv run ruff check
   src tests` · `pnpm --dir web test` · `pnpm --dir web e2e` (rebuild embed first). Frontend build:
   `pnpm --dir web build`.
 - Regenerate sample receipts after any receipt change: `uv run python scripts/gen_samples.py`
   (NOT needed this session — receipts unchanged).
-- Inspect the picker panel live: `curl -s localhost:<port>/api/selection | python -m json.tool`.
-- Env knobs: `OPENAI_API_KEY` `OPENROUTER_API_KEY` `GEMINI_API_KEY` `ANTHROPIC_API_KEY`;
-  `OLLAMA_HOST` `OPENAI_BASE_URL` `OPENROUTER_BASE_URL` `LMSTUDIO_BASE_URL`;
+- Inspect recipes live: `curl -s localhost:<port>/api/recipes | python -m json.tool`. Picker panel:
+  `curl -s localhost:<port>/api/selection | python -m json.tool`.
+- Env knobs: `OPENAI_API_KEY` `OPENROUTER_API_KEY` `GEMINI_API_KEY` `ANTHROPIC_API_KEY` (now also
+  settable in-app via POST /api/credentials → .env.local); `OLLAMA_HOST` `OPENAI_BASE_URL`
+  `OPENROUTER_BASE_URL` `LMSTUDIO_BASE_URL`;
   `ORIONFOLD_{OLLAMA,OPENAI,OPENROUTER,GEMINI,ANTHROPIC,LMSTUDIO}_MODEL` (override catalog default);
   `ORIONFOLD_MAX_TOKENS` (2048) `ORIONFOLD_TIMEOUT_S` (120) `ORIONFOLD_ENV_FILE` `ORIONFOLD_DB`.
