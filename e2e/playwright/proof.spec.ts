@@ -11,7 +11,7 @@ test("proof loop: run → leaderboard → failure case → receipts", async ({ p
 
   // The model picker renders catalog models per provider (the #4 capability). A local model
   // chip is selectable; cloud providers without a key are greyed. Mocks stay default-selected.
-  await expect(page.getByText("Candidates")).toBeVisible();
+  await expect(page.locator("legend").filter({ hasText: /^Candidates$/ })).toBeVisible();
   await expect(page.getByRole("checkbox", { name: "Mock · good" })).toBeChecked();
   await expect(page.getByRole("button", { name: /custom model for Ollama/i })).toBeVisible();
 
@@ -50,6 +50,33 @@ test("proof loop: run → leaderboard → failure case → receipts", async ({ p
   for (const label of ["Markdown", "HTML", "JSON"]) {
     await expect(page.getByRole("link", { name: label, exact: true })).toBeVisible();
   }
+});
+
+test("scoring cards: LLM-judge card reveals judge filter", async ({ page }) => {
+  await page.goto("/");
+
+  // The scoring section renders before the Run proof button.
+  await expect(page.getByText("Scoring method")).toBeVisible();
+
+  // The LLM-judge card is visible (aria-label includes title and cost).
+  const judgeCard = page.getByRole("button", { name: /LLM judge/i });
+  await expect(judgeCard).toBeVisible();
+
+  // Click the LLM-judge card — it should expand the judge filter below.
+  await judgeCard.click();
+
+  // "Run on" row with Local/Hosted toggles must appear.
+  await expect(page.getByText(/Run on/i)).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Local$/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Hosted$/ })).toBeVisible();
+
+  // The judge-model label and dropdown are visible; the Mock judge option is the default.
+  await expect(page.getByText(/Judge model/i)).toBeVisible();
+  const judgeSelect = page.getByLabel(/Judge model/i);
+  const selectedText = await judgeSelect.evaluate((el: HTMLSelectElement) =>
+    el.options[el.selectedIndex]?.text ?? ""
+  );
+  expect(selectedText).toMatch(/Mock judge/i);
 });
 
 test("decision recipes pre-fill the setup", async ({ page }) => {
