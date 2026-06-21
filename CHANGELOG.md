@@ -49,7 +49,10 @@ for [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   compares one model across several **named system prompts** in a single run — answering "which
   wording of my instructions is most trustworthy on my task?" Each prompt becomes a leaderboard row;
   the Proof Receipt records every variant's full prompt text for provenance (receipt schema **v6**).
-  Keyless: a prompt-compare run on a mock provider exercises the whole path without any API keys.
+  Keyless: a prompt-compare run on a mock provider exercises the whole path without any API keys —
+  and the mocks are now **prompt-aware**, so the no-key demo produces a real, intuitive winner
+  (a brevity instruction like "as few words as possible" deterministically drops trailing facts, so
+  on the bundled dataset _Baseline_ scores 100% and _Concise_ ~56% — a genuine decision, not a tie).
 
 - **Model-per-candidate picker.** The Proof Run setup now lets you choose a specific model per
   provider — and compare **several models of the same provider in one run** (the cost/latency-vs-
