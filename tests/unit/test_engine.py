@@ -1,7 +1,11 @@
 """The matrix engine must be deterministic, error-safe, and produces a ranked leaderboard."""
 
+import hashlib
+import json
+
 import pytest
 
+from orionfold import __version__
 from orionfold.data import load_dataset
 from orionfold.domain.models import Candidate, Dataset, Example, ProofBrief, Rubric
 from orionfold.proof.engine import config_hash, run_proof
@@ -115,14 +119,8 @@ def test_non_judge_run_has_zero_judge_cost():
 def test_config_hash_unchanged_for_model_compare_runs():
     # A run whose candidates have system_prompt=None must hash identically to the pre-feature
     # payload — i.e. the system_prompt key must be ABSENT, not present-and-null. Lock the value.
-    from orionfold.domain.models import Candidate, Dataset, Example, Rubric
-
     ds = Dataset(id="d1", name="d1", description="", examples=[Example(input_text="a", expected_text="b")])
     cands = [Candidate(id="mock_good", label="Mock", provider_id="mock_good")]
-    import hashlib
-    import json
-
-    from orionfold import __version__
     payload = {
         "version": __version__,
         "dataset": {"id": ds.id, "examples": [e.model_dump() for e in ds.examples]},
@@ -134,8 +132,6 @@ def test_config_hash_unchanged_for_model_compare_runs():
 
 
 def test_config_hash_distinguishes_prompt_variants():
-    from orionfold.domain.models import Candidate, Dataset, Example, Rubric
-
     ds = Dataset(id="d1", name="d1", description="", examples=[Example(input_text="a", expected_text="b")])
     v1 = [Candidate(id="ollama#a", label="A", provider_id="ollama", model="llama3.2", system_prompt="terse")]
     v2 = [Candidate(id="ollama#b", label="B", provider_id="ollama", model="llama3.2", system_prompt="verbose")]
@@ -143,3 +139,7 @@ def test_config_hash_distinguishes_prompt_variants():
     # Same prompts reproduce the same hash (repeatability).
     v1_again = [Candidate(id="ollama#a", label="A", provider_id="ollama", model="llama3.2", system_prompt="terse")]
     assert config_hash(ds, v1, Rubric()) == config_hash(ds, v1_again, Rubric())
+    # Same id, differ ONLY by system_prompt → must hash differently (locks the conditional).
+    same_id_a = [Candidate(id="ollama#x", label="X", provider_id="ollama", model="llama3.2", system_prompt="terse")]
+    same_id_b = [Candidate(id="ollama#x", label="X", provider_id="ollama", model="llama3.2", system_prompt="verbose")]
+    assert config_hash(ds, same_id_a, Rubric()) != config_hash(ds, same_id_b, Rubric())
