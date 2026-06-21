@@ -11,7 +11,9 @@ import json
 from functools import cache
 from importlib import resources
 
-from orionfold.catalog.models import ModelCatalog
+from orionfold.catalog.models import CostClass, ModelCatalog, Tier
+
+__all__ = ["CostClass", "ModelCatalog", "Tier", "default_model_for", "load_catalog"]
 
 
 @cache

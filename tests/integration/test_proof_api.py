@@ -295,6 +295,31 @@ def test_run_rejects_composite_id_for_unavailable_provider(client, tmp_path, mon
     assert "Unknown candidate(s)" in resp.json()["detail"]
 
 
+def test_selection_endpoint_shape_and_mocks_first(client, tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    for name in ("OPENAI_API_KEY", "OPENROUTER_API_KEY", "GEMINI_API_KEY", "ANTHROPIC_API_KEY"):
+        monkeypatch.delenv(name, raising=False)
+    body = client.get("/api/selection").json()
+    providers = body["providers"]
+    assert [p["provider_id"] for p in providers[:2]] == ["mock_good", "mock_bad"]
+    groups = {p["provider_id"]: p for p in providers}
+    assert groups["mock_good"]["candidate_id"] == "mock_good"
+    assert groups["mock_good"]["models"] == []
+    assert groups["anthropic"]["available"] is False  # no key
+    assert groups["ollama"]["available"] is True
+    sample = groups["anthropic"]["models"][0]
+    assert sample["candidate_id"] == f"anthropic:{sample['model']}"
+
+
+def test_selection_endpoint_leaks_no_secrets(client, monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-should-never-appear")
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-should-never-appear")
+    text = client.get("/api/selection").text
+    assert "sk-ant-should-never-appear" not in text
+    assert "sk-should-never-appear" not in text
+    assert "API_KEY" not in text
+
+
 def test_catalog_endpoint_leaks_no_secrets(client, monkeypatch):
     # Even with keys present in the environment, the catalog body must contain no credential-ish
     # strings — it is static reference data with no key fields.

@@ -20,6 +20,7 @@ from pydantic import BaseModel
 
 from orionfold.catalog import load_catalog
 from orionfold.catalog.models import ModelCatalog
+from orionfold.providers.selection import SelectionPanel, selection_panel
 from orionfold.data.importers import DatasetParseError, ImportFormat, ParseResult, parse_dataset
 from orionfold.domain.models import Candidate, Dataset, ProofBrief, ProofReport, ProofRun, Rubric
 from orionfold.proof.engine import config_hash, iter_matrix, run_proof
@@ -125,6 +126,16 @@ def get_catalog() -> ModelCatalog:
     credentials — purely static selection metadata.
     """
     return load_catalog()
+
+
+@router.get("/selection")
+def get_selection() -> SelectionPanel:
+    """The model picker's data: provider groups with availability + catalog models + mocks.
+
+    Read-only and resolved server-side so the cockpit (and later decision recipes) share one
+    availability source. Contains no credentials.
+    """
+    return selection_panel()
 
 
 @router.post("/runs")
