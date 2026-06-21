@@ -9,6 +9,12 @@ test("proof loop: run → leaderboard → failure case → receipts", async ({ p
   await expect(page.getByRole("heading", { name: "Orionfold Proof" })).toBeVisible();
   await expect(page.getByText(/Connected/)).toBeVisible();
 
+  // The model picker renders catalog models per provider (the #4 capability). A local model
+  // chip is selectable; cloud providers without a key are greyed. Mocks stay default-selected.
+  await expect(page.getByText("Candidates")).toBeVisible();
+  await expect(page.getByRole("checkbox", { name: "Mock · good" })).toBeChecked();
+  await expect(page.getByRole("button", { name: /custom model for Ollama/i })).toBeVisible();
+
   // Run the sample proof (both mock candidates are selected by default).
   await page.getByRole("button", { name: /Run proof/ }).click();
 
