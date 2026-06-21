@@ -1,11 +1,11 @@
-import type { Candidate, Dataset, ProofBrief } from "../../lib/api";
-import { ProviderTag } from "./badges";
+import type { Dataset, ProofBrief, SelectionPanel } from "../../lib/api";
+import { CandidatePicker } from "./CandidatePicker";
 
 // The setup is deliberately small: pick a dataset, pick candidates, frame the decision, run.
 // A Proof Brief (not a wizard in v0) keeps the receipt anchored to a real decision.
 export interface RunSetupProps {
   datasets: Dataset[];
-  candidates: Candidate[];
+  panel: SelectionPanel;
   datasetId: string;
   onDatasetChange: (id: string) => void;
   selectedCandidates: string[];
@@ -24,7 +24,7 @@ const inputCls =
 export function RunSetup(props: RunSetupProps) {
   const {
     datasets,
-    candidates,
+    panel,
     datasetId,
     onDatasetChange,
     selectedCandidates,
@@ -69,37 +69,11 @@ export function RunSetup(props: RunSetupProps) {
           </span>
         </label>
 
-        <fieldset className="grid gap-2 text-sm">
-          <legend className="text-(--color-ink-muted)">Candidates</legend>
-          <p className="text-xs text-(--color-ink-faint)">
-            The models or prompts you’re comparing. Mock candidates run instantly, no API key.
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {candidates.map((c) => {
-              const checked = selectedCandidates.includes(c.id);
-              return (
-                <label
-                  key={c.id}
-                  className={
-                    "flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 transition-colors " +
-                    (checked
-                      ? "border-(--color-accent)/50 bg-(--color-accent)/10"
-                      : "border-(--color-panel-line) hover:border-(--color-panel-line-strong)")
-                  }
-                >
-                  <input
-                    type="checkbox"
-                    checked={checked}
-                    onChange={() => onToggleCandidate(c.id)}
-                    className="accent-(--color-accent-strong)"
-                  />
-                  <span className="text-(--color-ink)">{c.label}</span>
-                  <ProviderTag candidate={c} />
-                </label>
-              );
-            })}
-          </div>
-        </fieldset>
+        <CandidatePicker
+          panel={panel}
+          selected={selectedCandidates}
+          onToggle={onToggleCandidate}
+        />
 
         <label className="grid gap-1.5 text-sm">
           <span className="text-(--color-ink-muted)">Task name</span>

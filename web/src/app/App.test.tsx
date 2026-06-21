@@ -14,10 +14,28 @@ const DATASETS = [
     examples: [{ input_text: "in", expected_text: "out" }],
   },
 ];
-const CANDIDATES = [
-  { id: "mock_good", label: "Mock · good", provider_id: "mock_good", privacy: "local" },
-  { id: "mock_bad", label: "Mock · bad", provider_id: "mock_bad", privacy: "local" },
-];
+const SELECTION = {
+  providers: [
+    {
+      provider_id: "mock_good",
+      label: "Mock · good",
+      privacy: "local",
+      available: true,
+      supports_custom: false,
+      candidate_id: "mock_good",
+      models: [],
+    },
+    {
+      provider_id: "mock_bad",
+      label: "Mock · bad",
+      privacy: "local",
+      available: true,
+      supports_custom: false,
+      candidate_id: "mock_bad",
+      models: [],
+    },
+  ],
+};
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -30,7 +48,7 @@ function mockServer(runs: unknown = [SAMPLE_REPORT]) {
     mockFetchByUrl({
       health: HEALTH,
       datasets: DATASETS,
-      candidates: CANDIDATES,
+      selection: SELECTION,
       runs,
     }) as typeof fetch,
   );
@@ -85,7 +103,7 @@ test("syncs the Task name to the selected dataset until the user edits it", asyn
     mockFetchByUrl({
       health: HEALTH,
       datasets: TWO_DATASETS,
-      candidates: CANDIDATES,
+      selection: SELECTION,
       runs: [],
     }) as typeof fetch,
   );

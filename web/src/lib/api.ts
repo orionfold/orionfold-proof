@@ -13,6 +13,34 @@ export const candidateSchema = z.object({
 });
 export type Candidate = z.infer<typeof candidateSchema>;
 
+export const selectionModelSchema = z.object({
+  candidate_id: z.string(),
+  model: z.string(),
+  display_name: z.string(),
+  tier: z.enum(["frontier", "balanced", "economy"]),
+  cost_class: z.enum(["free", "$", "$$", "$$$"]),
+  context_window: z.number().nullable().optional(),
+  latest: z.boolean(),
+  recommended: z.boolean(),
+});
+export type SelectionModel = z.infer<typeof selectionModelSchema>;
+
+export const selectionGroupSchema = z.object({
+  provider_id: z.string(),
+  label: z.string(),
+  privacy: Privacy,
+  available: z.boolean(),
+  supports_custom: z.boolean(),
+  candidate_id: z.string().nullable().optional(),
+  models: z.array(selectionModelSchema),
+});
+export type SelectionGroup = z.infer<typeof selectionGroupSchema>;
+
+export const selectionPanelSchema = z.object({
+  providers: z.array(selectionGroupSchema),
+});
+export type SelectionPanel = z.infer<typeof selectionPanelSchema>;
+
 export const exampleSchema = z.object({
   input_text: z.string(),
   expected_text: z.string(),
@@ -158,6 +186,10 @@ export async function createDataset(body: {
 
 export function getCandidates(): Promise<Candidate[]> {
   return getJson("/api/candidates", z.array(candidateSchema));
+}
+
+export function getSelection(): Promise<SelectionPanel> {
+  return getJson("/api/selection", selectionPanelSchema);
 }
 
 // Past runs, newest first — each is a full report, so the Receipts view can show the winner

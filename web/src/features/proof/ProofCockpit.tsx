@@ -4,7 +4,7 @@ import { BadgeCheck, LoaderCircle } from "lucide-react";
 
 import {
   createRunStream,
-  getCandidates,
+  getSelection,
   getDatasets,
   type LeaderboardEntry,
   type ProofBrief,
@@ -40,7 +40,7 @@ export function ProofCockpit({
 }) {
   const queryClient = useQueryClient();
   const datasets = useQuery({ queryKey: ["datasets"], queryFn: getDatasets });
-  const candidates = useQuery({ queryKey: ["candidates"], queryFn: getCandidates });
+  const selection = useQuery({ queryKey: ["selection"], queryFn: getSelection });
 
   const [datasetId, setDatasetId] = useState("");
   const [selected, setSelected] = useState<string[]>([]);
@@ -76,10 +76,12 @@ export function ProofCockpit({
   };
   const resolvedSelected = useMemo(() => {
     if (selected.length > 0) return selected;
-    const all = candidates.data ?? [];
-    const keyless = all.filter((c) => !c.model).map((c) => c.id);
-    return keyless.length > 0 ? keyless : all.map((c) => c.id);
-  }, [selected, candidates.data]);
+    // Mocks are the keyless default path: groups that ARE a candidate (candidate_id set).
+    const groups = selection.data?.providers ?? [];
+    return groups
+      .filter((g) => g.candidate_id)
+      .map((g) => g.candidate_id as string);
+  }, [selected, selection.data]);
 
   const runMutation = useMutation({
     mutationFn: (body: RunRequest) =>
@@ -101,14 +103,14 @@ export function ProofCockpit({
     setSelected(base.includes(id) ? base.filter((c) => c !== id) : [...base, id]);
   };
 
-  if (datasets.isLoading || candidates.isLoading) {
+  if (datasets.isLoading || selection.isLoading) {
     return (
       <CenteredNotice>
         <p className="text-(--color-ink-muted)">Loading the local engine…</p>
       </CenteredNotice>
     );
   }
-  if (datasets.isError || candidates.isError || !datasets.data || !candidates.data) {
+  if (datasets.isError || selection.isError || !datasets.data || !selection.data) {
     return (
       <CenteredNotice>
         <p className="text-rose-300">Could not reach the local engine.</p>
@@ -135,7 +137,7 @@ export function ProofCockpit({
 
         <RunSetup
           datasets={datasets.data}
-          candidates={candidates.data}
+          panel={selection.data}
           datasetId={resolvedDatasetId}
           onDatasetChange={setDatasetId}
           selectedCandidates={resolvedSelected}
