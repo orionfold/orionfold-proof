@@ -33,9 +33,13 @@ def parse_score(text: str) -> float | None:
     if m is None:
         return None
     value = float(m.group())
-    if value > 10:        # looks like 0..100
+    # Rescaling heuristic: the prompt asks for 0..1. We infer the model's scale:
+    # (1, 2] ⟹ model overshot the 0..1 max ⟹ clamp to 1.0 (not 0.14).
+    # (2, 10] ⟹ model returned 0..10 scale ⟹ divide by 10.
+    # >10 ⟹ model returned 0..100 scale ⟹ divide by 100.
+    if value > 10:
         value /= 100.0
-    elif value > 2:       # looks like 0..10 (2+ is clearly not 0..1)
+    elif value > 2:
         value /= 10.0
     return max(0.0, min(1.0, value))
 
