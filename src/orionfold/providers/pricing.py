@@ -15,7 +15,6 @@ _PRICES: dict[str, tuple[float, float]] = {
     "claude-haiku-4-5": (1.00, 5.00),
     "claude-sonnet-4-6": (3.00, 15.00),
     "claude-opus-4-8": (5.00, 25.00),
-    "claude-fable-5": (10.00, 50.00),
     # OpenAI (current GPT-5.x line; gpt-4o* kept for legacy/tests)
     "gpt-5.4-nano": (0.20, 1.25),
     "gpt-5.4-mini": (0.75, 4.50),
