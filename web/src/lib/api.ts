@@ -44,6 +44,7 @@ export type SelectionPanel = z.infer<typeof selectionPanelSchema>;
 export const exampleSchema = z.object({
   input_text: z.string(),
   expected_text: z.string(),
+  keypoints: z.array(z.string()).optional().default([]),
 });
 
 export const datasetSchema = z.object({
