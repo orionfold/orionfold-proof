@@ -6,29 +6,45 @@
 > To resume: in a fresh session say **"read from handoff"** (or "continue from last
 > session"), or `/clear` and paste the prompt below.
 
-_Last updated: 2026-06-21 · **Scoring-section redesign SHIPPED & merge-ready (frontend-only).**
-The cockpit's **Scoring method** section went from a flat segmented control + chip-wall to (a) **grouped
-method cards** — "Free · instant · repeatable" (Auto/Keypoint/Similarity) vs "Costs money · adds latency"
-(LLM judge), each with one-line guidance + a cost indicator (the free-vs-paid split is now structural,
-guarding against accidental paid runs), and (b) a **two-step judge filter** (Local/Hosted →
-Cheapest/Balanced/Best) feeding a model `<select>` with an opinionated default. The **Auto card shows
-what it resolves to** for the selected dataset; the control moved INTO the RunSetup form, above "Run
-proof". New web units: `scoring.ts` (`resolveAutoKind`, `filterJudgeModels`), `MethodCard.tsx`,
-`JudgeFilter.tsx`, slimmed `ScoringMethod.tsx` (308→54 lines); `selectionMeta.ts` += METHOD_META/JUDGE_TIERS;
-`api.ts` += `keypoints` field + exported `Privacy` TYPE. **No backend/scoring/receipt change —
-RECEIPT_VERSION stays 5, config_hash untouched.** KEYLESS INVARIANT: the synthetic **Mock judge**
-(`judge_provider_id="mock_judge"`) is the Local+Cheapest default — enforced in `filterJudgeModels`
-(`def = mockJudge ?? recommended ?? latest ?? first`; mock stays `recommended:false` so NO badge but IS
-the default); `mock_good`/`mock_bad` are EXCLUDED from judge options. brainstorm → spec → 7-task plan →
-subagent-driven (per-task review + Opus whole-branch review = Ready-to-merge; final review caught the
-keyless-default edge → fixed). vitest 72/72 · build clean · e2e 5/5 (keyless "Scored by Keypoint
-coverage" intact + new LLM-judge-filter spec) · pure-frontend (zero Python). Commits on `main` (NOT
-pushed — no remote): f41f12e af3ca34 8b92988 c4762df df5f9ef 8cb3e4e 3d269f3 5dfe3f2 8caf7e6 d7938b5
-7b9cfbd b85c4aa (+ spec/plan/worklog docs).
-LESSON: vitest does NOT typecheck — run `pnpm --dir web build` before committing frontend changes._
+_Last updated: 2026-06-21 · **Scoring-section DESIGN POLISH (operator live review) + folder rename
+finished. Frontend-only, merge-ready.** Two things this session:_
 
-_Prior session: **Meaning-aware scoring (Finding 2)** shipped keypoint-coverage + LLM-judge scoring,
-RunCostSummary, RECEIPT_VERSION 4→5, the Scoring-method picker. (This session redesigned that picker's UI.)_
+1. _**Folder rename finished** (`orionfold-proof-claude` → `orionfold-proof`). `uv sync --reinstall`
+   repointed ALL `.venv/bin/*` shebangs (plain `uv sync` only fixes the editable project pkg → stale
+   pytest/etc. interpreters); two old-name doc refs updated; `git grep orionfold-proof-claude` clean.
+   Commit `9771cd2`. Worklog `2026-06-21-folder-rename.md`._
+2. _**Scoring-method UI polish** (operator drove it in-browser; HMR loop). (a) **All four method cards
+   now sit in ONE responsive row** (`lg:grid-cols-4`, 2×2 narrow): Auto/Keypoint/Similarity/LLM judge,
+   equal width AND height — `MethodCard` is now `flex h-full flex-col` with the cost chip pinned to the
+   bottom (`mt-auto`) so chips align; guidance reworded to ~52 chars each + `text-balance` so every card
+   wraps to two even lines. The two uppercase group headers ("Free · instant · repeatable" / "Costs
+   money · adds latency") were REPLACED by a single helper line; the free-vs-paid guard now lives in each
+   card's cost chip (`Free` vs `$ per run · slower`). (b) **JudgeFilter is now a single-row stepper that
+   matches the top StageStepper** — ①②③ filled-accent number badges + `h-px w-5 bg-(--color-panel-line)`
+   hairline connectors (NOT arrow icons — operator asked for consistency with Configure/Run/Decide);
+   "Run on / Optimize / Judge model" labels, lines, AND controls all inline on one row (`flex flex-wrap
+   items-center`). Added `aria-label="Judge model"` to the `<select>` (the old `<label>` wrapper was
+   dropped → needed for a11y + the e2e `getByLabel`). Gated hint reworded to "Pick one once its key is
+   set below." (the old "Add a key…" duplicated the KeyEntry's `/add a key/` text → made a test match two
+   nodes). (c) **`vite.config.ts`**: dev `port` + `/api` proxy target are now env-overridable
+   (`VITE_DEV_PORT` / `VITE_API_PROXY`, defaults unchanged) so a 2nd checkout runs on free ports without
+   colliding with the sibling codex checkout (8787/5173)._
+
+_**No backend/scoring/receipt change — RECEIPT_VERSION stays 5, config_hash untouched.** Files changed:
+`MethodCard.tsx`, `ScoringMethod.tsx`, `JudgeFilter.tsx`, `vite.config.ts`. vitest 72/72 · build clean
+(tsc+vite) · e2e 5/5 (rebuilt embed first) · browser-verified on isolated ports 5180→8790. KEYLESS
+INVARIANT intact: Mock judge stays the Local+Cheapest default; `mock_good`/`mock_bad` never judge
+options; Auto omits the rubric → server resolves `default_rubric_for`. Design-polish commit is HEAD on
+`main` (NOT pushed — no remote). Worklog `2026-06-21-scoring-section-design-polish.md`._
+
+_LESSON: vitest does NOT typecheck AND does not run the e2e — for a layout change run BOTH
+`pnpm --dir web build` AND the Playwright e2e (rebuild the embed via `bash scripts/build.sh` first,
+since `orionfold up` serves the embedded cockpit, not vite). Dropping a `<label>` wrapper silently
+breaks `getByLabel` — add an explicit `aria-label`._
+
+_Prior session: **Scoring-section redesign** shipped grouped method cards + the two-step judge filter
+(this session reflowed them into one row + a stepper). Before that: **meaning-aware scoring (Finding 2)**
+— keypoint-coverage + LLM-judge scoring, RunCostSummary, RECEIPT_VERSION 4→5._
 >
 > **NEXT SESSION — #6 PROMPT-VARIANT CANDIDATES** (the next candidate axis): same model, different
 > system prompt, compared in one run — composes with the picker (#4) + recipes (#5) and the new

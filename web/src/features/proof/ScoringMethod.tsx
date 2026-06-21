@@ -41,25 +41,21 @@ export function ScoringMethod({ value, onChange, dataset }: ScoringMethodProps) 
   }
 
   const autoResolved = resolveAutoKind(dataset) === "keypoint" ? "Keypoint coverage" : "Similarity";
-  const autoGuidance = `We pick the right free check — ${autoResolved} for this dataset.`;
+  const autoGuidance = `Picks the best free check — here, ${autoResolved}.`;
 
   return (
     <fieldset className="grid gap-3 text-sm">
       <legend className="text-(--color-ink-muted)">Scoring method</legend>
 
-      <span className="text-xs uppercase tracking-wide text-(--color-ink-faint)">
-        Free · instant · repeatable
-      </span>
-      <div className="grid gap-2 sm:grid-cols-3">
+      <p className="text-xs text-(--color-ink-faint)">
+        The first three are free, instant, and repeatable. The LLM judge costs money and adds latency.
+      </p>
+      <div className="grid items-stretch gap-2 sm:grid-cols-2 lg:grid-cols-4">
         <MethodCard title="Auto" guidance={autoGuidance} cost="Free" selected={method === "auto"} onSelect={() => selectMethod("auto")} />
         <MethodCard title={METHOD_META.keypoint.label} guidance={METHOD_META.keypoint.guidance} cost={METHOD_META.keypoint.cost} selected={method === "keypoint"} onSelect={() => selectMethod("keypoint")} />
         <MethodCard title={METHOD_META.similarity.label} guidance={METHOD_META.similarity.guidance} cost={METHOD_META.similarity.cost} selected={method === "similarity"} onSelect={() => selectMethod("similarity")} />
+        <MethodCard title={METHOD_META.judge.label} guidance={METHOD_META.judge.guidance} cost={METHOD_META.judge.cost} selected={method === "judge"} onSelect={() => selectMethod("judge")} />
       </div>
-
-      <span className="text-xs uppercase tracking-wide text-(--color-ink-faint)">
-        Costs money · adds latency
-      </span>
-      <MethodCard title={METHOD_META.judge.label} guidance={METHOD_META.judge.guidance} cost={METHOD_META.judge.cost} selected={method === "judge"} onSelect={() => selectMethod("judge")} />
 
       {method === "judge" ? (
         <JudgeFilter

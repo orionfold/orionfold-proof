@@ -22,6 +22,27 @@ const toggleIdle = "border-(--color-panel-line) text-(--color-ink-muted) hover:b
 
 const encode = (providerId: string, model: string | null) => `${providerId}::${model ?? ""}`;
 
+// A numbered step in the judge-picker flow — badge, label, and controls all inline on one row. The
+// badge is styled like the top StageStepper badge for visual consistency.
+function Step({ n, label, children }: { n: number; label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-2">
+      <span aria-hidden className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-(--color-accent) text-[10px] text-(--color-accent-ink)">
+        {n}
+      </span>
+      <span className="text-sm text-(--color-ink-muted)">{label}</span>
+      {children}
+    </div>
+  );
+}
+
+// Connector between steps — the same hairline the top StageStepper uses between Configure/Run/Decide,
+// so the judge flow reads as the same kind of stepper. Hidden once the row wraps so it never points
+// sideways into a stacked layout; the numbered badges still carry the ordering.
+function StepLine() {
+  return <span aria-hidden className="hidden h-px w-5 shrink-0 bg-(--color-panel-line) sm:block" />;
+}
+
 export function JudgeFilter({ selectedProviderId, selectedModel, onPick }: JudgeFilterProps) {
   const { data: panel } = useQuery<SelectionPanel>({ queryKey: ["selection"], queryFn: getSelection });
   const [privacy, setPrivacy] = useState<Privacy>("local");
@@ -44,49 +65,59 @@ export function JudgeFilter({ selectedProviderId, selectedModel, onPick }: Judge
 
   return (
     <div className="grid gap-3">
-      <div className="flex flex-wrap items-center gap-2 text-sm">
-        <span className="text-(--color-ink-muted)">Run on</span>
-        {(["local", "cloud"] as Privacy[]).map((p) => (
-          <button key={p} type="button" aria-pressed={privacy === p} onClick={() => changeAxis({ privacy: p })}
-            className={`${toggleBase} ${privacy === p ? toggleActive : toggleIdle}`}>
-            {p === "local" ? "Local" : "Hosted"}
-          </button>
-        ))}
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2 text-sm">
-        <span className="text-(--color-ink-muted)">Optimize</span>
-        {JUDGE_TIERS.map((t) => (
-          <button key={t.id} type="button" aria-pressed={tier === t.id} onClick={() => changeAxis({ tier: t.id })}
-            className={`${toggleBase} ${tier === t.id ? toggleActive : toggleIdle}`}>
-            {t.label}
-          </button>
-        ))}
-      </div>
-
-      {result.options.length > 0 ? (
-        <label className="grid gap-1.5 text-sm">
-          <span className="text-(--color-ink-muted)">Judge model</span>
-          <select
-            value={currentValue}
-            onChange={(e) => {
-              const [pid, model] = e.target.value.split("::");
-              onPick(pid, model === "" ? null : model);
-            }}
-            className="rounded-lg border border-(--color-panel-line) bg-(--color-panel) px-3 py-2 text-(--color-ink)"
-          >
-            {result.options.map((o) => (
-              <option key={encode(o.providerId, o.model)} value={encode(o.providerId, o.model)}>
-                {o.displayName}
-              </option>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-3">
+        <Step n={1} label="Run on">
+          <div className="flex gap-2">
+            {(["local", "cloud"] as Privacy[]).map((p) => (
+              <button key={p} type="button" aria-pressed={privacy === p} onClick={() => changeAxis({ privacy: p })}
+                className={`${toggleBase} ${privacy === p ? toggleActive : toggleIdle}`}>
+                {p === "local" ? "Local" : "Hosted"}
+              </button>
             ))}
-          </select>
-        </label>
-      ) : result.gated.length === 0 ? (
-        <p className="text-xs text-(--color-ink-faint)">
-          No {privacy === "local" ? "local" : "hosted"} judge for this option — try another.
-        </p>
-      ) : null}
+          </div>
+        </Step>
+
+        <StepLine />
+
+        <Step n={2} label="Optimize">
+          <div className="flex gap-2">
+            {JUDGE_TIERS.map((t) => (
+              <button key={t.id} type="button" aria-pressed={tier === t.id} onClick={() => changeAxis({ tier: t.id })}
+                className={`${toggleBase} ${tier === t.id ? toggleActive : toggleIdle}`}>
+                {t.label}
+              </button>
+            ))}
+          </div>
+        </Step>
+
+        <StepLine />
+
+        <Step n={3} label="Judge model">
+          {result.options.length > 0 ? (
+            <select
+              aria-label="Judge model"
+              value={currentValue}
+              onChange={(e) => {
+                const [pid, model] = e.target.value.split("::");
+                onPick(pid, model === "" ? null : model);
+              }}
+              className="rounded-lg border border-(--color-panel-line) bg-(--color-panel) px-3 py-2 text-sm text-(--color-ink)"
+            >
+              {result.options.map((o) => (
+                <option key={encode(o.providerId, o.model)} value={encode(o.providerId, o.model)}>
+                  {o.displayName}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <p className="py-2 text-xs text-(--color-ink-faint)">
+              {result.gated.length > 0
+                ? "Pick one once its key is set below."
+                : `No ${privacy === "local" ? "local" : "hosted"} judge for this option — try another.`}
+            </p>
+          )}
+        </Step>
+      </div>
 
       {result.gated.map((g) => (
         <div key={g.providerId} className="flex items-center gap-2">
