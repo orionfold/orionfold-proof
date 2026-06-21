@@ -361,14 +361,16 @@ class JudgeOutcome:
 
 
 def parse_score(text: str) -> float | None:
-    """First number in ``text`` as a 0..1 score. Accepts 0..1, 0..10, or 0..100; clamps."""
+    """First number in ``text`` as a 0..1 score. The prompt asks for 0..1; this is defensive
+    for malformed replies. A value in (1, 2] is read as the model overshooting the requested
+    max -> clamp to 1.0; (2, 10] is a 0..10 scale -> /10; > 10 is a 0..100 scale -> /100."""
     m = _NUMBER.search(text or "")
     if m is None:
         return None
     value = float(m.group())
-    if value > 10:        # looks like 0..100
+    if value > 10:        # 0..100 scale, e.g. "85" -> 0.85
         value /= 100.0
-    elif value > 1:       # looks like 0..10
+    elif value > 2:       # 0..10 scale, e.g. "7" -> 0.7 ((1,2] is overshoot -> clamps below)
         value /= 10.0
     return max(0.0, min(1.0, value))
 
