@@ -11,7 +11,7 @@ _2 candidate(s) × 5 example(s) · rubric similarity ≥ 0.8_
 - **Run id:** `run_sampledemo01`
 - **Config hash:** `b7b5b150bb67`
 - **Generated:** 2026-06-19T12:00:00Z
-- **Receipt schema:** v3
+- **Receipt schema:** v4
 
 ## Leaderboard
 

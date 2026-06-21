@@ -1,5 +1,5 @@
 {
-  "receipt_version": 3,
+  "receipt_version": 4,
   "run_id": "run_sampledemo01",
   "config_hash": "b7b5b150bb67",
   "created_at": "2026-06-19T12:00:00Z",
@@ -34,6 +34,7 @@
       "avg_latency_ms": 57,
       "total_estimated_cost_usd": 0.0,
       "failure_count": 0,
+      "error_count": 0,
       "recommended": true
     },
     {
@@ -49,6 +50,7 @@
       "avg_latency_ms": 126,
       "total_estimated_cost_usd": 0.0,
       "failure_count": 5,
+      "error_count": 1,
       "recommended": false
     }
   ],
