@@ -28,6 +28,8 @@ from orionfold.data.importers import DatasetParseError, ImportFormat, ParseResul
 from orionfold.domain.models import Candidate, Dataset, ProofBrief, ProofReport, ProofRun, Rubric
 from orionfold.proof.engine import build_cost_summary, config_hash, iter_matrix, run_proof
 from orionfold.proof.leaderboard import build_leaderboard
+from orionfold.scoring.judge import build_judge
+from orionfold.scoring.rubric import default_rubric_for
 from orionfold.providers.registry import (
     UnknownCandidateError,
     available_candidates,
@@ -64,7 +66,7 @@ class DatasetCreateRequest(BaseModel):
 class RunRequest(BaseModel):
     dataset_id: str
     candidate_ids: list[str]
-    rubric: Rubric = Rubric()
+    rubric: Rubric | None = None
     brief: ProofBrief
 
 
@@ -192,16 +194,20 @@ def create_run(request: Request, body: RunRequest) -> ProofReport:
         except UnknownCandidateError as exc:
             raise HTTPException(status_code=400, detail=str(exc))
 
+        rubric = body.rubric or default_rubric_for(dataset)
         # Normalize to the trailing-Z form so live receipts match the fixtures/samples.
         now = datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
-        report = run_proof(
-            run_id=f"run_{uuid.uuid4().hex[:12]}",
-            created_at=now,
-            brief=body.brief,
-            dataset=dataset,
-            candidates=candidates,
-            rubric=body.rubric,
-        )
+        try:
+            report = run_proof(
+                run_id=f"run_{uuid.uuid4().hex[:12]}",
+                created_at=now,
+                brief=body.brief,
+                dataset=dataset,
+                candidates=candidates,
+                rubric=rubric,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc))
         save_report(conn, report)
         return report
     finally:
@@ -238,6 +244,12 @@ def create_run_stream(request: Request, body: RunRequest) -> StreamingResponse:
         candidates = build_candidates(body.candidate_ids)
     except UnknownCandidateError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
+    rubric = body.rubric or default_rubric_for(dataset)
+    if rubric.kind == "judge":
+        try:
+            build_judge(rubric)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc))
     db_path = request.app.state.db_path
 
     def events() -> Iterator[str]:
@@ -254,7 +266,7 @@ def create_run_stream(request: Request, body: RunRequest) -> StreamingResponse:
             }
         )
         rows = []
-        for done, row in enumerate(iter_matrix(dataset, candidates, body.rubric), start=1):
+        for done, row in enumerate(iter_matrix(dataset, candidates, rubric), start=1):
             rows.append(row)
             yield _sse(
                 {
@@ -272,9 +284,9 @@ def create_run_stream(request: Request, body: RunRequest) -> StreamingResponse:
             brief=body.brief,
             dataset_id=dataset.id,
             dataset_name=dataset.name,
-            rubric=body.rubric,
+            rubric=rubric,
             candidates=candidates,
-            config_hash=config_hash(dataset, candidates, body.rubric),
+            config_hash=config_hash(dataset, candidates, rubric),
             created_at=now,
         )
         report = ProofReport(

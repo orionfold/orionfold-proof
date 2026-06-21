@@ -329,3 +329,51 @@ def test_catalog_endpoint_leaks_no_secrets(client, monkeypatch):
     assert "sk-should-never-appear-in-catalog" not in text
     assert "sk-ant-should-never-appear" not in text
     assert "API_KEY" not in text
+
+
+# ---------------------------------------------------------------------------
+# Task 7: optional rubric (Auto default), judge 422, cost_summary in report
+# ---------------------------------------------------------------------------
+
+_DEMO_DATASET_ID = "investment-memo-summarization"
+
+
+def test_run_omitting_rubric_uses_keypoint_default(client):
+    # The seeded demo dataset carries keypoints, so Auto resolves to keypoint.
+    resp = client.post(
+        "/api/runs",
+        json={
+            "dataset_id": _DEMO_DATASET_ID,
+            "candidate_ids": ["mock_good"],
+            "brief": {"task_name": "t", "decision_question": "q"},
+        },
+    )
+    assert resp.status_code == 200
+    assert resp.json()["run"]["rubric"]["kind"] == "keypoint"
+
+
+def test_run_judge_without_model_is_422(client):
+    resp = client.post(
+        "/api/runs",
+        json={
+            "dataset_id": _DEMO_DATASET_ID,
+            "candidate_ids": ["mock_good"],
+            "rubric": {"kind": "judge", "threshold": 0.8, "case_sensitive": False},
+            "brief": {"task_name": "t", "decision_question": "q"},
+        },
+    )
+    assert resp.status_code == 422
+
+
+def test_run_report_has_cost_summary(client):
+    resp = client.post(
+        "/api/runs",
+        json={
+            "dataset_id": _DEMO_DATASET_ID,
+            "candidate_ids": ["mock_good"],
+            "rubric": {"kind": "keypoint", "threshold": 0.8, "case_sensitive": False},
+            "brief": {"task_name": "t", "decision_question": "q"},
+        },
+    )
+    assert resp.status_code == 200
+    assert "cost_summary" in resp.json()
