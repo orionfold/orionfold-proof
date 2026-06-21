@@ -18,7 +18,7 @@ import {
   type RunStartEvent,
   type RunCostSummary,
 } from "../../lib/api";
-import { STARTER_VARIANTS, cleanVariants, defaultPromptModel } from "./promptVariants";
+import { STARTER_VARIANTS, cleanVariants, defaultPromptModel } from "./promptVariantsHelpers";
 import { type Rubric } from "./ScoringMethod";
 import { ProviderTag } from "./badges";
 import { FailureCases } from "./FailureCases";

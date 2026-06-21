@@ -3,7 +3,7 @@ import { render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RunSetup } from "./RunSetup";
 import type { Dataset, SelectionPanel } from "../../lib/api";
-import { STARTER_VARIANTS } from "./promptVariants";
+import { STARTER_VARIANTS } from "./promptVariantsHelpers";
 import type { RunSetupProps } from "./RunSetup";
 
 vi.mock("../../lib/api", async (orig) => ({

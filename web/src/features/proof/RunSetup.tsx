@@ -2,7 +2,7 @@ import type { Dataset, ProofBrief, PromptVariant, SelectionPanel } from "../../l
 import { CandidatePicker } from "./CandidatePicker";
 import { PromptVariants } from "./PromptVariants.tsx";
 import { ScoringMethod, type Rubric } from "./ScoringMethod";
-import { validPromptVariants } from "./promptVariants";
+import { validPromptVariants } from "./promptVariantsHelpers";
 
 // The setup is deliberately small: pick a dataset, pick candidates, frame the decision, run.
 // A Proof Brief (not a wizard in v0) keeps the receipt anchored to a real decision.

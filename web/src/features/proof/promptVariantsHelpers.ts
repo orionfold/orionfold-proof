@@ -1,8 +1,11 @@
 // Pure helpers for the "one model, N prompts" compare mode. No React, no network.
 import type { PromptVariant, SelectionPanel } from "../../lib/api";
 
-// Starter prompts the editor seeds so the first run is an edit, not a blank page. "Baseline"
-// mirrors the server's TASK_SYSTEM_PROMPT so a variant run can include the current default.
+// Starter prompts the editor seeds so the first run is an edit, not a blank page.
+//
+// DRIFT GUARD: STARTER_VARIANTS[0] ("Baseline") system_prompt MUST stay verbatim-identical to
+// TASK_SYSTEM_PROMPT in src/orionfold/providers/http.py. The frontend cannot import the Python
+// constant, so promptVariantsHelpers.test.ts asserts exact equality — update both together.
 export const STARTER_VARIANTS: PromptVariant[] = [
   {
     name: "Baseline",
