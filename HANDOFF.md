@@ -6,88 +6,96 @@
 > To resume: in a fresh session say **"read from handoff"** (or "continue from last
 > session"), or `/clear` and paste the prompt below.
 
-_Last updated: 2026-06-21 · **#6 PROMPT-VARIANT CANDIDATES — SHIPPED, merge-ready.** A new comparison
-axis: hold the model fixed, vary the system prompt ("one model, N prompts" in a single run).
-Brainstorm → spec → plan → subagent-driven (12 tasks) → Opus whole-branch review (Ready to merge=YES,
-0 Critical/0 Important) → operator-approved cleanup. 14 commits `41cc8e2..d411e71` on `main` (NOT
-pushed — no remote)._
+_Last updated: 2026-06-21 · **PROMPT-AWARE MOCKS — SHIPPED, merge-ready.** The keyless mock
+providers now deterministically vary output by the candidate's system prompt, so the #6
+prompt-compare demo produces a real winner with NO API key (was: all variants tied). Brainstorm →
+spec → plan → subagent-driven (2 tasks) → Opus whole-branch review (Ready to merge=YES, 0 Critical/
+0 Important). 4 commits `73ade79..ff399b5` on `main` (NOT pushed — no remote)._
 
-**What shipped.** A `Compare by: Models | Prompts` toggle in the Proof Run setup. Models mode = the
-existing picker + recipes, unchanged. Prompts mode = pick ONE model + author ≥2 named system prompts;
-the server fans them into one candidate per prompt; each becomes a leaderboard row; the receipt
-records every variant's full prompt text (provenance). The architectural seam: **`system_prompt` is a
-field on `Candidate`**, so a prompt variant is just a candidate — the 2-D matrix, streaming,
-leaderboard, scoring, failure browser are all unchanged. **No new provider machinery.**
+**What shipped.** A pure helper `_shape_for_prompt(base, system_prompt)` in
+`src/orionfold/providers/mock.py`. Both mocks route their base output through it. A brevity *cue* in
+the system prompt truncates the output (dropping trailing content / keypoints), like a model that
+obeyed the instruction. Concrete keyless demo on the bundled dataset: **Baseline avg_score=1.000
+(recommended) vs Concise avg_score=0.555** — a genuine decision, not a tie.
 
 **Key invariants (do NOT regress):**
-- **config_hash** includes `system_prompt` ONLY when non-None → model-compare runs hash byte-identical
-  (zero churn; locked by `test_config_hash_unchanged_for_model_compare_runs` + a same-id assertion).
-- **RECEIPT_VERSION is now 6** (bump on ANY further receipt-schema change). `prompt_variants` is
-  additive/optional; old persisted reports still deserialize. Sample config_hash stayed `467ddd96c9a5`.
-- **Keyless invariant**: mocks ignore `system_prompt` (deterministic); `defaultPromptModel` prefers an
-  available (keyless mock) model so prompt-compare runs keyless. The e2e proves the path on a mock.
-- **Identity**: variant id = `{model_id}#{slug}` (deduped); `#` is distinct from the `:` model split —
-  engine routes on bare `provider_id`, `build_candidates` splits on `:`. No routing/parse hazard.
-- **Both run endpoints** route through one `_resolve_candidates` (422 on not-one-model / <2 variants /
-  empty fields; `UnknownCandidateError` → 400; global 422 input-stripping handler intact).
-- **Model-compare path is behaviorally unchanged** when the toggle is on Models (the default); its run
-  request carries NO `prompt_variants` key. Secrets: prompt text is author instructions, never a key.
-- Frontend helpers live in **`promptVariantsHelpers.ts`** (renamed from `promptVariants.ts` to avoid a
-  case-only collision with the `PromptVariants.tsx` component). Baseline starter prompt is drift-locked
-  to the server `TASK_SYSTEM_PROMPT` by a test.
+- **Verbatim-by-identity:** `_shape_for_prompt` returns the SAME `base` string object (no
+  split/join) on the `system_prompt is None` path AND the cue-less `budget>=1.0` path. This is what
+  keeps **model-compare byte-identical** — the "100% (5/5)" contract, sample receipts, and sample
+  `config_hash 467ddd96c9a5` are untouched (NO sample regeneration needed). A unit test asserts
+  `is base` (identity, not equality) — keep it.
+- **Deterministic:** pure function of `(base, system_prompt)` — no hashing, no random, no state.
+  (The product's thesis is *repeatable* proof; a nondeterministic mock would be a real defect.)
+- **mock_bad failure path:** still raises its simulated failure on `_stable_int(input_text) % 5 == 0`
+  **before** shaping → failure count invariant to the prompt ("Failure cases (5)" / "simulated
+  provider failure" intact).
+- **Cue tiers (exact):** strong `b=0.4` = {`as few words as possible`, `fewest`, `terse`,
+  `one sentence`, `tl;dr`}; mild `b=0.6` = {`concise`, `brief`, `short`, `minimal`}; no cue →
+  `b=1.0`; strongest (smallest b) wins when both present. Truncate to first
+  `max(1, ceil(b*word_count))` whitespace-split words.
+- **Scope:** ONLY `mock.py` + `tests/unit/test_providers.py` + `tests/integration/test_proof_api.py`
+  changed. No receipt schema change, no `RECEIPT_VERSION` bump (still **6**), no frontend change.
+- **It's a deliberately small *simulation*** sensitive only to a finite brevity-cue vocabulary;
+  providers stay labeled "Mock ·…". Real signal still comes from a real model.
 
-**Verification at close (HEAD `d411e71`):** `uv run pytest` 213 passed (1 pre-existing 3rd-party
-StarletteDeprecationWarning) · `uv run ruff check src tests` clean · `pnpm --dir web test` 83/83 (22
-files) · `pnpm --dir web build` clean (tsc+vite) · `bash scripts/build.sh && pnpm --dir web e2e` 6/6.
+**Verification at close (HEAD `ff399b5`):** `uv run pytest` 223 passed (1 pre-existing 3rd-party
+StarletteDeprecationWarning) · `uv run ruff check src tests` clean · `pnpm --dir web test` 83/83
+(22 files) · `pnpm --dir web build` clean · `bash scripts/build.sh && pnpm --dir web e2e` 6/6 ·
+`config_hash 467ddd96c9a5` present (model-compare byte-identical).
 
-> **NEXT SESSION — pick one (all non-blocking):**
+> **NEXT SESSION — pick one (all non-blocking, none is a gate):**
 > 1. **Catalog price/source accuracy pass** (roadmap) — a few catalog values UNVERIFIED; a measured
 >    receipt cost always outranks a list price, so this is refinement, not a gate.
-> 2. **Prompt-aware mocks** — make `mock_good`/`mock_bad` deterministically vary output with the system
->    prompt so the KEYLESS prompt-compare demo differentiates scores (today mocks tie on a prompt run).
-> 3. **Cross-product (models × prompts)** — only if a real need appears (deliberately deferred in #6).
-> 4. **Set up a git remote + push** — none configured; ALL `main` commits are local.
+> 2. **Cross-product (models × prompts)** — compare N models × M prompts in one run; deliberately
+>    deferred in #6. Only if a real need appears. Brainstorm FIRST.
+> 3. **Set up a git remote + push** — none configured; ALL `main` commits are local.
+> 4. **Parametrized cue test (tiny defer-Minor)** — add isolated tests for single-token strong cues
+>    (`fewest`/`one sentence`/`tl;dr`). The final review verified all 9 cues directly; redundant with
+>    the existing `any()`-scan coverage, so genuinely optional.
 > Workflows/RAG remain post-v0. Creative/feature work → brainstorm FIRST.
 
 ## Paste prompt for the next session
 
 ```text
 Use the context-refresh skill to load current state from docs/ (release charter, ADR-0001 + ADR-0002 +
-ADR-0003, and the latest worklogs: 2026-06-21-prompt-variant-candidates,
-2026-06-21-scoring-section-design-polish, 2026-06-21-meaning-aware-scoring).
+ADR-0003, and the latest worklogs: 2026-06-21-prompt-aware-mocks, 2026-06-21-prompt-variant-candidates,
+2026-06-21-scoring-section-design-polish).
 
 RECENT WORK (committed to main, not pushed — no git remote configured):
-- (this session) #6 PROMPT-VARIANT CANDIDATES — SHIPPED, merge-ready. New axis: hold model fixed, vary
-  system prompt ("one model, N prompts" in one run). Compare-by Models|Prompts toggle. system_prompt is
-  a Candidate field (variant = candidate; 2-D matrix unchanged; NO new provider machinery).
-  expand_prompt_variants mints {model_id}#{slug} candidates; server _resolve_candidates fans out in both
-  run endpoints (422 on not-one-model/<2/empty). config_hash conditional (zero churn for model runs;
-  variants distinct). RECEIPT_VERSION 5→6 records each variant's prompt + honest repro. Frontend:
-  api.ts types, promptVariantsHelpers.ts (renamed from promptVariants.ts — case-collision), PromptVariants
-  editor, RunSetup toggle + ProofCockpit run-request branches. e2e keyless prompt-compare. Opus
-  whole-branch review = Ready to merge YES, 0 Critical/0 Important. Spec/plan:
-  docs/superpowers/{specs,plans}/2026-06-21-prompt-variant-candidates*. Commits 41cc8e2..d411e71.
-- (prior) SCORING-SECTION DESIGN POLISH (one-row method cards + judge stepper). MEANING-AWARE SCORING
-  (keypoint + LLM-judge, RECEIPT_VERSION 4→5). DECISION RECIPES (#5), MODEL PICKER (#4), CATALOG (#1).
+- (this session) PROMPT-AWARE MOCKS — SHIPPED, merge-ready. Keyless mock providers now deterministically
+  vary output by candidate.system_prompt so the #6 prompt-compare demo produces a real winner with NO API
+  key (was: all variants tied). Pure helper _shape_for_prompt(base, system_prompt) in
+  src/orionfold/providers/mock.py; both mocks route base output through it; a brevity cue truncates output
+  (drops trailing keypoints). Demo: Baseline 1.000 (recommended) vs Concise 0.555. Opus whole-branch
+  review = Ready to merge YES, 0 Critical/0 Important. Spec/plan:
+  docs/superpowers/{specs,plans}/2026-06-21-prompt-aware-mocks*. Commits 73ade79..ff399b5 (4).
+- (prior) #6 PROMPT-VARIANT CANDIDATES (Compare-by Models|Prompts; system_prompt is a Candidate field;
+  RECEIPT_VERSION 6). SCORING-SECTION DESIGN POLISH. MEANING-AWARE SCORING. DECISION RECIPES (#5),
+  MODEL PICKER (#4), CATALOG (#1).
 
 >> START HERE — pick one non-blocking option (none is a gate):
    1. Catalog price/source accuracy pass (roadmap refinement).
-   2. Prompt-aware mocks (so the keyless prompt-compare demo differentiates scores; today mocks tie).
-   3. Cross-product models×prompts (only if a real need appears; deferred in #6).
-   4. Set up a git remote + push (all main commits are local).
+   2. Cross-product models×prompts (only if a real need appears; deferred in #6). Brainstorm FIRST.
+   3. Set up a git remote + push (all main commits are local).
+   4. Parametrized cue test for single-token strong cues (tiny optional defer-Minor).
    Workflows/RAG remain post-v0. Creative/feature work → brainstorm FIRST.
 
-Do NOT regress (#6 invariants): config_hash includes system_prompt ONLY when non-None (model-compare
-runs hash byte-identical — zero churn; the sample config_hash is 467ddd96c9a5); RECEIPT_VERSION is 6
-(bump on any further receipt change), prompt_variants additive/optional so old reports deserialize;
-mocks ignore system_prompt (keyless prompt-compare = plumbing demo, not score-differentiator);
-defaultPromptModel prefers an available keyless mock; variant id = {model_id}#{slug} (deduped), # distinct
-from the : model split so engine routes on bare provider_id; both run endpoints go through
+Do NOT regress (prompt-aware-mocks invariants): _shape_for_prompt returns the SAME base string object
+(no split/join) on system_prompt-is-None AND cue-less (budget>=1.0) paths → model-compare byte-identical
+(sample config_hash is 467ddd96c9a5; a unit test asserts `is base`); pure/deterministic (no hash/random/
+state); mock_bad raises on _stable_int(input_text)%5==0 BEFORE shaping (failure invariant to prompt);
+cue tiers exact (strong 0.4 = as few words as possible/fewest/terse/one sentence/tl;dr; mild 0.6 =
+concise/brief/short/minimal; strongest wins); truncate to first max(1, ceil(b*words)) words; mocks are a
+labeled SIMULATION, real signal needs a real model; NO receipt-schema change / NO RECEIPT_VERSION bump
+(still 6) / NO frontend change.
+
+Plus the #6 invariants: config_hash includes system_prompt ONLY when non-None; RECEIPT_VERSION 6
+(prompt_variants additive/optional so old reports deserialize); variant id = {model_id}#{slug} (deduped),
+# distinct from the : model split so engine routes on bare provider_id; both run endpoints go through
 _resolve_candidates (422 on not-one-model/<2-variants/empty; UnknownCandidateError→400); model-compare
-run request carries NO prompt_variants key and is behaviorally unchanged (toggle defaults to "models");
-prompt text is author instructions, never a secret; frontend helpers are promptVariantsHelpers.ts (NOT
-promptVariants.ts — renamed to avoid the case-collision with PromptVariants.tsx); Baseline starter prompt
-is drift-locked to server TASK_SYSTEM_PROMPT by a test.
+run request carries NO prompt_variants key (toggle defaults to "models"); prompt text is author
+instructions, never a secret; frontend helpers are promptVariantsHelpers.ts (NOT promptVariants.ts);
+Baseline starter prompt drift-locked to server TASK_SYSTEM_PROMPT by a test.
 
 Plus the STANDING invariants: meaning-aware scoring (keypoint coverage = fraction of authored keypoints
 present; default_rubric_for picks keypoint only when a dataset has keypoints, NEVER judge; MockJudge is
@@ -111,16 +119,16 @@ NOTES (non-blocking):
   embedded cockpit is served from src/orionfold/server/static (gitignored; rebuilt by `bash scripts/build.sh`
   — REBUILD before any e2e or browser check).
 - The frontend `test` script is `vitest run` (already non-watch) — run `pnpm --dir web test` (NOT
-  `--run`, which pnpm mis-parses). e2e: `pnpm --dir web e2e` (rebuild the embed first). The harness emits
-  STALE TS "cannot find module" diagnostics mid-edit (e.g. claimed compareBy absent from RunSetupProps
-  after it was added; claimed ./promptVariants missing) — trust `pnpm --dir web build` + the actual
-  test/e2e runs. @playwright/test "cannot find module" in e2e specs is a perennial false alarm.
+  `--run`). e2e: `pnpm --dir web e2e` (rebuild the embed first). The harness emits STALE TS "cannot find
+  module" diagnostics mid-edit — trust `pnpm --dir web build` + the actual test/e2e runs.
 - The Playwright e2e uses a fresh DB; a STALE local server/DB can cause a false failure — kill the port +
   delete /tmp/orionfold-e2e.db, rebuild the embed, re-run. The receipt preview iframe is CSP-sandboxed,
   so e2e asserts receipt content via the JSON receipt (page.request.get), not the iframe.
 - create-dataset route field is `text` (not `content`): POST /api/datasets {name, format, text}.
-- Regenerate sample receipts after ANY receipt change: `uv run python scripts/gen_samples.py` (now v6;
-  model-compare samples carry prompt_variants: []).
+- Mocks ignoring system_prompt is NO LONGER TRUE — they are now prompt-aware (this session). But a
+  prompt with no brevity cue still returns base verbatim, so model-compare (system_prompt=None) is
+  byte-identical and sample receipts need NO regeneration. Regenerate samples only after a receipt
+  change: `uv run python scripts/gen_samples.py`.
 Start in plan mode for anything substantial; brainstorm creative/feature work first. Verify with
 uv run pytest, uv run ruff check src tests, pnpm --dir web test, the Playwright e2e (rebuild embed first),
 and a real browser/server check on a free port. Open review-bound markdown in Obsidian one at a time.
@@ -129,16 +137,15 @@ Append a docs/worklog entry and overwrite HANDOFF.md.
 
 ## Where to look (durable context)
 
-- `docs/worklog/2026-06-21-prompt-variant-candidates.md` — this session's evidence (latest).
-- `docs/superpowers/specs/2026-06-21-prompt-variant-candidates-design.md` ·
-  `docs/superpowers/plans/2026-06-21-prompt-variant-candidates.md` — approved design + 12-task plan.
-- `docs/worklog/2026-06-21-scoring-section-design-polish.md` · `2026-06-21-meaning-aware-scoring.md` —
-  the prior two sessions.
+- `docs/worklog/2026-06-21-prompt-aware-mocks.md` — this session's evidence (latest).
+- `docs/superpowers/specs/2026-06-21-prompt-aware-mocks-design.md` ·
+  `docs/superpowers/plans/2026-06-21-prompt-aware-mocks.md` — approved design + 2-task plan.
+- `docs/worklog/2026-06-21-prompt-variant-candidates.md` — the #6 feature this builds on.
 - `docs/ux/product-design-system.md` — the three-pane target + Theming subsection.
 - `docs/adr/0001-…-architecture.md` · `0002-provider-integration-and-credentials.md` ·
   `0003-streaming-run-progress.md` — Accepted.
 - `docs/release-charter.md` — v0 scope, journey, acceptance criteria (Accepted; all met).
-- `CHANGELOG.md` ([Unreleased] now covers prompt-variant candidates + RECEIPT_VERSION 6) ·
+- `CHANGELOG.md` ([Unreleased] now notes prompt-aware mocks under the prompt-variant entry) ·
   `docs/demo-script.md`.
 - `.claude/rules/{providers,receipts,storage}.md` — enforced constraints.
 - `CLAUDE.md` — operating guide and release gates.
@@ -154,9 +161,9 @@ Append a docs/worklog entry and overwrite HANDOFF.md.
 - Dev: `uv run orionfold dev` + `pnpm --dir web dev`. Tests: `uv run pytest` · `uv run ruff check
   src tests` · `pnpm --dir web test` · `pnpm --dir web e2e` (rebuild embed first). Frontend build:
   `pnpm --dir web build`.
-- Regenerate sample receipts after any receipt change: `uv run python scripts/gen_samples.py`.
 - Inspect a prompt-compare run: POST /api/runs with `{dataset_id, candidate_ids: ["<model>"],
-  prompt_variants: [{name, system_prompt}, …]}`.
+  prompt_variants: [{name, system_prompt}, …]}`. On a mock model, a brevity cue in a variant's
+  system_prompt now lowers its score (keyless differentiation).
 - Env knobs: `OPENAI_API_KEY` `OPENROUTER_API_KEY` `GEMINI_API_KEY` `ANTHROPIC_API_KEY` (also
   settable in-app via POST /api/credentials → .env.local); `OLLAMA_HOST` `OPENAI_BASE_URL`
   `OPENROUTER_BASE_URL` `LMSTUDIO_BASE_URL`;
