@@ -45,6 +45,10 @@ The cockpit is one calm panel: a **Run setup** card (dataset, candidates, Proof 
 
 That is a complete, private, repeatable Proof Receipt with **zero credentials**.
 
+**Tip — compare prompts instead of models.** Toggle **Compare by → Prompts** in the run
+setup to test one model against several named system prompts in the same run; each prompt
+becomes its own leaderboard row and is captured verbatim in the Proof Receipt.
+
 ---
 
 ## Pass 2 — a real provider (optional, needs a key)

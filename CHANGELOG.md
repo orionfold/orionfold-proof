@@ -45,6 +45,12 @@ for [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   written to a receipt; only the four cloud providers are accepted (no arbitrary env writes). New
   `POST /api/credentials` returns only `{provider_id, available}`.
 
+- **Prompt-variant candidates.** A new `Compare by: Models | Prompts` toggle in the Proof Run setup
+  compares one model across several **named system prompts** in a single run — answering "which
+  wording of my instructions is most trustworthy on my task?" Each prompt becomes a leaderboard row;
+  the Proof Receipt records every variant's full prompt text for provenance (receipt schema **v6**).
+  Keyless: a prompt-compare run on a mock provider exercises the whole path without any API keys.
+
 - **Model-per-candidate picker.** The Proof Run setup now lets you choose a specific model per
   provider — and compare **several models of the same provider in one run** (the cost/latency-vs-
   quality proof, e.g. Claude Opus vs Haiku). Provider-grouped chips mark the latest (★) and
