@@ -15,8 +15,10 @@ from orionfold.domain.models import LeaderboardEntry, ProofReport, ResultRow
 
 # v2: added verdict, summary, and a repro section (run id + rerun command).
 # v3: leaderboard entries carry a `model` field (the candidate's model for real providers).
+# v4: leaderboard entries carry an `error_count` field; a fully-errored candidate ranks last
+# and is never recommended, and the receipt shows a "No clear winner" state when none passed.
 # Bump on any schema change so downstream consumers can detect drift.
-RECEIPT_VERSION = 3
+RECEIPT_VERSION = 4
 
 
 def _verdict(top: LeaderboardEntry) -> str:
@@ -42,6 +44,13 @@ def _failure_cases(report: ProofReport) -> list[ResultRow]:
     return [r for r in report.results if not r.passed]
 
 
+def _failures_label(e: dict) -> str:
+    """Annotate a fully-errored candidate so the standings read honestly."""
+    if e["total"] and e["error_count"] == e["total"]:
+        return f"{e['failure_count']} (errored, no output)"
+    return str(e["failure_count"])
+
+
 def _md_cell(text: str) -> str:
     """Neutralize text for a Markdown table cell so dataset content can't break the table."""
     return text.replace("\\", "\\\\").replace("|", "\\|").replace("\n", " ").strip()
@@ -56,6 +65,7 @@ def build_receipt(report: ProofReport) -> dict:
     """Canonical receipt data — the single structure every format renders from."""
     run = report.run
     top = report.leaderboard[0] if report.leaderboard else None
+    has_winner = top is not None and top.pass_count > 0
     candidate_ids = [c.id for c in run.candidates]
     summary = (
         f"{len(run.candidates)} candidate(s) × {len(report.results) // max(len(run.candidates), 1)} "
@@ -70,8 +80,16 @@ def build_receipt(report: ProofReport) -> dict:
         "dataset": {"id": run.dataset_id, "name": run.dataset_name},
         "rubric": run.rubric.model_dump(),
         "summary": summary,
-        "verdict": _verdict(top) if top else "No run",
-        "recommendation": _recommendation_line(top) if top else "No candidates were run.",
+        "verdict": _verdict(top) if has_winner else ("No clear winner" if top else "No run"),
+        "recommendation": (
+            _recommendation_line(top)
+            if has_winner
+            else (
+                f"No candidate passed the rubric (threshold {run.rubric.threshold:.2f})."
+                if top
+                else "No candidates were run."
+            )
+        ),
         "leaderboard": [e.model_dump() for e in report.leaderboard],
         "failure_cases": [r.model_dump() for r in _failure_cases(report)],
         "repro": {
@@ -126,7 +144,7 @@ def to_markdown(report: ProofReport) -> str:
             f"| {_md_cell(e['label'])}{marker} | {_md_cell(e['provider_id'])} | "
             f"{_md_cell(e['privacy'])} | "
             f"{e['pass_rate']:.0%} ({e['pass_count']}/{e['total']}) | {e['avg_score']:.2f} | "
-            f"{e['avg_latency_ms']}ms | ${e['total_estimated_cost_usd']:.2f} | {e['failure_count']} |"
+            f"{e['avg_latency_ms']}ms | ${e['total_estimated_cost_usd']:.2f} | {_failures_label(e)} |"
         )
 
     failures = data["failure_cases"]
@@ -169,7 +187,7 @@ def to_html(report: ProofReport, theme: str | None = None) -> str:
         f"<td>{e['avg_score']:.2f}</td>"
         f"<td>{e['avg_latency_ms']}ms</td>"
         f"<td>${e['total_estimated_cost_usd']:.2f}</td>"
-        f"<td>{e['failure_count']}</td>"
+        f"<td>{html.escape(_failures_label(e))}</td>"
         "</tr>"
         for e in data["leaderboard"]
     )
