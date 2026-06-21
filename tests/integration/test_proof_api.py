@@ -428,6 +428,23 @@ def test_prompt_variant_run_produces_one_entry_per_variant(client):
     assert labels == ["Baseline", "Concise"]
 
 
+def test_prompt_variant_run_scores_differ_baseline_beats_concise(client):
+    # Keyless signal: a concise prompt drops keypoints, so it scores below a full-output prompt.
+    body = {
+        "dataset_id": "investment-memo-summarization",
+        "candidate_ids": ["mock_good"],
+        "prompt_variants": [
+            {"name": "Baseline", "system_prompt": "Complete the task. Output only the result."},
+            {"name": "Concise", "system_prompt": "Answer in as few words as possible."},
+        ],
+        "brief": {"task_name": "t", "decision_question": "q", "success_criteria": ""},
+    }
+    r = client.post("/api/runs", json=body)
+    assert r.status_code == 200, r.text
+    by_label = {e["label"]: e for e in r.json()["leaderboard"]}
+    assert by_label["Baseline"]["avg_score"] > by_label["Concise"]["avg_score"]
+
+
 def test_prompt_variant_run_rejects_multiple_models(client):
     body = {
         "dataset_id": "investment-memo-summarization",
