@@ -1,0 +1,46 @@
+{
+  "version": 1,
+  "recipes": [
+    {
+      "id": "cost-vs-quality",
+      "title": "Cost vs quality for client summaries",
+      "subtitle": "Economy vs frontier of one family",
+      "decision_question": "Which model gives me trustworthy client summaries at the lowest cost?",
+      "selectors": [
+        { "label": "Economy", "family": "claude", "tier": "economy", "pick": "cheapest" },
+        { "label": "Frontier", "family": "claude", "tier": "frontier" }
+      ]
+    },
+    {
+      "id": "local-vs-cloud",
+      "title": "Local vs cloud (privacy)",
+      "subtitle": "Private local vs frontier cloud",
+      "decision_question": "Can a local model match a frontier cloud model on my task — without sending data out?",
+      "selectors": [
+        { "label": "Local", "privacy": "local", "tier": "balanced" },
+        { "label": "Cloud frontier", "privacy": "cloud", "tier": "frontier", "pick": "cheapest" }
+      ]
+    },
+    {
+      "id": "cheapest-that-passes",
+      "title": "Cheapest model that still passes",
+      "subtitle": "A spread of low-cost models",
+      "decision_question": "What's the cheapest model that still passes my bar?",
+      "selectors": [
+        { "label": "Local", "privacy": "local", "tier": "economy" },
+        { "label": "Claude economy", "family": "claude", "tier": "economy" },
+        { "label": "GPT economy", "family": "gpt", "tier": "economy" }
+      ]
+    },
+    {
+      "id": "provider-arbitrage",
+      "title": "Same model, different providers",
+      "subtitle": "One model family across providers",
+      "decision_question": "Same model, different hosts — who's cheaper and faster for the same quality?",
+      "selectors": [
+        { "label": "Llama on Ollama", "family": "llama", "provider": "ollama" },
+        { "label": "Llama on OpenRouter", "family": "llama", "provider": "openrouter" }
+      ]
+    }
+  ]
+}
