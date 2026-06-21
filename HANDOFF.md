@@ -26,8 +26,11 @@ e2e 4/4 · receipt-quality-review clean (no secrets, 3 formats) · live browser 
 neutral, error-vs-fail distinction, catalog change live). Commits on `main` (NOT pushed — no remote):
 5b899c6 bbb3d21 4145b66 b56dc38 45c7772 67ee30c 0c0de7e (+ spec/plan/worklog docs)._
 >
-> **NEXT SESSION: Finding 2 — the similarity-rubric weakness — is the last of the three live-review
-> findings.** The v0 default rubric is **string-similarity @ threshold 0.8** against the expected
+> **NEXT SESSION — QUEUED: brainstorm Finding 2 (the similarity-rubric weakness) FIRST.** The very
+> first action is to invoke the **`superpowers:brainstorming`** skill on the rubric redesign — do NOT
+> write a plan or code until a design is approved (it's a scoring-semantics decision, see the weigh-
+> points below). It is the last of the three live-review findings. The v0 default rubric is
+> **string-similarity @ threshold 0.8** against the expected
 > prose, so a **correct** summary in a different FORMAT scores low (live: Haiku produced a clean,
 > factually complete Markdown table — arguably better than the terse expected prose — and scored
 > 0.12 / Fail). The rubric rewards matching phrasing/format, not meaning. Real fix points to an
@@ -73,12 +76,14 @@ RECENT WORK (committed to main, not pushed — no git remote configured):
 THE DECISION-RECIPES THREAD (operator's strategic bet). Done: #1 catalog, #4 picker, #5 recipes.
 LIVE-REVIEW FINDINGS: #1 leaderboard bug DONE, #3 fable-5 removal DONE. #2 similarity rubric NEXT.
 
->> START HERE — FINDING 2: SIMILARITY-RUBRIC WEAKNESS (last of the three live-review findings).
+>> START HERE — FIRST ACTION: invoke the `superpowers:brainstorming` skill for FINDING 2:
+   SIMILARITY-RUBRIC WEAKNESS (last of the three live-review findings). Brainstorm BEFORE any
+   plan/code — present a design and get operator approval first.
    The v0 rubric is string-similarity @ threshold 0.8 vs the expected prose, so a CORRECT summary in
    a different FORMAT scores low (live: a clean Markdown table scored 0.12/Fail). It rewards matching
    phrasing/format, not meaning. Points to an LLM-as-judge / semantic rubric (charter "optional,
    later" — this run is the evidence). Interim option: lower default threshold / document format-
-   sensitivity. BRAINSTORM FIRST — scoring-semantics decision: weigh keyless-mock default (an
+   sensitivity. Brainstorm weigh-points (scoring-semantics decision): keyless-mock default (an
    LLM judge needs a provider → how do keyless tests/CI stay deterministic? a fake/mock judge?),
    cost, and whether the receipt should record the rubric kind + judge model in provenance
    (config_hash). Touches proof/ scoring (rubric application in engine/scoring) + domain Rubric model
