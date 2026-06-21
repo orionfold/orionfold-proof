@@ -12,11 +12,11 @@ from __future__ import annotations
 from orionfold.config.keys import resolve_key
 from orionfold.domain.models import Candidate, Example, Privacy, ProviderResult
 from orionfold.providers.http import (
-    TASK_SYSTEM_PROMPT,
     ProviderError,
     build_result,
     max_output_tokens,
     post_json,
+    system_prompt_for,
 )
 
 DEFAULT_MODEL = "claude-haiku-4-5"
@@ -41,7 +41,7 @@ class AnthropicProvider:
         payload = {
             "model": model,
             "max_tokens": max_output_tokens(),
-            "system": TASK_SYSTEM_PROMPT,
+            "system": system_prompt_for(candidate),
             "messages": [{"role": "user", "content": example.input_text}],
         }
         data, latency_ms = post_json(

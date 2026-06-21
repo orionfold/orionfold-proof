@@ -16,7 +16,7 @@ from typing import Any
 import httpx
 
 from orionfold.config.keys import resolve
-from orionfold.domain.models import Privacy, ProviderResult
+from orionfold.domain.models import Candidate, Privacy, ProviderResult
 from orionfold.providers.base import redact_secrets
 from orionfold.providers.pricing import estimate_cost
 
@@ -82,6 +82,13 @@ TASK_SYSTEM_PROMPT = (
     "Complete the task implied by the input. Respond with only the result — no preamble, "
     "labels, or explanation."
 )
+
+
+def system_prompt_for(candidate: Candidate) -> str:
+    """The system prompt for a run cell: the candidate's variant, else the global default."""
+    return candidate.system_prompt or TASK_SYSTEM_PROMPT
+
+
 # Output cap per completion. The default leaves room for a short answer; reasoning models
 # (qwen3, deepseek-r1, gpt-oss, …) spend the budget *thinking* and can return empty content at
 # a low cap, so it's env-overridable with ORIONFOLD_MAX_TOKENS (raise it for those models).

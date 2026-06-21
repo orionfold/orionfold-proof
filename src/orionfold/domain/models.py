@@ -46,18 +46,23 @@ class Rubric(BaseModel):
 
 
 class Candidate(BaseModel):
-    """One thing being proven — a provider with a label and a privacy boundary.
-
-    ``model`` names the specific model for real providers (e.g. ``claude-haiku-4-5``); it is
-    part of the candidate's identity and feeds the run's ``config_hash`` so two runs that
-    differ only by model don't collide. ``None`` for the keyless mocks.
-    """
+    """One thing being proven — a provider with a label and a privacy boundary."""
 
     id: str
     label: str
     provider_id: str
     privacy: Privacy = "local"
     model: str | None = None
+    # A per-candidate system prompt for prompt-variant runs. None → the global TASK_SYSTEM_PROMPT
+    # (unchanged behavior). Part of identity → feeds config_hash only when set.
+    system_prompt: str | None = None
+
+
+class PromptVariant(BaseModel):
+    """A named system-prompt variant in a 'one model, N prompts' comparison."""
+
+    name: str
+    system_prompt: str
 
 
 class ProviderResult(BaseModel):

@@ -10,11 +10,11 @@ from __future__ import annotations
 from orionfold.config.keys import resolve_key
 from orionfold.domain.models import Candidate, Example, Privacy, ProviderResult
 from orionfold.providers.http import (
-    TASK_SYSTEM_PROMPT,
     ProviderError,
     build_result,
     max_output_tokens,
     post_json,
+    system_prompt_for,
 )
 
 DEFAULT_MODEL = "gemini-3.1-flash-lite"
@@ -36,7 +36,7 @@ class GeminiProvider:
         if key is None:
             raise ProviderError(f"{self.id}: {KEY_NAME} not set")
         payload = {
-            "systemInstruction": {"parts": [{"text": TASK_SYSTEM_PROMPT}]},
+            "systemInstruction": {"parts": [{"text": system_prompt_for(candidate)}]},
             "contents": [{"parts": [{"text": example.input_text}]}],
             "generationConfig": {"maxOutputTokens": max_output_tokens()},
         }

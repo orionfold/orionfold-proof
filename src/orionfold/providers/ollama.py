@@ -10,11 +10,11 @@ from __future__ import annotations
 from orionfold.config.keys import resolve
 from orionfold.domain.models import Candidate, Example, Privacy, ProviderResult
 from orionfold.providers.http import (
-    TASK_SYSTEM_PROMPT,
     ProviderError,
     build_result,
     max_output_tokens,
     post_json,
+    system_prompt_for,
 )
 
 DEFAULT_MODEL = "llama3.2"
@@ -35,7 +35,7 @@ class OllamaProvider:
         payload = {
             "model": model,
             "messages": [
-                {"role": "system", "content": TASK_SYSTEM_PROMPT},
+                {"role": "system", "content": system_prompt_for(candidate)},
                 {"role": "user", "content": example.input_text},
             ],
             "stream": False,

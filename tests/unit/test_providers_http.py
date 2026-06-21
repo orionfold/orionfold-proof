@@ -324,3 +324,51 @@ def test_transport_failure_becomes_clean_error(monkeypatch):
     result = safe_generate(provider, _example(), _candidate("openai", "gpt-4o-mini"))
     assert result.error is not None
     assert "ConnectError" in result.error
+
+
+def test_system_prompt_for_falls_back_to_task_default():
+    from orionfold.providers.http import TASK_SYSTEM_PROMPT, system_prompt_for
+
+    assert system_prompt_for(_candidate("ollama", "llama3.2")) == TASK_SYSTEM_PROMPT
+    custom = Candidate(id="x", label="x", provider_id="ollama", model="llama3.2",
+                       system_prompt="Be terse.")
+    assert system_prompt_for(custom) == "Be terse."
+
+
+def test_providers_send_the_candidates_system_prompt(monkeypatch):
+    # Each provider must put the candidate's system_prompt on the wire when set, in the
+    # provider-specific slot. Capture the outgoing payload for all four wire shapes.
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "fake")
+    monkeypatch.setenv("OPENAI_API_KEY", "fake")
+    monkeypatch.setenv("GEMINI_API_KEY", "fake")
+    captured: dict = {}
+
+    def fake_post(url, json=None, headers=None, timeout=None):
+        captured.clear()
+        captured.update(json or {})
+        body = {
+            "content": [{"type": "text", "text": "ok"}], "usage": {"input_tokens": 1, "output_tokens": 1},
+            "choices": [{"message": {"content": "ok"}}], "usage_openai": {},
+            "candidates": [{"content": {"parts": [{"text": "ok"}]}}], "usageMetadata": {},
+            "message": {"content": "ok"}, "prompt_eval_count": 1, "eval_count": 1,
+        }
+        return httpx.Response(200, json=body, request=httpx.Request("POST", url))
+
+    monkeypatch.setattr(http_mod.httpx, "post", fake_post)
+
+    def cand(pid: str, m: str) -> Candidate:
+        return Candidate(id="v", label="v", provider_id=pid, model=m, system_prompt="VARIANT-SYS-PROMPT")
+
+    AnthropicProvider().generate(_example(), cand("anthropic", "claude-haiku-4-5"))
+    assert captured["system"] == "VARIANT-SYS-PROMPT"
+
+    OpenAICompatibleProvider(id="openai", label="OpenAI", base_url="https://api.openai.com/v1",
+                             default_model="gpt-4o-mini", key_name="OPENAI_API_KEY").generate(
+        _example(), cand("openai", "gpt-4o-mini"))
+    assert captured["messages"][0] == {"role": "system", "content": "VARIANT-SYS-PROMPT"}
+
+    GeminiProvider().generate(_example(), cand("gemini", "gemini-2.5-flash"))
+    assert captured["systemInstruction"]["parts"][0]["text"] == "VARIANT-SYS-PROMPT"
+
+    OllamaProvider().generate(_example(), cand("ollama", "llama3.2"))
+    assert captured["messages"][0] == {"role": "system", "content": "VARIANT-SYS-PROMPT"}
