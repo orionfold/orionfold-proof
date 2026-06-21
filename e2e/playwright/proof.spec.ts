@@ -24,6 +24,10 @@ test("proof loop: run → leaderboard → failure case → receipts", async ({ p
   await expect(leaderboard.getByText("Recommended")).toBeVisible();
   await expect(leaderboard.getByText("100% (5/5)")).toBeVisible();
 
+  // Finding 2 — keypoint default: the demo dataset has keypoints, so the keyless
+  // run defaults to keypoint coverage scoring. The DecisionSummary must say so.
+  await expect(page.getByText(/Scored by/i)).toContainText(/Keypoint coverage/i);
+
   // Failure cases: at least one, including the surfaced provider error.
   const failures = page.getByRole("region", { name: "Failure cases" });
   await expect(failures.getByRole("heading", { name: /Failure cases \(5\)/ })).toBeVisible();
