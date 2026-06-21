@@ -13,14 +13,16 @@ from __future__ import annotations
 from pathlib import Path
 
 from orionfold.data import load_dataset
-from orionfold.domain.models import Candidate, ProofBrief, Rubric
+from orionfold.domain.models import Candidate, ProofBrief
 from orionfold.proof.engine import run_proof
 from orionfold.receipts import export
+from orionfold.scoring.rubric import default_rubric_for
 
 _OUT = Path(__file__).resolve().parent.parent / "samples" / "receipts"
 
 
 def main() -> None:
+    dataset = load_dataset("investment-memo-summarization")
     report = run_proof(
         run_id="run_sampledemo01",
         created_at="2026-06-19T12:00:00Z",
@@ -29,12 +31,12 @@ def main() -> None:
             decision_question="Which model should I trust for client memos?",
             success_criteria="At least 80% similarity to the analyst summary.",
         ),
-        dataset=load_dataset("investment-memo-summarization"),
+        dataset=dataset,
         candidates=[
             Candidate(id="mock_good", label="Mock · good", provider_id="mock_good"),
             Candidate(id="mock_bad", label="Mock · bad", provider_id="mock_bad"),
         ],
-        rubric=Rubric(),
+        rubric=default_rubric_for(dataset),
     )
     _OUT.mkdir(parents=True, exist_ok=True)
     (_OUT / "sample-proof-receipt.json").write_text(export.to_json(report), encoding="utf-8")

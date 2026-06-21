@@ -1,7 +1,7 @@
 {
-  "receipt_version": 4,
+  "receipt_version": 5,
   "run_id": "run_sampledemo01",
-  "config_hash": "b7b5b150bb67",
+  "config_hash": "467ddd96c9a5",
   "created_at": "2026-06-19T12:00:00Z",
   "brief": {
     "task_name": "Investment memo summarization",
@@ -13,11 +13,19 @@
     "name": "Investment memo summarization"
   },
   "rubric": {
-    "kind": "similarity",
+    "kind": "keypoint",
     "threshold": 0.8,
-    "case_sensitive": false
+    "case_sensitive": false,
+    "judge_provider_id": null,
+    "judge_model": null
   },
-  "summary": "2 candidate(s) × 5 example(s) · rubric similarity ≥ 0.8",
+  "summary": "2 candidate(s) × 5 example(s) · rubric keypoint ≥ 0.8",
+  "scored_by": "Keypoint coverage",
+  "cost": {
+    "candidate": 0.0,
+    "judge": 0.0,
+    "total": 0.0
+  },
   "verdict": "Ship",
   "recommendation": "Mock · good (mock_good) — passed 5/5 (100%), avg latency 57ms, est. cost $0.00, local.",
   "leaderboard": [
@@ -46,7 +54,7 @@
       "total": 5,
       "pass_count": 0,
       "pass_rate": 0.0,
-      "avg_score": 0.20187050352909136,
+      "avg_score": 0.0,
       "avg_latency_ms": 126,
       "total_estimated_cost_usd": 0.0,
       "failure_count": 5,
@@ -61,12 +69,14 @@
       "input_text": "Q3 revenue reached $48.2M, up 22% year over year, driven by enterprise seat expansion. Net revenue retention held at 118%. Gross margin improved to 79% as infrastructure costs were renegotiated.",
       "expected_text": "Revenue grew 22% to $48.2M on enterprise expansion, with 118% net retention and margins improving to 79%.",
       "output_text": "This document discusses various financial topics and market conditions.",
-      "score": 0.2840909090909091,
+      "score": 0.0,
       "passed": false,
       "latency_ms": 131,
       "estimated_cost_usd": 0.0,
       "privacy": "local",
-      "error": null
+      "error": null,
+      "judge_cost_usd": 0.0,
+      "judge_latency_ms": 0
     },
     {
       "candidate_id": "mock_bad",
@@ -74,12 +84,14 @@
       "input_text": "The company burned $6.1M in the quarter against $52M cash on hand, giving roughly eight quarters of runway. Management paused hiring outside of engineering and reaffirmed a path to breakeven by late next year.",
       "expected_text": "Burn of $6.1M leaves about eight quarters of runway; hiring paused except engineering, with breakeven targeted late next year.",
       "output_text": "This document discusses various financial topics and market conditions.",
-      "score": 0.18274111675126903,
+      "score": 0.0,
       "passed": false,
       "latency_ms": 161,
       "estimated_cost_usd": 0.0,
       "privacy": "local",
-      "error": null
+      "error": null,
+      "judge_cost_usd": 0.0,
+      "judge_latency_ms": 0
     },
     {
       "candidate_id": "mock_bad",
@@ -92,7 +104,9 @@
       "latency_ms": 0,
       "estimated_cost_usd": 0.0,
       "privacy": "local",
-      "error": "RuntimeError: mock_bad: simulated provider failure"
+      "error": "RuntimeError: mock_bad: simulated provider failure",
+      "judge_cost_usd": 0.0,
+      "judge_latency_ms": 0
     },
     {
       "candidate_id": "mock_bad",
@@ -100,12 +114,14 @@
       "input_text": "A new competitor launched an aggressively priced tier and captured several mid-market logos. The company responded with annual-contract discounts, protecting retention but compressing average selling price by 9%.",
       "expected_text": "Competitive pricing pressure cost mid-market logos; annual discounts defended retention but cut average selling price 9%.",
       "output_text": "This document discusses various financial topics and market conditions.",
-      "score": 0.3020833333333333,
+      "score": 0.0,
       "passed": false,
       "latency_ms": 192,
       "estimated_cost_usd": 0.0,
       "privacy": "local",
-      "error": null
+      "error": null,
+      "judge_cost_usd": 0.0,
+      "judge_latency_ms": 0
     },
     {
       "candidate_id": "mock_bad",
@@ -113,17 +129,19 @@
       "input_text": "The founders are raising a $15M Series B at a $90M post-money valuation, a 2.1x markup from the prior round. Lead investor is requesting a board seat and a standard 1x non-participating liquidation preference.",
       "expected_text": "Raising $15M Series B at $90M post (2.1x markup); lead seeks a board seat and a 1x non-participating preference.",
       "output_text": "This document discusses various financial topics and market conditions.",
-      "score": 0.24043715846994534,
+      "score": 0.0,
       "passed": false,
       "latency_ms": 146,
       "estimated_cost_usd": 0.0,
       "privacy": "local",
-      "error": null
+      "error": null,
+      "judge_cost_usd": 0.0,
+      "judge_latency_ms": 0
     }
   ],
   "repro": {
     "run_id": "run_sampledemo01",
-    "config_hash": "b7b5b150bb67",
+    "config_hash": "467ddd96c9a5",
     "created_at": "2026-06-19T12:00:00Z",
     "dataset_id": "investment-memo-summarization",
     "candidate_ids": [
@@ -131,9 +149,11 @@
       "mock_bad"
     ],
     "rubric": {
-      "kind": "similarity",
+      "kind": "keypoint",
       "threshold": 0.8,
-      "case_sensitive": false
+      "case_sensitive": false,
+      "judge_provider_id": null,
+      "judge_model": null
     },
     "rerun": "POST /api/runs {\"dataset_id\": \"investment-memo-summarization\", \"candidate_ids\": ['mock_good', 'mock_bad']}"
   }
