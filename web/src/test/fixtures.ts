@@ -33,8 +33,28 @@ export const SAMPLE_REPORT: ProofReport = {
       avg_latency_ms: 12,
       total_estimated_cost_usd: 0,
       failure_count: 0,
+      error_count: 0,
       recommended: true,
     },
   ],
   results: [],
+};
+
+// No candidate passed: one ran-but-failed, one fully errored. Nothing recommended.
+export const NO_WINNER_REPORT: ProofReport = {
+  ...SAMPLE_REPORT,
+  leaderboard: [
+    {
+      candidate_id: "real", label: "Real · ran", provider_id: "ollama", privacy: "local",
+      model: "llama3.2", total: 5, pass_count: 0, pass_rate: 0, avg_score: 0.05,
+      avg_latency_ms: 3000, total_estimated_cost_usd: 0, failure_count: 5, error_count: 0,
+      recommended: false,
+    },
+    {
+      candidate_id: "erro", label: "Erro · errored", provider_id: "anthropic", privacy: "cloud",
+      model: "claude-opus-4-8", total: 5, pass_count: 0, pass_rate: 0, avg_score: 0,
+      avg_latency_ms: 0, total_estimated_cost_usd: 0, failure_count: 5, error_count: 5,
+      recommended: false,
+    },
+  ],
 };

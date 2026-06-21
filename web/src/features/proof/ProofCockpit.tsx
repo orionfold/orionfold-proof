@@ -211,15 +211,33 @@ function CenteredNotice({ children }: { children: React.ReactNode }) {
 
 // Top of every results view: the decision, then the recommendation — readable before any
 // table. The winner is the one place besides the primary CTA that earns the accent.
-function DecisionSummary({
+export function DecisionSummary({
   brief,
   leaderboard,
 }: {
   brief: ProofBrief;
   leaderboard: LeaderboardEntry[];
 }) {
-  const winner = leaderboard.find((e) => e.recommended) ?? leaderboard[0];
-  if (!winner) return null;
+  const winner = leaderboard.find((e) => e.recommended) ?? null;
+  if (leaderboard.length === 0) return null;
+  if (!winner) {
+    return (
+      <section aria-label="Decision" className="grid gap-3">
+        <p className="text-sm text-(--color-ink-muted)">
+          {brief.decision_question || brief.task_name}
+        </p>
+        <div className="rounded-xl border border-(--color-panel-line) bg-(--color-panel-card) p-5">
+          <span className="text-xs uppercase tracking-wide text-(--color-ink-faint)">
+            No clear winner
+          </span>
+          <p className="mt-2 text-sm text-(--color-ink-muted)">
+            No candidate passed the rubric. See the standings below — least-bad first; an
+            errored candidate produced no output.
+          </p>
+        </div>
+      </section>
+    );
+  }
   return (
     <section aria-label="Decision" className="grid gap-3">
       <p className="text-sm text-(--color-ink-muted)">

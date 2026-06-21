@@ -83,6 +83,7 @@ export const leaderboardEntrySchema = z.object({
   avg_latency_ms: z.number(),
   total_estimated_cost_usd: z.number(),
   failure_count: z.number(),
+  error_count: z.number(),
   recommended: z.boolean(),
 });
 export type LeaderboardEntry = z.infer<typeof leaderboardEntrySchema>;

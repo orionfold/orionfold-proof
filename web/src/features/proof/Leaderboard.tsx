@@ -51,7 +51,12 @@ export function Leaderboard({ entries }: { entries: LeaderboardEntry[] }) {
                 <td className="p-3">{e.avg_score.toFixed(2)}</td>
                 <td className="p-3">{e.avg_latency_ms}ms</td>
                 <td className="p-3">${e.total_estimated_cost_usd.toFixed(2)}</td>
-                <td className="p-3">{e.failure_count}</td>
+                <td className="p-3">
+                  {e.failure_count}
+                  {e.total > 0 && e.error_count === e.total && (
+                    <span className="ml-1 text-(--color-ink-faint)">(errored, no output)</span>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>

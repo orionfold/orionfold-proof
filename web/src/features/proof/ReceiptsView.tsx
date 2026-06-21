@@ -46,7 +46,7 @@ export function ReceiptsView({ onOpenReceipt }: { onOpenReceipt: (report: ProofR
 }
 
 function winnerOf(leaderboard: LeaderboardEntry[]): LeaderboardEntry | undefined {
-  return leaderboard.find((e) => e.recommended) ?? leaderboard[0];
+  return leaderboard.find((e) => e.recommended) ?? undefined;
 }
 
 function ReceiptCard({ report, onOpen }: { report: ProofReport; onOpen: () => void }) {
@@ -79,6 +79,9 @@ function ReceiptCard({ report, onOpen }: { report: ProofReport; onOpen: () => vo
               {Math.round(winner.pass_rate * 100)}% ({winner.pass_count}/{winner.total})
             </span>
           </div>
+        )}
+        {!winner && report.leaderboard.length > 0 && (
+          <div className="text-sm text-(--color-ink-muted)">No clear winner</div>
         )}
       </button>
 
