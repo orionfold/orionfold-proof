@@ -17,8 +17,10 @@ from orionfold.domain.models import LeaderboardEntry, ProofReport, ResultRow
 # v3: leaderboard entries carry a `model` field (the candidate's model for real providers).
 # v4: leaderboard entries carry an `error_count` field; a fully-errored candidate ranks last
 # and is never recommended, and the receipt shows a "No clear winner" state when none passed.
+# v5: meaning-aware scoring — a "Scored by" descriptor (keypoint coverage / similarity / LLM
+# judge · <model>) and a run-level cost summary (candidate + judge + total).
 # Bump on any schema change so downstream consumers can detect drift.
-RECEIPT_VERSION = 4
+RECEIPT_VERSION = 5
 
 
 def _verdict(top: LeaderboardEntry) -> str:
@@ -51,6 +53,17 @@ def _failures_label(e: dict) -> str:
     return str(e["failure_count"])
 
 
+def _scored_by(rubric) -> str:
+    """Human-readable descriptor for the rubric kind, safe to display in receipts."""
+    if rubric.kind == "keypoint":
+        return "Keypoint coverage"
+    if rubric.kind == "judge":
+        return f"LLM judge · {rubric.judge_model or rubric.judge_provider_id}"
+    return {"similarity": "Similarity", "exact": "Exact match", "contains": "Contains"}.get(
+        rubric.kind, rubric.kind
+    )
+
+
 def _md_cell(text: str) -> str:
     """Neutralize text for a Markdown table cell so dataset content can't break the table."""
     return text.replace("\\", "\\\\").replace("|", "\\|").replace("\n", " ").strip()
@@ -80,6 +93,12 @@ def build_receipt(report: ProofReport) -> dict:
         "dataset": {"id": run.dataset_id, "name": run.dataset_name},
         "rubric": run.rubric.model_dump(),
         "summary": summary,
+        "scored_by": _scored_by(run.rubric),
+        "cost": {
+            "candidate": report.cost_summary.candidate_cost_usd,
+            "judge": report.cost_summary.judge_cost_usd,
+            "total": report.cost_summary.total_cost_usd,
+        },
         "verdict": _verdict(top) if has_winner else ("No clear winner" if top else "No run"),
         "recommendation": (
             _recommendation_line(top)
@@ -128,6 +147,7 @@ def to_markdown(report: ProofReport) -> str:
         f"- **Task:** {brief['task_name']}",
         f"- **Dataset:** {data['dataset']['name']} (`{data['dataset']['id']}`)",
         f"- **Rubric:** {data['rubric']['kind']} ≥ {data['rubric']['threshold']}",
+        f"- **Scored by:** {data['scored_by']}",
         f"- **Run id:** `{data['run_id']}`",
         f"- **Config hash:** `{data['config_hash']}`",
         f"- **Generated:** {data['created_at']}",
@@ -146,6 +166,13 @@ def to_markdown(report: ProofReport) -> str:
             f"{e['pass_rate']:.0%} ({e['pass_count']}/{e['total']}) | {e['avg_score']:.2f} | "
             f"{e['avg_latency_ms']}ms | ${e['total_estimated_cost_usd']:.2f} | {_failures_label(e)} |"
         )
+
+    c = data["cost"]
+    lines += [
+        "",
+        f"_Run cost: candidate ${c['candidate']:.4f} · judge ${c['judge']:.4f} · "
+        f"total ${c['total']:.4f}_",
+    ]
 
     failures = data["failure_cases"]
     lines += ["", f"## Failure cases ({len(failures)})", ""]
@@ -273,6 +300,7 @@ def to_html(report: ProofReport, theme: str | None = None) -> str:
     <dt>Decision</dt><dd>{html.escape(brief['decision_question'])}</dd>
     <dt>Dataset</dt><dd>{html.escape(data['dataset']['name'])} (<code>{html.escape(data['dataset']['id'])}</code>)</dd>
     <dt>Rubric</dt><dd>{html.escape(data['rubric']['kind'])} ≥ {data['rubric']['threshold']}</dd>
+    <dt>Scored by</dt><dd>{html.escape(data['scored_by'])}</dd>
     <dt>Run id</dt><dd><code>{html.escape(data['run_id'])}</code></dd>
     <dt>Config hash</dt><dd><code>{html.escape(data['config_hash'])}</code></dd>
     <dt>Generated</dt><dd>{html.escape(data['created_at'])}</dd>
@@ -286,6 +314,7 @@ def to_html(report: ProofReport, theme: str | None = None) -> str:
     </tr></thead>
     <tbody>{rows}</tbody>
   </table>
+  <p class="muted">Run cost: candidate ${data['cost']['candidate']:.4f} · judge ${data['cost']['judge']:.4f} · total ${data['cost']['total']:.4f}</p>
   <h2>Failure cases ({len(failures)})</h2>
   {failures_html}
   <h2>Repro</h2>

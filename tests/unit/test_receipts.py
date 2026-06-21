@@ -1,5 +1,7 @@
 """Receipts must carry provenance, state a clear recommendation, and leak no secrets."""
 
+import pytest
+
 from orionfold.data import load_dataset
 from orionfold.domain.models import Candidate, ProofBrief, Rubric
 from orionfold.proof.engine import run_proof
@@ -88,3 +90,63 @@ def test_html_receipt_theme_param_pins_data_theme():
     assert '<html lang="en" data-theme="dark">' in export.to_html(report, theme="dark")
     # an unknown theme is ignored (no attribute)
     assert '<html lang="en">' in export.to_html(report, theme="bogus")
+
+
+# ---------------------------------------------------------------------------
+# v5 tests — Scored-by descriptor + run-cost summary
+# ---------------------------------------------------------------------------
+
+_BRIEF_V5 = ProofBrief(
+    task_name="Investment memo summarization",
+    decision_question="Which model should I trust for client memos?",
+    success_criteria="At least 80% similarity to the analyst summary.",
+)
+
+
+@pytest.fixture
+def make_report():
+    """Factory fixture: returns a ProofReport built with a parameterizable rubric kind."""
+
+    def _make(kind: str = "similarity", judge_provider_id: str | None = None, judge_model: str | None = None):
+        return run_proof(
+            run_id="run_receipt_v5",
+            created_at="2026-06-21T10:00:00Z",
+            brief=_BRIEF_V5,
+            dataset=load_dataset("investment-memo-summarization"),
+            candidates=[
+                Candidate(id="mock_good", label="Mock · good", provider_id="mock_good"),
+                Candidate(id="mock_bad", label="Mock · bad", provider_id="mock_bad"),
+            ],
+            rubric=Rubric(kind=kind, judge_provider_id=judge_provider_id, judge_model=judge_model),
+        )
+
+    return _make
+
+
+def test_receipt_version_is_5():
+    assert export.RECEIPT_VERSION == 5
+
+
+def test_scored_by_keypoint(make_report):
+    data = export.build_receipt(make_report(kind="keypoint"))
+    assert data["scored_by"] == "Keypoint coverage"
+
+
+def test_scored_by_judge_shows_model(make_report):
+    data = export.build_receipt(make_report(kind="judge", judge_provider_id="mock_judge", judge_model="claude-haiku-4-5"))
+    assert "LLM judge" in data["scored_by"] and "claude-haiku-4-5" in data["scored_by"]
+
+
+def test_cost_block_present(make_report):
+    data = export.build_receipt(make_report(kind="keypoint"))
+    assert set(data["cost"]) == {"candidate", "judge", "total"}
+
+
+def test_markdown_has_scored_by_and_run_cost(make_report):
+    md = export.to_markdown(make_report(kind="keypoint"))
+    assert "Scored by" in md and "Run cost" in md
+
+
+def test_html_has_scored_by_and_run_cost(make_report):
+    h = export.to_html(make_report(kind="keypoint"))
+    assert "Scored by" in h and "Run cost" in h
