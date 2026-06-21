@@ -1,10 +1,6 @@
 // Pure scoring-selection helpers. No React, no network — unit-tested in isolation.
-import type { Dataset, SelectionPanel } from "../../lib/api";
-import { Privacy } from "../../lib/api";
+import type { Dataset, SelectionPanel, Privacy } from "../../lib/api";
 import { CLOUD_KEY_NAMES } from "./selectionMeta";
-import { z } from "zod";
-
-type PrivacyType = z.infer<typeof Privacy>;
 
 // Mirrors the backend `default_rubric_for`: keypoint when the dataset authored any keypoints,
 // else similarity. Used to show what "Auto" resolves to for the selected dataset.
@@ -44,7 +40,7 @@ const EXCLUDED = new Set(["mock_good", "mock_bad"]);
 // providers, since unavailable providers contribute no options).
 export function filterJudgeModels(
   panel: SelectionPanel | undefined,
-  privacy: PrivacyType,
+  privacy: Privacy,
   tier: JudgeTier,
 ): JudgeFilterResult {
   const options: JudgeOption[] = [];
@@ -55,7 +51,7 @@ export function filterJudgeModels(
     label: "Mock judge",
     model: null,
     displayName: "Mock judge — keyless, deterministic",
-    recommended: true,
+    recommended: false,
     latest: false,
   } : null;
 

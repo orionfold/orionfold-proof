@@ -3,6 +3,7 @@
 import { z } from "zod";
 
 export const Privacy = z.enum(["local", "cloud"]);
+export type Privacy = z.infer<typeof Privacy>;
 
 export const candidateSchema = z.object({
   id: z.string(),
