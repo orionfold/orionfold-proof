@@ -20,7 +20,10 @@ from pydantic import BaseModel
 
 from orionfold.catalog import load_catalog
 from orionfold.catalog.models import ModelCatalog
+from orionfold.config.env_file import set_key_in_env_local
+from orionfold.config.keys import CLOUD_KEY_NAMES, has_key
 from orionfold.providers.selection import SelectionPanel, selection_panel
+from orionfold.recipes.resolution import RecipesPanel, resolve_recipes
 from orionfold.data.importers import DatasetParseError, ImportFormat, ParseResult, parse_dataset
 from orionfold.domain.models import Candidate, Dataset, ProofBrief, ProofReport, ProofRun, Rubric
 from orionfold.proof.engine import config_hash, iter_matrix, run_proof
@@ -63,6 +66,16 @@ class RunRequest(BaseModel):
     candidate_ids: list[str]
     rubric: Rubric = Rubric()
     brief: ProofBrief
+
+
+class CredentialRequest(BaseModel):
+    provider_id: str
+    key: str
+
+
+class CredentialStatus(BaseModel):
+    provider_id: str
+    available: bool
 
 
 def _conn(request: Request) -> sqlite3.Connection:
@@ -136,6 +149,32 @@ def get_selection() -> SelectionPanel:
     availability source. Contains no credentials.
     """
     return selection_panel()
+
+
+@router.get("/recipes")
+def get_recipes() -> RecipesPanel:
+    """Named decision recipes, resolved against the current environment (catalog ∩ availability).
+
+    Read-only SELECTION metadata: provider labels, model ids, and the env-var NAME a provider
+    needs — never a key value, never run provenance.
+    """
+    return resolve_recipes()
+
+
+@router.post("/credentials")
+def set_credential(body: CredentialRequest) -> CredentialStatus:
+    """Write one cloud provider's API key into .env.local so its candidates unlock.
+
+    Whitelisted to the four cloud providers (no arbitrary env writes). The key is written to a
+    git-ignored 0o600 file and is NEVER logged or echoed in the response.
+    """
+    key_name = CLOUD_KEY_NAMES.get(body.provider_id)
+    if key_name is None:
+        raise HTTPException(status_code=400, detail=f"Unknown cloud provider: {body.provider_id}")
+    if not body.key.strip():
+        raise HTTPException(status_code=422, detail="Key must not be empty")
+    set_key_in_env_local(key_name, body.key.strip())
+    return CredentialStatus(provider_id=body.provider_id, available=has_key(key_name))
 
 
 @router.post("/runs")
