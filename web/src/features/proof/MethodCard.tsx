@@ -14,7 +14,7 @@ const idle = "border-(--color-panel-line) hover:border-(--color-panel-line-stron
 
 export function MethodCard({ title, guidance, cost, selected, onSelect }: MethodCardProps) {
   return (
-    <button type="button" aria-pressed={selected} onClick={onSelect} className={`${base} ${selected ? active : idle}`}>
+    <button type="button" aria-label={title} aria-pressed={selected} onClick={onSelect} className={`${base} ${selected ? active : idle}`}>
       <span className="font-medium text-(--color-ink)">{title}</span>
       <span className="text-xs text-(--color-ink-muted)">{guidance}</span>
       <span className="text-xs text-(--color-ink-faint)">{cost}</span>
