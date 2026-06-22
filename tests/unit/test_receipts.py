@@ -262,3 +262,13 @@ def test_quick_markdown_has_objective_columns_and_no_score():
     assert "Failure cases" not in md
     assert "Promote to a full scored run" in md
     assert "⭐" in md  # the picked candidate is starred
+
+
+def test_quick_html_is_objective_and_secret_free():
+    html_out = export.to_html(_quick_report(chosen="mock_good"))
+    assert "QUICK CHECK" in html_out
+    assert "Tokens" in html_out and "Latency" in html_out
+    assert "Pass rate" not in html_out
+    assert "Promote to a full scored run" in html_out
+    low = html_out.lower()
+    assert "api_key" not in low and "sk-" not in low

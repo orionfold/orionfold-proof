@@ -341,9 +341,118 @@ def to_markdown(report: ProofReport) -> str:
     return "\n".join(lines)
 
 
+_RECEIPT_STYLE = """<style>
+  :root {
+    color-scheme: light dark;
+    --rc-bg: #0b0f14; --rc-ink: #e6edf3; --rc-muted: #9fb0c0; --rc-line: #1c2530;
+    --rc-rec-bg: #11331f; --rc-rec-line: #1f5135; --rc-rec-ink: #c8f5da;
+    --rc-case: #c4d0db; --rc-case-key: #6f8190;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --rc-bg: #f4f6f8; --rc-ink: #1b2430; --rc-muted: #51616f; --rc-line: #dde3ea;
+      --rc-rec-bg: #e7f7ee; --rc-rec-line: #b6e6cb; --rc-rec-ink: #0f5132;
+      --rc-case: #2b3744; --rc-case-key: #5f6e80;
+    }
+  }
+  :root[data-theme="dark"] {
+    --rc-bg: #0b0f14; --rc-ink: #e6edf3; --rc-muted: #9fb0c0; --rc-line: #1c2530;
+    --rc-rec-bg: #11331f; --rc-rec-line: #1f5135; --rc-rec-ink: #c8f5da;
+    --rc-case: #c4d0db; --rc-case-key: #6f8190;
+  }
+  :root[data-theme="light"] {
+    --rc-bg: #f4f6f8; --rc-ink: #1b2430; --rc-muted: #51616f; --rc-line: #dde3ea;
+    --rc-rec-bg: #e7f7ee; --rc-rec-line: #b6e6cb; --rc-rec-ink: #0f5132;
+    --rc-case: #2b3744; --rc-case-key: #5f6e80;
+  }
+  body { margin: 0; font: 15px/1.6 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+         background: var(--rc-bg); color: var(--rc-ink); }
+  main { max-width: 56rem; margin: 0 auto; padding: 2.5rem 1.5rem; }
+  h1 { font-size: 1.5rem; letter-spacing: -0.01em; margin: 0 0 0.25rem; }
+  .rec { background: var(--rc-rec-bg); border: 1px solid var(--rc-rec-line); color: var(--rc-rec-ink);
+          padding: 0.9rem 1rem; border-radius: 10px; margin: 1rem 0 1.5rem; }
+  dl { display: grid; grid-template-columns: max-content 1fr; gap: 0.2rem 1rem; margin: 0 0 1.5rem; }
+  dt { color: var(--rc-muted); } dd { margin: 0; }
+  table { width: 100%; border-collapse: collapse; margin: 0.5rem 0 1.5rem; }
+  th, td { text-align: left; padding: 0.5rem 0.6rem; border-bottom: 1px solid var(--rc-line); }
+  th { color: var(--rc-muted); font-weight: 600; }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .muted { color: var(--rc-muted); }
+  ul.failures { list-style: none; padding: 0; }
+  ul.failures > li { border: 1px solid var(--rc-line); border-radius: 10px; padding: 0.8rem 1rem; margin: 0.6rem 0; }
+  .case { color: var(--rc-case); margin-top: 0.25rem; }
+  .case > span { color: var(--rc-case-key); display: inline-block; min-width: 4.5rem; }
+</style>"""
+
+
+def _quick_html(report: ProofReport, data: dict, theme: str | None) -> str:
+    """HTML for an unscored quick-compare check: objective table + outputs + the pick."""
+    brief = data["brief"]
+    tokens = _tokens_by_candidate(report)
+    pick = data["chosen_winner"]
+    by_id = {c.id: c for c in report.run.candidates}
+    rows = "".join(
+        "<tr>"
+        f"<td>{html.escape(e['label'])}{' ⭐' if e['candidate_id'] == pick else ''}</td>"
+        f"<td>{html.escape(e['provider_id'])}</td>"
+        f"<td>{html.escape(e['privacy'])}</td>"
+        f"<td>{e['avg_latency_ms']}ms</td>"
+        f"<td>${e['total_estimated_cost_usd']:.4f}</td>"
+        f"<td>{tokens.get(e['candidate_id'], 0)}</td>"
+        "</tr>"
+        for e in data["leaderboard"]
+    )
+    outputs = "".join(
+        "<li><strong>{label}{star}</strong>"
+        "<div class='case'><span>output</span> {body}</div></li>".format(
+            label=html.escape(by_id[r.candidate_id].label if r.candidate_id in by_id else r.candidate_id),
+            star=" ⭐" if r.candidate_id == pick else "",
+            body=html.escape(f"error: {r.error}" if r.error else (r.output_text or "—")),
+        )
+        for r in report.results
+    )
+    theme_attr = f' data-theme="{theme}"' if theme in ("light", "dark") else ""
+    return f"""<!doctype html>
+<html lang="en"{theme_attr}>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Proof Receipt · Quick Check</title>
+{_RECEIPT_STYLE}
+</head>
+<body>
+<main>
+  <h1>Proof Receipt</h1>
+  <p class="muted">QUICK CHECK · 1 example · not scored proof</p>
+  <div class="rec"><strong>Verdict: {html.escape(data['verdict'])}</strong> — {html.escape(data['recommendation'])}</div>
+  <p class="muted">{html.escape(data['summary'])}</p>
+  <dl>
+    <dt>Decision</dt><dd>{html.escape(brief['decision_question'])}</dd>
+    <dt>Task</dt><dd>{html.escape(brief['task_name'])}</dd>
+    <dt>Run id</dt><dd><code>{html.escape(data['run_id'])}</code></dd>
+    <dt>Config hash</dt><dd><code>{html.escape(data['config_hash'])}</code></dd>
+    <dt>Generated</dt><dd>{html.escape(data['created_at'])}</dd>
+    <dt>Receipt schema</dt><dd>v{data['receipt_version']}</dd>
+  </dl>
+  <h2>Head-to-head</h2>
+  <table>
+    <thead><tr><th>Candidate</th><th>Provider</th><th>Privacy</th><th>Latency</th><th>Cost</th><th>Tokens</th></tr></thead>
+    <tbody>{rows}</tbody>
+  </table>
+  <h2>Outputs</h2>
+  <ul class="failures">{outputs}</ul>
+  <p class="muted">{html.escape(data['quick_note'])}</p>
+</main>
+</body>
+</html>
+"""
+
+
 def to_html(report: ProofReport, theme: str | None = None) -> str:
     """Self-contained HTML receipt (no external assets), calm and readable."""
     data = build_receipt(report)
+    if data["mode"] == "quick":
+        return _quick_html(report, data, theme)
     brief = data["brief"]
 
     rows = "".join(
@@ -399,48 +508,7 @@ def to_html(report: ProofReport, theme: str | None = None) -> str:
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Proof Receipt · {html.escape(data['dataset']['name'])}</title>
-<style>
-  :root {{
-    color-scheme: light dark;
-    --rc-bg: #0b0f14; --rc-ink: #e6edf3; --rc-muted: #9fb0c0; --rc-line: #1c2530;
-    --rc-rec-bg: #11331f; --rc-rec-line: #1f5135; --rc-rec-ink: #c8f5da;
-    --rc-case: #c4d0db; --rc-case-key: #6f8190;
-  }}
-  @media (prefers-color-scheme: light) {{
-    :root {{
-      --rc-bg: #f4f6f8; --rc-ink: #1b2430; --rc-muted: #51616f; --rc-line: #dde3ea;
-      --rc-rec-bg: #e7f7ee; --rc-rec-line: #b6e6cb; --rc-rec-ink: #0f5132;
-      --rc-case: #2b3744; --rc-case-key: #5f6e80;
-    }}
-  }}
-  :root[data-theme="dark"] {{
-    --rc-bg: #0b0f14; --rc-ink: #e6edf3; --rc-muted: #9fb0c0; --rc-line: #1c2530;
-    --rc-rec-bg: #11331f; --rc-rec-line: #1f5135; --rc-rec-ink: #c8f5da;
-    --rc-case: #c4d0db; --rc-case-key: #6f8190;
-  }}
-  :root[data-theme="light"] {{
-    --rc-bg: #f4f6f8; --rc-ink: #1b2430; --rc-muted: #51616f; --rc-line: #dde3ea;
-    --rc-rec-bg: #e7f7ee; --rc-rec-line: #b6e6cb; --rc-rec-ink: #0f5132;
-    --rc-case: #2b3744; --rc-case-key: #5f6e80;
-  }}
-  body {{ margin: 0; font: 15px/1.6 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-         background: var(--rc-bg); color: var(--rc-ink); }}
-  main {{ max-width: 56rem; margin: 0 auto; padding: 2.5rem 1.5rem; }}
-  h1 {{ font-size: 1.5rem; letter-spacing: -0.01em; margin: 0 0 0.25rem; }}
-  .rec {{ background: var(--rc-rec-bg); border: 1px solid var(--rc-rec-line); color: var(--rc-rec-ink);
-          padding: 0.9rem 1rem; border-radius: 10px; margin: 1rem 0 1.5rem; }}
-  dl {{ display: grid; grid-template-columns: max-content 1fr; gap: 0.2rem 1rem; margin: 0 0 1.5rem; }}
-  dt {{ color: var(--rc-muted); }} dd {{ margin: 0; }}
-  table {{ width: 100%; border-collapse: collapse; margin: 0.5rem 0 1.5rem; }}
-  th, td {{ text-align: left; padding: 0.5rem 0.6rem; border-bottom: 1px solid var(--rc-line); }}
-  th {{ color: var(--rc-muted); font-weight: 600; }}
-  code {{ font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }}
-  .muted {{ color: var(--rc-muted); }}
-  ul.failures {{ list-style: none; padding: 0; }}
-  ul.failures > li {{ border: 1px solid var(--rc-line); border-radius: 10px; padding: 0.8rem 1rem; margin: 0.6rem 0; }}
-  .case {{ color: var(--rc-case); margin-top: 0.25rem; }}
-  .case > span {{ color: var(--rc-case-key); display: inline-block; min-width: 4.5rem; }}
-</style>
+{_RECEIPT_STYLE}
 </head>
 <body>
 <main>
