@@ -55,7 +55,7 @@ function formatDate(iso: string): string {
 }
 
 function sourceLabel(source: string): string {
-  if (!source || source === "pasted") return "pasted";
+  if (!source) return ""; // legacy/seeded rows have no recorded source — omit it
   return source.startsWith("file:") ? source.slice(5) : source;
 }
 

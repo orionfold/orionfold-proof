@@ -19,7 +19,9 @@ test("dataset import: paste JSONL → preview → freeze → listed", async ({ p
   await page.getByLabel(/Dataset name/i).fill(name);
   await page.getByRole("button", { name: /Freeze dataset/i }).click();
 
-  // The panel closes and the new dataset appears in the list.
-  await expect(page.getByRole("heading", { name })).toBeVisible();
-  await expect(page.getByText("2 examples", { exact: true })).toBeVisible();
+  // The panel closes and the new dataset appears in the list. Scope to THIS dataset's card
+  // (the e2e DB is shared across specs, so match within the card for our unique name).
+  const card = page.locator("section").filter({ has: page.getByRole("heading", { name }) });
+  await expect(card.getByRole("heading", { name })).toBeVisible();
+  await expect(card.getByText(/2 examples/)).toBeVisible();
 });
