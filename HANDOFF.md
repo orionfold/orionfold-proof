@@ -10,8 +10,10 @@ _Last updated: 2026-06-22 · **SHIPPED: Proof Run setup polish** — numbered "�
 Compare by" stepper, custom select chevron (shared `SelectField`), Prompt-variants header moved above
 the boxes + 50% model select, decision recipes scoped to Models mode and retitled. Commits
 `cfcaad5`…`49f8d51` on `main`. **All UI/copy only — no data-model / engine / receipt / `config_hash`
-surface touched.** v0 stays real-world-verified. Remaining work is the non-blocking backlog (top
-item: **git remote + push** — `main` is ~10 commits unpushed)._
+surface touched.** v0 stays real-world-verified. Remaining work is the non-blocking backlog — next
+substantive item is **packaging · licensing · distribution**; **git remote + push is queued LAST and
+must not be surfaced until packaging is done** (operator directive). `main` is local-only (~11
+commits unpushed)._
 
 ## ▶️ START HERE NEXT SESSION
 1. **Open the app in a real browser first** (don't pick a task yet). Boot it, open the Proof Run
@@ -64,14 +66,19 @@ Precedence is system-env-first by design (`config/keys.py`). A stale exported `O
 `_0MA`) shadowed the good `.env.local` key (suffix `qVYA`). Fix: clear/refresh the stale shell key.
 
 ## BACKLOG — do NOT start until the operator picks the next action (see START HERE)
-1. **git remote + push** — no remote configured; `main` holds all work unpushed (DS skin, brand mark,
-   Settings feature, theme→Settings, Proof Run polish, specs/plans).
-2. **Catalog price/source accuracy pass** — verify list prices + context windows vs current provider
+1. **Catalog price/source accuracy pass** — verify list prices + context windows vs current provider
    docs (`current-docs-check`).
-3. **Cross-product models×prompts** — N models × M prompts in one run. **Brainstorm FIRST.**
-4. **DS-skin polish (roadmap write-back):** cyan `m-fill` leaderboard score bars; shared token-driven
+2. **Cross-product models×prompts** — N models × M prompts in one run. **Brainstorm FIRST.**
+3. **DS-skin polish (roadmap write-back):** cyan `m-fill` leaderboard score bars; shared token-driven
    badge/chip kit; deepen per-figure mono; categorical dataset/domain tag; receipt proof-seal stamp.
-5. **Richer sample data** — extend `sample_data.py` (more sample datasets) if onboarding wants it.
+4. **Richer sample data** — extend `sample_data.py` (more sample datasets) if onboarding wants it.
+5. **Packaging · licensing · distribution** — finalize shipping for Orionfold Proof: LICENSE +
+   source headers, PyPI packaging/metadata (dist name `orionfold-proof`, CLI `orionfold`; reserve
+   `orionfold` + `orionfold-arena`), `uv tool install orionfold-proof` → `orionfold up` install path,
+   release notes / demo script. **Brainstorm/scope FIRST.**
+6. **git remote + push** — **LAST item; do NOT surface, suggest, or start this until packaging ·
+   licensing · distribution (#5) is done** (operator directive). No remote configured; `main` holds
+   all work unpushed.
 
 Workflows/RAG remain post-v0. Any creative/feature work → **brainstorm FIRST**.
 
@@ -123,10 +130,11 @@ RECENT WORK (committed to main; no git remote configured; UI/copy only, config_h
 - (prior) THEME chooser → Settings → Appearance card; first-run default DARK. Commit 7e413b0.
 - (prior) SETTINGS — sample data / sandbox / mocks off the default picker. Orionfold DS skin + brand.
 
-BACKLOG (only after operator picks): (1) git remote + push; (2) catalog price/source pass
-(current-docs-check); (3) cross-product models×prompts — BRAINSTORM FIRST; (4) DS-skin polish;
-(5) richer sample data. Operator chore: refresh stale shell OPENAI_API_KEY. Creative work →
-brainstorm FIRST.
+BACKLOG (only after operator picks): (1) catalog price/source pass (current-docs-check);
+(2) cross-product models×prompts — BRAINSTORM FIRST; (3) DS-skin polish; (4) richer sample data;
+(5) packaging · licensing · distribution — BRAINSTORM/scope FIRST; (6) git remote + push — LAST, do
+NOT surface or suggest until packaging (#5) is done (operator directive). Operator chore: refresh
+stale shell OPENAI_API_KEY. Creative work → brainstorm FIRST.
 
 Do NOT regress the invariants in HANDOFF.md (mock bare-ids + engine labels + config_hash 467ddd96c9a5;
 domain Dataset has no is_sample; append-only migrations; e2e serial; DS accent/status split; shared
