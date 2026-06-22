@@ -24,6 +24,7 @@ import { ProviderTag } from "./badges";
 import { FailureCases } from "./FailureCases";
 import { Inspector } from "./Inspector";
 import { Leaderboard } from "./Leaderboard";
+import { QuickCompare } from "./QuickCompare";
 import { RecipeRow } from "./RecipeRow";
 import { RunProgress } from "./RunProgress";
 import { RunSetup } from "./RunSetup";
@@ -231,16 +232,32 @@ export function ProofCockpit({
             <StartingNotice />
           )
         ) : report ? (
-          <div className="flex flex-col gap-8 motion-safe:animate-reveal">
-            <DecisionSummary
-              brief={report.run.brief}
-              leaderboard={report.leaderboard}
-              scoredBy={scoredByLabel(report.run.rubric)}
-              cost={report.cost_summary}
-            />
-            <Leaderboard entries={report.leaderboard} />
-            <FailureCases report={report} selected={openFailure} onSelect={setOpenFailure} />
-          </div>
+          report.run.mode === "quick" ? (
+            <div className="motion-safe:animate-reveal">
+              <QuickCompare
+                report={report}
+                onReport={(r) => {
+                  onReport(r);
+                  void queryClient.invalidateQueries({ queryKey: ["runs"] });
+                }}
+                onPromote={() => {
+                  setCompareBy("models");
+                  setSelected(report.run.candidates.map((c) => c.id));
+                }}
+              />
+            </div>
+          ) : (
+            <div className="flex flex-col gap-8 motion-safe:animate-reveal">
+              <DecisionSummary
+                brief={report.run.brief}
+                leaderboard={report.leaderboard}
+                scoredBy={scoredByLabel(report.run.rubric)}
+                cost={report.cost_summary}
+              />
+              <Leaderboard entries={report.leaderboard} />
+              <FailureCases report={report} selected={openFailure} onSelect={setOpenFailure} />
+            </div>
+          )
         ) : (
           <EmptyResults />
         )}
