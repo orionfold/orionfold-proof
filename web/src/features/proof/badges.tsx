@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Cloud, CircleX, FlaskConical, HardDrive, TriangleAlert, type LucideIcon } from "lucide-react";
+import { Cloud, CircleX, FlaskConical, Lock, TriangleAlert, type LucideIcon } from "lucide-react";
 
 import type { Candidate, LeaderboardEntry } from "../../lib/api";
 
@@ -16,10 +16,12 @@ function providerKind(providerId: string, privacy: "local" | "cloud"): ProviderK
 // token surface (Orionfold rule: identity tags are neutral, non-pressable, never a pill). The
 // privacy/kind still reads at a glance because each carries a distinct icon AND label — never hue
 // alone. Cyan never appears here (status/identity ≠ accent).
-const PROVIDER_STYLE: Record<ProviderKind, { label: string; Icon: LucideIcon }> = {
-  mock: { label: "Mock", Icon: FlaskConical },
-  local: { label: "Local", Icon: HardDrive },
-  cloud: { label: "Cloud", Icon: Cloud },
+const PROVIDER_STYLE: Record<ProviderKind, { label: string; Icon: LucideIcon; cls: string }> = {
+  // Cloud/Mock stay neutral & muted. Local is strengthened — stronger neutral ink + a lock glyph —
+  // so 'local & private' reads at a glance. No green (PASS-only) and no cyan accent (controls-only).
+  mock: { label: "Mock", Icon: FlaskConical, cls: "text-(--color-ink-muted)" },
+  local: { label: "Local", Icon: Lock, cls: "text-(--color-ink) font-semibold" },
+  cloud: { label: "Cloud", Icon: Cloud, cls: "text-(--color-ink-muted)" },
 };
 
 export function ProviderTag({
@@ -27,12 +29,12 @@ export function ProviderTag({
 }: {
   candidate: Pick<Candidate | LeaderboardEntry, "provider_id" | "privacy">;
 }) {
-  const { label, Icon } = PROVIDER_STYLE[providerKind(candidate.provider_id, candidate.privacy)];
+  const { label, Icon, cls } = PROVIDER_STYLE[providerKind(candidate.provider_id, candidate.privacy)];
   return (
     <span
       // `rounded` (not a pill): identity tags take the receipt-stub shape so they never read as
-      // interactive. Neutral ink-muted on the card surface, distinguished by icon + label.
-      className="inline-flex items-center gap-1 rounded border border-(--color-panel-line) bg-(--color-panel-card) px-2 py-0.5 text-[11px] font-medium text-(--color-ink-muted)"
+      // interactive. Local is strengthened via per-kind `cls`; cloud/mock stay neutral ink-muted.
+      className={`inline-flex items-center gap-1 rounded border border-(--color-panel-line) bg-(--color-panel-card) px-2 py-0.5 text-[11px] font-medium ${cls}`}
     >
       <Icon aria-hidden className="h-3 w-3 shrink-0" />
       {label}
