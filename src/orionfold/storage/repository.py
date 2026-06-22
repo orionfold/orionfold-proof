@@ -63,17 +63,64 @@ def get_dataset(conn: sqlite3.Connection, dataset_id: str) -> Dataset | None:
     )
 
 
-def save_report(conn: sqlite3.Connection, report: ProofReport) -> None:
+def save_report(conn: sqlite3.Connection, report: ProofReport, *, is_sample: bool = False) -> None:
     conn.execute(
-        "INSERT OR REPLACE INTO runs (id, created_at, config_hash, report) VALUES (?, ?, ?, ?)",
+        "INSERT OR REPLACE INTO runs (id, created_at, config_hash, report, is_sample) "
+        "VALUES (?, ?, ?, ?, ?)",
         (
             report.run.id,
             report.run.created_at,
             report.run.config_hash,
             report.model_dump_json(),
+            1 if is_sample else 0,
         ),
     )
     conn.commit()
+
+
+def insert_sample_dataset(conn: sqlite3.Connection, dataset: Dataset) -> None:
+    """Upsert a sample dataset (is_sample=1). Stable id makes re-seeding idempotent."""
+    conn.execute(
+        "INSERT OR REPLACE INTO datasets (id, name, description, examples, is_sample) "
+        "VALUES (?, ?, ?, ?, 1)",
+        (dataset.id, dataset.name, dataset.description, _examples_json(dataset)),
+    )
+    conn.commit()
+
+
+def list_dataset_rows(conn: sqlite3.Connection) -> list[tuple[Dataset, bool]]:
+    """Datasets plus their is_sample flag — for the API; the domain model stays flag-free."""
+    rows = conn.execute(
+        "SELECT id, name, description, examples, is_sample FROM datasets ORDER BY name"
+    ).fetchall()
+    out: list[tuple[Dataset, bool]] = []
+    for r in rows:
+        dataset = Dataset.model_validate(
+            {
+                "id": r["id"],
+                "name": r["name"],
+                "description": r["description"],
+                "examples": _load_examples(r["examples"]),
+            }
+        )
+        out.append((dataset, bool(r["is_sample"])))
+    return out
+
+
+def remove_sample_data(conn: sqlite3.Connection) -> tuple[int, int]:
+    """Delete only sample rows. Returns (datasets_deleted, runs_deleted)."""
+    runs = conn.execute("DELETE FROM runs WHERE is_sample = 1").rowcount
+    datasets = conn.execute("DELETE FROM datasets WHERE is_sample = 1").rowcount
+    conn.commit()
+    return datasets, runs
+
+
+def clear_all_data(conn: sqlite3.Connection) -> tuple[int, int]:
+    """Delete ALL datasets and runs (settings are untouched). Returns (datasets, runs)."""
+    runs = conn.execute("DELETE FROM runs").rowcount
+    datasets = conn.execute("DELETE FROM datasets").rowcount
+    conn.commit()
+    return datasets, runs
 
 
 def get_report(conn: sqlite3.Connection, run_id: str) -> ProofReport | None:
