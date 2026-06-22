@@ -45,7 +45,7 @@ def test_seed_creates_flagged_sample_dataset_and_receipt():
     datasets, receipts = sample_data.seed_sample_data(conn)
     assert (datasets, receipts) == (1, 1)
     rows = repository.list_dataset_rows(conn)
-    samples = [d for d, is_sample in rows if is_sample]
+    samples = [d for d, meta in rows if meta.is_sample]
     assert [d.id for d in samples] == [sample_data.SAMPLE_DATASET_ID]
     run = conn.execute("SELECT id, is_sample FROM runs").fetchone()
     assert run["id"] == sample_data.SAMPLE_RUN_ID and run["is_sample"] == 1

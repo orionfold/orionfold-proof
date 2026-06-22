@@ -43,6 +43,7 @@ from orionfold.storage.repository import (
     DuplicateDatasetError,
     clear_all_data,
     get_dataset,
+    get_dataset_meta,
     get_report,
     list_dataset_rows,
     list_runs,
@@ -50,6 +51,7 @@ from orionfold.storage.repository import (
     save_dataset,
     save_report,
     seed_datasets,
+    update_dataset_meta,
 )
 from orionfold.storage.settings import get_sandbox_enabled, set_sandbox_enabled
 
@@ -66,6 +68,15 @@ class DatasetCreateRequest(BaseModel):
     description: str = ""
     format: ImportFormat
     text: str
+    tags: list[str] = []
+    source: str = ""
+    check_hint: str | None = None
+
+
+class DatasetPatchRequest(BaseModel):
+    tags: list[str] | None = None
+    description: str | None = None
+    check_hint: str | None = None
 
 
 class RunRequest(BaseModel):
@@ -101,6 +112,10 @@ class DatasetRow(BaseModel):
     description: str
     examples: list[Example]
     is_sample: bool
+    tags: list[str] = []
+    created_at: str = ""
+    source: str = ""
+    check_hint: str | None = None
 
 
 def _conn(request: Request) -> sqlite3.Connection:
@@ -117,20 +132,25 @@ def init_db(db_path) -> None:
         conn.close()
 
 
+def _to_row(d: Dataset, m) -> DatasetRow:
+    return DatasetRow(
+        id=d.id,
+        name=d.name,
+        description=d.description,
+        examples=d.examples,
+        is_sample=m.is_sample,
+        tags=m.tags,
+        created_at=m.created_at,
+        source=m.source,
+        check_hint=m.check_hint,
+    )
+
+
 @router.get("/datasets")
 def get_datasets(request: Request) -> list[DatasetRow]:
     conn = _conn(request)
     try:
-        return [
-            DatasetRow(
-                id=d.id,
-                name=d.name,
-                description=d.description,
-                examples=d.examples,
-                is_sample=is_sample,
-            )
-            for d, is_sample in list_dataset_rows(conn)
-        ]
+        return [_to_row(d, m) for d, m in list_dataset_rows(conn)]
     finally:
         conn.close()
 
@@ -145,7 +165,7 @@ def preview_dataset(body: DatasetPreviewRequest) -> ParseResult:
 
 
 @router.post("/datasets", status_code=201)
-def create_dataset(request: Request, body: DatasetCreateRequest) -> Dataset:
+def create_dataset(request: Request, body: DatasetCreateRequest) -> DatasetRow:
     """Re-parse server-side (source of truth), then freeze into a new dataset."""
     try:
         result = parse_dataset(body.text, body.format)
@@ -153,9 +173,44 @@ def create_dataset(request: Request, body: DatasetCreateRequest) -> Dataset:
         raise HTTPException(status_code=422, detail=str(exc))
     conn = _conn(request)
     try:
-        return save_dataset(conn, body.name, body.description, result.examples)
+        created = save_dataset(
+            conn,
+            body.name,
+            body.description,
+            result.examples,
+            tags=body.tags,
+            source=body.source or "pasted",
+            check_hint=body.check_hint,
+            created_at=datetime.now(timezone.utc).isoformat(),
+        )
+        meta = get_dataset_meta(conn, created.id)
+        assert meta is not None
+        return _to_row(created, meta)
     except DuplicateDatasetError as exc:
         raise HTTPException(status_code=409, detail=str(exc))
+    finally:
+        conn.close()
+
+
+@router.patch("/datasets/{dataset_id}")
+def patch_dataset(request: Request, dataset_id: str, body: DatasetPatchRequest) -> DatasetRow:
+    """Edit display metadata (tags/description/check_hint) only — never the frozen examples."""
+    provided = body.model_dump(exclude_unset=True)
+    conn = _conn(request)
+    try:
+        ok = update_dataset_meta(
+            conn,
+            dataset_id,
+            tags=provided.get("tags"),
+            description=provided.get("description"),
+            check_hint=provided.get("check_hint"),
+        )
+        if not ok:
+            raise HTTPException(status_code=404, detail="Dataset not found.")
+        ds = get_dataset(conn, dataset_id)
+        meta = get_dataset_meta(conn, dataset_id)
+        assert ds is not None and meta is not None
+        return _to_row(ds, meta)
     finally:
         conn.close()
 

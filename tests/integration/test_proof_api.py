@@ -514,3 +514,33 @@ def test_prompt_variant_run_rejects_empty_fields(client):
         "brief": {"task_name": "t", "decision_question": "q", "success_criteria": ""},
     }
     assert client.post("/api/runs", json=body).status_code == 422
+
+
+def test_create_with_tags_and_check_hint_round_trips(client):
+    body = {
+        "name": "Tagged via API",
+        "format": "jsonl",
+        "text": '{"input": "x", "expected": "y"}',
+        "tags": ["Legal", "Finance"],
+        "check_hint": "substring",
+    }
+    assert client.post("/api/datasets", json=body).status_code == 201
+    rows = {d["name"]: d for d in client.get("/api/datasets").json()}
+    row = rows["Tagged via API"]
+    assert row["tags"] == ["Legal", "Finance"]
+    assert row["check_hint"] == "substring"
+    assert row["created_at"]  # stamped, non-empty
+    assert row["source"] == "pasted"
+
+
+def test_patch_dataset_updates_tags_and_404s_for_unknown(client):
+    client.post(
+        "/api/datasets",
+        json={"name": "Patchable", "format": "jsonl", "text": '{"input": "a", "expected": "b"}'},
+    )
+    ds_id = {d["name"]: d for d in client.get("/api/datasets").json()}["Patchable"]["id"]
+    res = client.patch(f"/api/datasets/{ds_id}", json={"tags": ["Support"], "check_hint": "exact"})
+    assert res.status_code == 200
+    assert res.json()["tags"] == ["Support"]
+    assert res.json()["check_hint"] == "exact"
+    assert client.patch("/api/datasets/does-not-exist", json={"tags": ["x"]}).status_code == 404
