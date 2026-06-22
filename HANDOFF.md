@@ -6,12 +6,53 @@
 > To resume: in a fresh session say **"read from handoff"** (or "continue from last
 > session"), or `/clear` and paste the prompt below.
 
-_Last updated: 2026-06-21 · **BROWSER SMOKE E2E (Claude-in-Chrome) — last 3 releases PASS keyless;
-REAL-PAID route surfaced 1 confirmed code bug + 2 issues to fix next session.** No code changed this
-session (verification only). Prior shipped state below still stands: prompt-aware mocks merge-ready,
-4 commits `73ada79..ff399b5` on `main` (NOT pushed — no remote)._
+_Last updated: 2026-06-21 · **PHASES A + B BOTH DONE.** A: OpenAI `max_tokens`→`max_completion_tokens`
+bug FIXED (commit `9ffbb90` on `main`, NOT pushed — no remote). B: comprehensive REAL-WORLD paid browser
+smoke PASSED — every built feature verified with live providers; OpenAI fix confirmed end-to-end with
+real paid calls. **One non-code env gotcha for the operator (stale shell OPENAI key); see below.**_
 
-## ⚠️ ISSUES FOUND — fix next session (browser smoke + real-paid route)
+## ✅ PHASE A — COMPLETE (commit `9ffbb90`)
+
+> Evidence: `docs/worklog/2026-06-21-phase-a-openai-token-param-fix.md`. Verified keyless:
+> `uv run pytest` 226 · `ruff` clean · `pnpm --dir web test` 84 · `pnpm --dir web e2e` 6/6.
+
+1. **🐞 Issue 1 — FIXED.** OpenAI GPT-5.x rejects `max_tokens` (HTTP 400 → use
+   `max_completion_tokens`); blocked ALL OpenAI runs + the OpenAI hosted judge. Added per-profile
+   `token_param` to `OpenAICompatibleProvider`; OpenAI profile → `max_completion_tokens`, OpenRouter +
+   LM Studio keep `max_tokens`. Judge inherits via `get_provider`. +3 backend tests.
+2. **Issue 2 — already handled; no change needed.** The Hosted judge default never lands on an
+   unkeyed provider — `filterJudgeModels` gates unavailable providers to hint-rows. Issue 2's symptom
+   was Issue 1 firing on the auto-picked OpenAI judge (mis-attributed to Anthropic). +1 frontend guard.
+3. **Issue 3 — deferred.** Raw error bodies already capped at 500 chars + redacted; no secret leak;
+   verbatim body is useful for debugging. Left as-is.
+
+## ✅ PHASE B — COMPLETE (real-world paid browser smoke, verification-only, no code change)
+
+> Evidence: `docs/worklog/2026-06-21-phase-b-realworld-browser-smoke.md`. Ran a real server on free
+> port 8811 (fresh throwaway DB, freshly rebuilt embed) with live OpenAI/Gemini/OpenRouter/Anthropic
+> keys via Claude-in-Chrome + a few API runs for precise evidence. Server + DB + temp files cleaned up.
+
+- **OpenAI fix confirmed end-to-end with real money:** cross-provider model-compare → 0 errors, OpenAI
+  Recommended; OpenAI hosted judge → 0 errors, judge cost separated. The old `max_tokens` 400 is gone.
+- **Every checklist item passed:** custom dataset import (CSV in UI: paste→preview→freeze→listed) ·
+  real cross-provider compare · decision recipe pre-fill (#5) · model picker/catalog/local providers
+  (#1,#4) · all 4 scoring cards incl. a **live REAL Anthropic Haiku judge** · prompt-variant compare on
+  a **REAL** model (#6: real score variation, receipt v6 `prompt_variants`) · streaming progress
+  (ADR-0003) · leaderboard/recommendation/verdict · failure-case browser (chips + inspector) · receipt
+  export MD/HTML/JSON with **secret scan CLEAN** · Candidates + Receipts views · keyless regression
+  guard (`config_hash 467ddd96c9a5` reproduced; prompt-aware mocks Baseline 1.000 > Concise 0.483).
+
+## ⚠️ OPERATOR ACTION (env, NOT code) — stale shell `OPENAI_API_KEY` shadows `.env.local`
+
+Key precedence is **system env first, then `.env.local`** (intentional 12-factor design in
+`config/keys.py`). A **stale** exported `OPENAI_API_KEY` (suffix `_0MA`) shadowed the good topped-up
+key in `.env.local` (suffix `qVYA`) → a misleading `HTTP 401 Incorrect API key` on every OpenAI call
+until the server was relaunched with `env -u OPENAI_API_KEY`. **Fix: clear/refresh the stale
+`OPENAI_API_KEY` in your shell profile** (or unset it and rely on `.env.local`). Optional product
+idea (defer, low priority): surface the *source* of a resolved key, or let the in-app credential flow
+override a shell key. Not a bug — precedence is by design — but a real operational trap (no UI signal).
+
+## ⚠️ ISSUES (original notes — all resolved/triaged above; kept for context)
 
 > Ran the last 3 feature releases through Claude-in-Chrome. Keyless smoke = all PASS (see "Positives"
 > below). Then ran the **real-paid route** (user keys in env: OPENAI/GEMINI/OPENROUTER; ANTHROPIC
@@ -84,35 +125,21 @@ StarletteDeprecationWarning) · `uv run ruff check src tests` clean · `pnpm --d
 (22 files) · `pnpm --dir web build` clean · `bash scripts/build.sh && pnpm --dir web e2e` 6/6 ·
 `config_hash 467ddd96c9a5` present (model-compare byte-identical).
 
-> **NEXT SESSION — two phases: (A) fix known issues, then (B) comprehensive real-world browser smoke.**
+> **NEXT SESSION — Phases A + B are DONE.** v0 is real-world-verified end to end. What remains is the
+> non-blocking backlog plus one tiny operator chore:
 >
-> **PHASE A — fix the known issues (start here):**
-> 1. **FIX Issue 1 (OpenAI `max_tokens` → `max_completion_tokens`)** — confirmed bug, blocks ALL OpenAI
->    runs. TDD, per-profile `token_param`, no paid calls to verify.
-> 2. **Triage Issue 2 (Hosted judge defaults to Anthropic w/o key)** — default to a keyed judge, or
->    gate/hint missing-key judge options. Small frontend (+ maybe selection-endpoint) change.
-> 3. **Consider Issue 3 (verbose raw provider errors)** — truncate/normalize. Low priority.
+> 0. **(Operator) Refresh the stale shell `OPENAI_API_KEY`** so the good `.env.local` key resolves
+>    without `env -u OPENAI_API_KEY` (see the OPERATOR ACTION box above). One-time, no code.
+> 1. **Catalog price/source accuracy pass** — verify list prices + context windows against current
+>    provider docs (use `current-docs-check`). Non-blocking.
+> 2. **Cross-product models×prompts** — compare N models × M prompts in one run. **Brainstorm FIRST**
+>    (`superpowers:brainstorming`) — it's a new feature surface (#6 today is one-model × N-prompts).
+> 3. **git remote + push** — no remote is configured; `main` holds `9ffbb90` (Phase A) unpushed.
+> 4. Optional low-priority product ideas surfaced by Phase B: (a) surface the *source* of a resolved
+>    key / let the in-app credential flow override a shell key; (b) Markdown-paste import live check;
+>    (c) `+ custom` model entry live check. None are bugs.
 >
-> **PHASE B — comprehensive REAL-WORLD end-to-end browser smoke** (Claude-in-Chrome, real providers;
-> OpenAI billing topped up + new key in `.env.local`; Gemini + OpenRouter healthy; add an Anthropic key
-> if you want it covered). Rebuild embed (`bash scripts/build.sh`), `orionfold up` on a PROVABLY-FREE
-> port (sibling checkout holds 8787/8790/51xx), fresh throwaway DB. Drive each feature and capture
-> evidence; note + fix any new issues. **Feature checklist (everything built so far):**
-> - [ ] **Custom dataset import** — paste each format (JSONL · CSV · Markdown), Preview, save, verify examples render.
-> - [ ] **Model-compare, real cross-provider** — OpenAI (now fixed) + Gemini + OpenRouter in one run; confirm all succeed, real cost/latency.
-> - [ ] **Decision recipes (#5)** — each of the 4 recipes pre-fills candidates + question correctly.
-> - [ ] **Model picker / catalog (#1, #4)** — tiers/cost-classes, `+ custom` model entry, local providers (Ollama/LM Studio if available — else note unavailable).
-> - [ ] **All 4 scoring methods** on a real run — Auto · Keypoint · Similarity · LLM judge with a REAL judge model (and the Run-on/Optimize/Judge stepper).
-> - [ ] **Prompt-variant compare (#6) on a REAL model** — Baseline vs a custom real-world prompt; real (not simulated) score variation; receipt v6 `prompt_variants`.
-> - [ ] **Streaming progress (ADR-0003)** — live per-candidate/per-example bars.
-> - [ ] **Leaderboard + recommendation + verdict** — ranking, recommended badge, verdict vocabulary incl. "No clear winner" / "Keep testing" / "Ship".
-> - [ ] **Failure-case browser** — select a case, inspect input/expected/output in the inspector.
-> - [ ] **Receipt export** — Markdown · HTML · JSON; verify content, "Scored by" + "Run cost" lines, prompt-variant section; **secret scan** (no key material).
-> - [ ] **Candidates view + Receipts view** — past receipts list/open.
-> - [ ] **Keyless regression guard** — model-compare still byte-identical (config_hash `467ddd96c9a5`); prompt-aware mocks Baseline>Concise.
->
-> Then prior backlog (non-blocking): catalog price/source accuracy pass · cross-product models×prompts
-> (brainstorm first) · git remote + push. Workflows/RAG remain post-v0. Creative/feature → brainstorm FIRST.
+> Workflows/RAG remain post-v0. Any creative/feature work → **brainstorm FIRST**.
 
 ## Paste prompt for the next session
 
@@ -122,36 +149,27 @@ ADR-0003, and the latest worklogs: 2026-06-21-prompt-aware-mocks, 2026-06-21-pro
 2026-06-21-scoring-section-design-polish).
 
 RECENT WORK (committed to main, not pushed — no git remote configured):
-- (this session) PROMPT-AWARE MOCKS — SHIPPED, merge-ready. Keyless mock providers now deterministically
-  vary output by candidate.system_prompt so the #6 prompt-compare demo produces a real winner with NO API
-  key (was: all variants tied). Pure helper _shape_for_prompt(base, system_prompt) in
-  src/orionfold/providers/mock.py; both mocks route base output through it; a brevity cue truncates output
-  (drops trailing keypoints). Demo: Baseline 1.000 (recommended) vs Concise 0.555. Opus whole-branch
-  review = Ready to merge YES, 0 Critical/0 Important. Spec/plan:
-  docs/superpowers/{specs,plans}/2026-06-21-prompt-aware-mocks*. Commits 73ade79..ff399b5 (4).
-- (prior) #6 PROMPT-VARIANT CANDIDATES (Compare-by Models|Prompts; system_prompt is a Candidate field;
-  RECEIPT_VERSION 6). SCORING-SECTION DESIGN POLISH. MEANING-AWARE SCORING. DECISION RECIPES (#5),
-  MODEL PICKER (#4), CATALOG (#1).
+- (latest) PHASE A — OpenAI max_tokens FIX, SHIPPED (commit 9ffbb90). GPT-5.x rejects "max_tokens"
+  (HTTP 400 → use "max_completion_tokens"); it blocked ALL OpenAI runs + the OpenAI hosted judge.
+  Per-profile token_param on OpenAICompatibleProvider (OpenAI → max_completion_tokens; OpenRouter +
+  LM Studio keep max_tokens); judge inherits via get_provider. +3 backend tests, +1 frontend judge-
+  default guard. Issue 2 was already handled by judge gating; Issue 3 (verbose errors) deferred
+  (already capped+redacted). Evidence: docs/worklog/2026-06-21-phase-a-openai-token-param-fix.md.
+- (latest) PHASE B — comprehensive REAL-WORLD paid browser smoke, PASSED (verification-only, no code).
+  OpenAI fix confirmed end-to-end with real money; every built feature verified with live providers;
+  receipt secret scan CLEAN; keyless guard (config_hash 467ddd96c9a5) intact. Evidence:
+  docs/worklog/2026-06-21-phase-b-realworld-browser-smoke.md. ONE operator chore surfaced: a stale
+  shell OPENAI_API_KEY shadows the good .env.local key (precedence is system-env-first by design).
+- (prior) PROMPT-AWARE MOCKS (ff399b5); #6 PROMPT-VARIANT CANDIDATES (RECEIPT_VERSION 6); SCORING-
+  SECTION POLISH; MEANING-AWARE SCORING; DECISION RECIPES (#5); MODEL PICKER (#4); CATALOG (#1).
 
->> START HERE — two phases (see "⚠️ ISSUES FOUND" + the PHASE A/B plan in HANDOFF.md and
-   docs/worklog/2026-06-21-browser-smoke-last-three-releases.md):
-   PHASE A — fix known issues:
-   1. FIX OpenAI provider bug: openai_compatible.py:56 sends max_tokens; GPT-5.x needs
-      max_completion_tokens (HTTP 400 blocks ALL OpenAI runs). TDD, per-profile token_param, no paid
-      calls to verify. OpenAI billing topped up (new key in .env.local).
-   2. Triage: Hosted LLM-judge defaults to Claude Haiku · Anthropic and errors when ANTHROPIC_API_KEY
-      is unset — default to a keyed judge or hint missing keys in the judge dropdown.
-   3. Minor: raw provider error JSON shown verbatim in failure cases/receipt (no secret leak verified) —
-      consider truncating.
-   PHASE B — comprehensive REAL-WORLD end-to-end browser smoke (Claude-in-Chrome, real providers) of
-   EVERY feature built so far: custom dataset import (JSONL/CSV/Markdown) · real cross-provider
-   model-compare (OpenAI+Gemini+OpenRouter) · decision recipes · model picker/catalog/custom model ·
-   all 4 scoring methods incl. a REAL LLM judge · prompt-variant compare on a REAL model · streaming
-   progress · leaderboard/recommendation/verdict · failure-case browser · receipt export (MD/HTML/JSON)
-   + secret scan · Candidates/Receipts views · keyless regression guard (config_hash 467ddd96c9a5).
-   Rebuild embed first; PROVABLY-FREE port; fresh throwaway DB; note + fix any new issues.
-   Then backlog: catalog accuracy pass · cross-product models×prompts (brainstorm first) · git remote +
-   push. Workflows/RAG remain post-v0. Creative/feature work → brainstorm FIRST.
+>> START HERE — Phases A + B are DONE; v0 is real-world-verified. Remaining work is non-blocking:
+   0. (Operator) refresh the stale shell OPENAI_API_KEY so .env.local's good key resolves without
+      `env -u OPENAI_API_KEY` (see OPERATOR ACTION box in HANDOFF.md). One-time, no code.
+   1. Catalog price/source accuracy pass (use current-docs-check).
+   2. Cross-product models×prompts — NEW feature surface; BRAINSTORM FIRST.
+   3. git remote + push (main holds 9ffbb90 unpushed).
+   Workflows/RAG remain post-v0. Any creative/feature work → brainstorm FIRST.
 
 Do NOT regress (prompt-aware-mocks invariants): _shape_for_prompt returns the SAME base string object
 (no split/join) on system_prompt-is-None AND cue-less (budget>=1.0) paths → model-compare byte-identical
