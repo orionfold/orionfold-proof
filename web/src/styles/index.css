@@ -90,6 +90,42 @@
   --color-focus: #0e9e98;
 }
 
+/* Categorical value-tag tokens (Orionfold brand values sheet) — NEVER interactive; tags stay
+   squared. Dark is the default; light overrides. Reused by dataset domain tags (and, later, the
+   shared badge/chip kit). */
+:root {
+  --t1bg: #16345e; --t1fg: #7fb4ff;
+  --t2bg: #143a28; --t2fg: #62d98c;
+  --t3bg: #4a3410; --t3fg: #f5b14a;
+  --t5bg: #2e2256; --t5fg: #b79cff;
+  --t7bg: #1e2a5e; --t7fg: #aab6ee;
+}
+:root[data-theme="light"] {
+  --t1bg: #d2e5ff; --t1fg: #1257c4;
+  --t2bg: #d3f8e6; --t2fg: #157a3c;
+  --t3bg: #ffe8c2; --t3fg: #9a5a00;
+  --t5bg: #e6dcff; --t5fg: #6b32d6;
+  --t7bg: #dfe2f5; --t7fg: #2c3a78;
+}
+
+.of-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.03em;
+  padding: 2px 8px;
+  border-radius: 3px; /* squared, not pill — categorical, not interactive */
+  border: 1px solid var(--color-panel-line);
+}
+.of-tag--t1 { background: var(--t1bg); color: var(--t1fg); }
+.of-tag--t2 { background: var(--t2bg); color: var(--t2fg); }
+.of-tag--t3 { background: var(--t3bg); color: var(--t3fg); }
+.of-tag--t5 { background: var(--t5bg); color: var(--t5fg); }
+.of-tag--t7 { background: var(--t7bg); color: var(--t7fg); }
+
 @keyframes reveal {
   from {
     opacity: 0;
