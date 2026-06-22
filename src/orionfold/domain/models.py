@@ -118,6 +118,7 @@ class LeaderboardEntry(BaseModel):
     failure_count: int
     error_count: int = 0
     recommended: bool = False
+    cost_per_quality: float | None = None  # $ per quality point (cost/avg_score); None if avg_score==0. Presentation only — never affects ranking.
 
 
 class ProofBrief(BaseModel):

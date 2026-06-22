@@ -108,3 +108,45 @@ def test_leaderboard_entry_system_prompt_none_for_model_compare():
                       latency_ms=10, estimated_cost_usd=0.0, privacy="local", error=None)]
     [entry] = build_leaderboard([cand], rows)
     assert entry.system_prompt is None
+
+
+def test_cost_per_quality_is_cost_over_avg_score():
+    # 0.10 total cost at avg_score 0.5 -> 0.20 dollars per quality point.
+    cands = [_cand("c")]
+    results = [
+        _row("c", 0, score=0.5, passed=False, latency=100, cost=0.05),
+        _row("c", 1, score=0.5, passed=True, latency=100, cost=0.05),
+    ]
+    [entry] = build_leaderboard(cands, results)
+    assert entry.avg_score == 0.5
+    assert entry.total_estimated_cost_usd == 0.10
+    assert entry.cost_per_quality == 0.20
+
+
+def test_cost_per_quality_is_none_when_avg_score_zero():
+    # No quality to be efficient about -> undefined (renders "—"), never a divide-by-zero.
+    cands = [_cand("z")]
+    results = [_row("z", 0, score=0.0, passed=False, latency=0, error="boom")]
+    [entry] = build_leaderboard(cands, results)
+    assert entry.avg_score == 0.0
+    assert entry.cost_per_quality is None
+
+
+def test_cost_per_quality_is_zero_when_free():
+    # Local/mock cost 0 with real quality -> 0.0 (renders "Free"), the local-first win.
+    cands = [_cand("free")]
+    results = [_row("free", 0, score=1.0, passed=True, latency=10, cost=0.0)]
+    [entry] = build_leaderboard(cands, results)
+    assert entry.cost_per_quality == 0.0
+
+
+def test_cost_per_quality_does_not_change_ranking():
+    # A cheap high-quality candidate still outranks an expensive low-quality one on pass_rate,
+    # not on the new efficiency field.
+    cands = [_cand("good"), _cand("bad")]
+    results = [
+        _row("good", 0, score=1.0, passed=True, latency=40, cost=0.50),
+        _row("bad", 0, score=0.1, passed=False, latency=10, cost=0.00),
+    ]
+    entries = build_leaderboard(cands, results)
+    assert entries[0].candidate_id == "good"  # pass_rate wins; cheaper "bad" does not jump it

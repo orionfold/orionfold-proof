@@ -4,6 +4,9 @@ The ordering encodes the product's recommendation: trust the candidate that pass
 often, breaking ties toward lower latency then lower cost. The top entry is marked
 ``recommended`` only when it passed at least one example, so the receipt never crowns a
 candidate that produced nothing.
+
+The standing also carries ``cost_per_quality`` (cost per quality point) for presentation;
+it does not affect ranking.
 """
 
 from __future__ import annotations
@@ -29,6 +32,7 @@ def build_leaderboard(
         avg_score = sum(r.score for r in rows) / total if total else 0.0
         avg_latency = round(sum(r.latency_ms for r in rows) / total) if total else 0
         total_cost = sum(r.estimated_cost_usd for r in rows)
+        cost_per_quality = total_cost / avg_score if avg_score > 0 else None
         entries.append(
             LeaderboardEntry(
                 candidate_id=cand.id,
@@ -45,6 +49,7 @@ def build_leaderboard(
                 total_estimated_cost_usd=total_cost,
                 failure_count=failure_count,
                 error_count=error_count,
+                cost_per_quality=cost_per_quality,
             )
         )
 
