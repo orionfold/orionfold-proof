@@ -42,6 +42,12 @@ MIGRATIONS: list[str] = [
         value TEXT NOT NULL
     );
     """,
+    """
+    ALTER TABLE datasets ADD COLUMN tags       TEXT NOT NULL DEFAULT '[]';
+    ALTER TABLE datasets ADD COLUMN created_at TEXT NOT NULL DEFAULT '';
+    ALTER TABLE datasets ADD COLUMN source     TEXT NOT NULL DEFAULT '';
+    ALTER TABLE datasets ADD COLUMN check_hint TEXT NOT NULL DEFAULT '';
+    """,
 ]
 
 

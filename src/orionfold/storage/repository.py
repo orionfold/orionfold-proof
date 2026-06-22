@@ -10,8 +10,39 @@ from __future__ import annotations
 import re
 import sqlite3
 
+from pydantic import BaseModel
+
 from orionfold.data import bundled_datasets
 from orionfold.domain.models import Dataset, Example, ProofReport
+
+
+class DatasetMeta(BaseModel):
+    """Display/management metadata for a dataset — lives on the DB row + API only, never on the
+    domain Dataset model, so config_hash stays untouched."""
+
+    is_sample: bool
+    tags: list[str]
+    created_at: str
+    source: str
+    check_hint: str | None
+
+
+def _load_meta(r: sqlite3.Row) -> DatasetMeta:
+    import json
+
+    keys = r.keys()
+    raw_tags = r["tags"] if "tags" in keys else "[]"
+    tags = json.loads(raw_tags) if raw_tags else []
+    if not isinstance(tags, list):
+        tags = []
+    hint = (r["check_hint"] or "") if "check_hint" in keys else ""
+    return DatasetMeta(
+        is_sample=bool(r["is_sample"]),
+        tags=[str(t) for t in tags],
+        created_at=r["created_at"] if "created_at" in keys else "",
+        source=r["source"] if "source" in keys else "",
+        check_hint=hint or None,
+    )
 
 
 def seed_datasets(conn: sqlite3.Connection) -> None:
@@ -88,12 +119,13 @@ def insert_sample_dataset(conn: sqlite3.Connection, dataset: Dataset) -> None:
     conn.commit()
 
 
-def list_dataset_rows(conn: sqlite3.Connection) -> list[tuple[Dataset, bool]]:
-    """Datasets plus their is_sample flag — for the API; the domain model stays flag-free."""
+def list_dataset_rows(conn: sqlite3.Connection) -> list[tuple[Dataset, DatasetMeta]]:
+    """Datasets plus display metadata — for the API; the domain model stays flag-free."""
     rows = conn.execute(
-        "SELECT id, name, description, examples, is_sample FROM datasets ORDER BY name"
+        "SELECT id, name, description, examples, is_sample, tags, created_at, source, check_hint "
+        "FROM datasets ORDER BY name"
     ).fetchall()
-    out: list[tuple[Dataset, bool]] = []
+    out: list[tuple[Dataset, DatasetMeta]] = []
     for r in rows:
         dataset = Dataset.model_validate(
             {
@@ -103,8 +135,47 @@ def list_dataset_rows(conn: sqlite3.Connection) -> list[tuple[Dataset, bool]]:
                 "examples": _load_examples(r["examples"]),
             }
         )
-        out.append((dataset, bool(r["is_sample"])))
+        out.append((dataset, _load_meta(r)))
     return out
+
+
+def get_dataset_meta(conn: sqlite3.Connection, dataset_id: str) -> DatasetMeta | None:
+    r = conn.execute(
+        "SELECT is_sample, tags, created_at, source, check_hint FROM datasets WHERE id = ?",
+        (dataset_id,),
+    ).fetchone()
+    return None if r is None else _load_meta(r)
+
+
+def update_dataset_meta(
+    conn: sqlite3.Connection,
+    dataset_id: str,
+    *,
+    tags: list[str] | None = None,
+    description: str | None = None,
+    check_hint: str | None = None,
+) -> bool:
+    """Update only the provided metadata fields. Never touches examples. False if id unknown."""
+    import json
+
+    if conn.execute("SELECT 1 FROM datasets WHERE id = ?", (dataset_id,)).fetchone() is None:
+        return False
+    sets: list[str] = []
+    params: list[object] = []
+    if tags is not None:
+        sets.append("tags = ?")
+        params.append(json.dumps([str(t).strip() for t in tags if str(t).strip()]))
+    if description is not None:
+        sets.append("description = ?")
+        params.append(description.strip())
+    if check_hint is not None:
+        sets.append("check_hint = ?")
+        params.append(check_hint.strip())
+    if sets:
+        params.append(dataset_id)
+        conn.execute(f"UPDATE datasets SET {', '.join(sets)} WHERE id = ?", params)
+        conn.commit()
+    return True
 
 
 def remove_sample_data(conn: sqlite3.Connection) -> tuple[int, int]:
@@ -153,9 +224,19 @@ class DuplicateDatasetError(ValueError):
 
 
 def save_dataset(
-    conn: sqlite3.Connection, name: str, description: str, examples: list[Example]
+    conn: sqlite3.Connection,
+    name: str,
+    description: str,
+    examples: list[Example],
+    *,
+    tags: list[str] | None = None,
+    source: str = "",
+    check_hint: str | None = None,
+    created_at: str = "",
 ) -> Dataset:
     """Create a new dataset. Name must be unique (case-insensitive); id is a unique slug."""
+    import json
+
     name = name.strip()
     if not name:
         raise ValueError("Dataset name is required.")
@@ -170,9 +251,20 @@ def save_dataset(
         description=description.strip(),
         examples=examples,
     )
+    clean_tags = [str(t).strip() for t in (tags or []) if str(t).strip()]
     conn.execute(
-        "INSERT INTO datasets (id, name, description, examples) VALUES (?, ?, ?, ?)",
-        (dataset.id, dataset.name, dataset.description, _examples_json(dataset)),
+        "INSERT INTO datasets (id, name, description, examples, tags, created_at, source, check_hint) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        (
+            dataset.id,
+            dataset.name,
+            dataset.description,
+            _examples_json(dataset),
+            json.dumps(clean_tags),
+            created_at,
+            source,
+            (check_hint or "").strip(),
+        ),
     )
     conn.commit()
     return dataset
