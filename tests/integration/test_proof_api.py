@@ -604,3 +604,38 @@ def test_quick_run_uses_inline_examples_without_a_dataset_row(client):
     # No dataset row was created for the ad-hoc prompt.
     ds = client.get("/api/datasets").json()
     assert all(d["id"] != "quick-compare" for d in ds)
+
+
+def _make_quick_run(client) -> str:
+    body = {
+        "examples": [{"input_text": "x", "expected_text": ""}],
+        "candidate_ids": ["mock_good", "mock_bad"],
+        "rubric": {"kind": "none", "threshold": 0, "case_sensitive": False},
+        "mode": "quick",
+        "brief": {"task_name": "Quick check", "decision_question": "q"},
+    }
+    return client.post("/api/runs", json=body).json()["run"]["id"]
+
+
+def test_patch_winner_records_pick_and_keeps_config_hash(client):
+    run_id = _make_quick_run(client)
+    before = client.get(f"/api/runs/{run_id}").json()
+    res = client.patch(f"/api/runs/{run_id}/winner", json={"chosen_winner": "mock_good"})
+    assert res.status_code == 200, res.text
+    after = res.json()
+    assert after["run"]["chosen_winner"] == "mock_good"
+    assert after["run"]["config_hash"] == before["run"]["config_hash"]  # invariant
+    # "tie" is a legitimate pick.
+    tie = client.patch(f"/api/runs/{run_id}/winner", json={"chosen_winner": "tie"})
+    assert tie.status_code == 200
+
+
+def test_patch_winner_rejects_unknown_candidate(client):
+    run_id = _make_quick_run(client)
+    res = client.patch(f"/api/runs/{run_id}/winner", json={"chosen_winner": "nope"})
+    assert res.status_code == 400
+
+
+def test_patch_winner_404_for_unknown_run(client):
+    res = client.patch("/api/runs/run_missing/winner", json={"chosen_winner": "tie"})
+    assert res.status_code == 404

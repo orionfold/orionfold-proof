@@ -540,6 +540,26 @@ def get_single_run(request: Request, run_id: str) -> ProofReport:
         conn.close()
 
 
+@router.patch("/runs/{run_id}/winner")
+def set_winner(request: Request, run_id: str, body: WinnerRequest) -> ProofReport:
+    """Record the operator's head-to-head pick on a quick-compare run."""
+    conn = _conn(request)
+    try:
+        report = get_report(conn, run_id)
+        if report is None:
+            raise HTTPException(status_code=404, detail="Unknown run")
+        if report.run.mode != "quick":
+            raise HTTPException(status_code=400, detail="Only quick-compare runs take a pick.")
+        valid = {c.id for c in report.run.candidates} | {"tie"}
+        if body.chosen_winner not in valid:
+            raise HTTPException(status_code=400, detail="Pick must be one of the run's candidates.")
+        report.run.chosen_winner = body.chosen_winner
+        save_report(conn, report)
+        return report
+    finally:
+        conn.close()
+
+
 _FORMATS = {
     "json": (export.to_json, "application/json"),
     "md": (export.to_markdown, "text/markdown"),
