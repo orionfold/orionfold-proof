@@ -6,6 +6,7 @@ import {
   Monitor,
   Moon,
   ReceiptText,
+  Settings,
   Sun,
   type LucideIcon,
 } from "lucide-react";
@@ -18,8 +19,9 @@ import { DatasetsView } from "../features/proof/DatasetsView";
 import { ProofCockpit } from "../features/proof/ProofCockpit";
 import { ReceiptDetailView } from "../features/proof/ReceiptDetailView";
 import { ReceiptsView } from "../features/proof/ReceiptsView";
+import { SettingsView } from "../features/proof/SettingsView";
 
-type View = "proof" | "datasets" | "candidates" | "receipts";
+type View = "proof" | "datasets" | "candidates" | "receipts" | "settings";
 
 type Probe =
   | { state: "loading" }
@@ -138,6 +140,7 @@ const NAV: { id: View; label: string; Icon: LucideIcon }[] = [
   { id: "datasets", label: "Datasets", Icon: Database },
   { id: "candidates", label: "Candidates", Icon: Boxes },
   { id: "receipts", label: "Receipts", Icon: ReceiptText },
+  { id: "settings", label: "Settings", Icon: Settings },
 ];
 
 function LeftRail({ view, onNavigate }: { view: View; onNavigate: (view: View) => void }) {
@@ -252,6 +255,7 @@ export function App() {
       </div>
       {view === "datasets" && <DatasetsView />}
       {view === "candidates" && <CandidatesView />}
+      {view === "settings" && <SettingsView />}
       {view === "receipts" &&
         (receiptInView ? (
           <ReceiptDetailView
