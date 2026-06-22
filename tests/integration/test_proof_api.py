@@ -580,3 +580,27 @@ def test_extract_xlsx_returns_csv_text_without_writing(client):
 def test_extract_rejects_unknown_extension(client):
     files = {"file": ("notes.txt", b"hello", "text/plain")}
     assert client.post("/api/datasets/extract", files=files).status_code == 422
+
+
+# ─── Quick-compare (inline examples, human pick) ──────────────────────────────
+
+
+def test_quick_run_uses_inline_examples_without_a_dataset_row(client):
+    body = {
+        "examples": [{"input_text": "Summarize: revenue grew 22%.", "expected_text": ""}],
+        "candidate_ids": ["mock_good", "mock_bad"],
+        "rubric": {"kind": "none", "threshold": 0, "case_sensitive": False},
+        "mode": "quick",
+        "brief": {"task_name": "Quick check", "decision_question": "Which reads better?"},
+    }
+    res = client.post("/api/runs", json=body)
+    assert res.status_code == 200, res.text
+    report = res.json()
+    assert report["run"]["mode"] == "quick"
+    assert report["run"]["dataset_id"] == "quick-compare"
+    assert report["run"]["chosen_winner"] is None
+    assert len(report["results"]) == 2
+    assert all(r["score"] is None for r in report["results"])
+    # No dataset row was created for the ad-hoc prompt.
+    ds = client.get("/api/datasets").json()
+    assert all(d["id"] != "quick-compare" for d in ds)

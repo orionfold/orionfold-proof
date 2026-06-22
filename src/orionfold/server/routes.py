@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import sqlite3
 import uuid
+from typing import Literal
 from datetime import datetime, timezone
 
 from collections.abc import Iterator
@@ -88,11 +89,17 @@ class DatasetPatchRequest(BaseModel):
 
 
 class RunRequest(BaseModel):
-    dataset_id: str
+    dataset_id: str = ""  # ignored when `examples` is provided (quick-compare)
     candidate_ids: list[str]
     rubric: Rubric | None = None
     brief: ProofBrief
     prompt_variants: list[PromptVariant] | None = None
+    examples: list[Example] | None = None  # inline ad-hoc examples (quick-compare); no dataset row
+    mode: Literal["full", "quick"] = "full"
+
+
+class WinnerRequest(BaseModel):
+    chosen_winner: str  # a candidate_id from the run, or the literal "tie"
 
 
 class CredentialRequest(BaseModel):
@@ -374,13 +381,21 @@ def _resolve_candidates(body: RunRequest) -> list[Candidate]:
     return expand_prompt_variants(base[0], variants)
 
 
+def _resolve_dataset(conn: sqlite3.Connection, body: RunRequest) -> Dataset:
+    """The dataset under test: an ephemeral one for quick-compare, else the stored row."""
+    if body.examples:
+        return Dataset(id="quick-compare", name="Quick Compare", examples=body.examples)
+    dataset = get_dataset(conn, body.dataset_id)
+    if dataset is None:
+        raise HTTPException(status_code=404, detail="Unknown dataset")
+    return dataset
+
+
 @router.post("/runs")
 def create_run(request: Request, body: RunRequest) -> ProofReport:
     conn = _conn(request)
     try:
-        dataset = get_dataset(conn, body.dataset_id)
-        if dataset is None:
-            raise HTTPException(status_code=404, detail="Unknown dataset")
+        dataset = _resolve_dataset(conn, body)
 
         if not body.candidate_ids:
             raise HTTPException(status_code=400, detail="Select at least one candidate")
@@ -403,6 +418,7 @@ def create_run(request: Request, body: RunRequest) -> ProofReport:
                 candidates=candidates,
                 rubric=rubric,
             )
+            report.run.mode = body.mode
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc))
         save_report(conn, report)
@@ -430,11 +446,9 @@ def create_run_stream(request: Request, body: RunRequest) -> StreamingResponse:
     """
     conn = _conn(request)
     try:
-        dataset = get_dataset(conn, body.dataset_id)
+        dataset = _resolve_dataset(conn, body)
     finally:
         conn.close()
-    if dataset is None:
-        raise HTTPException(status_code=404, detail="Unknown dataset")
     if not body.candidate_ids:
         raise HTTPException(status_code=400, detail="Select at least one candidate")
     candidates = _resolve_candidates(body)
@@ -482,6 +496,7 @@ def create_run_stream(request: Request, body: RunRequest) -> StreamingResponse:
             candidates=candidates,
             config_hash=config_hash(dataset, candidates, rubric),
             created_at=now,
+            mode=body.mode,
         )
         report = ProofReport(
             run=run,
