@@ -48,6 +48,12 @@ for a newcomer, without adding any steps or persistence.
   `Candidates` header — which binds to the legend and separates it from the model picker.
 - Re-verified in browser (Prompts mode + LLM-judge scoring): judge select shows the custom chevron;
   the Prompt variants header now reads as a real section. `tsc` clean; `pnpm test` 90/90.
+- **Moved the Prompt variants title/subtitle above the prompt boxes.** It now heads the variant
+  editors (after the Prompt model picker) instead of topping the whole section. Required dropping the
+  `<fieldset>/<legend>` (a legend only captions when it's the first child) for a `<div>` + sub-heading
+  — "Prompt variants" is now a peer of the "Prompt model" label. `tsc` clean; `pnpm test` 90/90.
+- **Prompt model dropdown → 50% on desktop** (`w-full md:w-1/2`), matching the dataset field's
+  contained width instead of stretching full-width.
 
 ## Risks / deferrals
 - `:8787` on this machine is occupied by an unrelated app ("self-wealth" dashboard); Orionfold was
