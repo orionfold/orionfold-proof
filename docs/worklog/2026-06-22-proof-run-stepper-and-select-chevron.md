@@ -38,13 +38,20 @@ The run setup now reads as a guided "do this, then this" decision flow rather th
 controls — reinforcing the calm-instrument-panel north star and making the first run more legible
 for a newcomer, without adding any steps or persistence.
 
+## Follow-up (same session, commit after cfcaad5/0735e89)
+- **Unified the ③ Judge model select** in `JudgeFilter` onto `SelectField` (`className="w-full
+  text-sm sm:w-80"`), so all three cockpit selects (dataset, prompt-model, judge-model) share the
+  one custom chevron. Resolves the deferral noted above.
+- **Fixed the "empty title" on Compare-by → Prompts.** `PromptVariants` had a bare `Prompt variants`
+  legend sitting directly on the `Prompt model` label (both same muted style), so the title read as
+  empty/redundant. Added a description line under the legend — paralleling `CandidatePicker`'s
+  `Candidates` header — which binds to the legend and separates it from the model picker.
+- Re-verified in browser (Prompts mode + LLM-judge scoring): judge select shows the custom chevron;
+  the Prompt variants header now reads as a real section. `tsc` clean; `pnpm test` 90/90.
+
 ## Risks / deferrals
-- The **③ Judge model** select inside `JudgeFilter` still uses its native browser chevron, so it is
-  now slightly inconsistent with the dataset/prompt-model selects. Deferred (out of this request's
-  scope) — a one-line swap to `SelectField` when desired.
 - `:8787` on this machine is occupied by an unrelated app ("self-wealth" dashboard); Orionfold was
   run on `:8790` for verification. Environment-only, not a code issue.
 
 ## Next recommended step
-Operator decision: optionally unify the judge-model select chevron (`SelectField`), then resume the
-standing backlog (top item: git remote + push — `main` is still unpushed).
+Resume the standing backlog (top item: git remote + push — `main` is still unpushed).
