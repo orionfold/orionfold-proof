@@ -24,8 +24,12 @@ export function PromptVariants(props: PromptVariantsProps) {
   const remove = (i: number) => onChangeVariants(variants.filter((_, idx) => idx !== i));
 
   return (
-    <fieldset className="grid gap-4">
-      <legend className="text-sm text-(--color-ink-muted)">Prompt variants</legend>
+    <fieldset className="grid gap-4 text-sm">
+      <legend className="text-(--color-ink-muted)">Prompt variants</legend>
+      <p className="text-xs text-(--color-ink-faint)">
+        One model, several system prompts. Hold the model fixed and compare which wording wins on the
+        same examples.
+      </p>
 
       <label className="grid gap-1.5 text-sm">
         <span className="text-(--color-ink-muted)">Prompt model</span>

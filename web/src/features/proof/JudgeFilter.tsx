@@ -9,6 +9,7 @@ import type { SelectionPanel, Privacy } from "../../lib/api";
 import { filterJudgeModels, type JudgeTier } from "./scoring";
 import { JUDGE_TIERS } from "./selectionMeta";
 import { KeyEntry } from "./KeyEntry";
+import { SelectField } from "./SelectField";
 import { Step, StepLine } from "./WorkflowStep";
 
 export interface JudgeFilterProps {
@@ -74,21 +75,21 @@ export function JudgeFilter({ selectedProviderId, selectedModel, onPick }: Judge
 
         <Step n={3} label="Judge model">
           {result.options.length > 0 ? (
-            <select
+            <SelectField
               aria-label="Judge model"
+              className="w-full text-sm sm:w-80"
               value={currentValue}
               onChange={(e) => {
                 const [pid, model] = e.target.value.split("::");
                 onPick(pid, model === "" ? null : model);
               }}
-              className="rounded-lg border border-(--color-panel-line) bg-(--color-panel) px-3 py-2 text-sm text-(--color-ink)"
             >
               {result.options.map((o) => (
                 <option key={encode(o.providerId, o.model)} value={encode(o.providerId, o.model)}>
                   {o.displayName}
                 </option>
               ))}
-            </select>
+            </SelectField>
           ) : (
             <p className="py-2 text-xs text-(--color-ink-faint)">
               {result.gated.length > 0
