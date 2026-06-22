@@ -2,6 +2,8 @@ import type { Dataset, ProofBrief, PromptVariant, SelectionPanel } from "../../l
 import { CandidatePicker } from "./CandidatePicker";
 import { PromptVariants } from "./PromptVariants.tsx";
 import { ScoringMethod, type Rubric } from "./ScoringMethod";
+import { SelectField } from "./SelectField";
+import { Step, StepLine } from "./WorkflowStep";
 import { inputCls } from "./formStyles";
 import { validPromptVariants } from "./promptVariantsHelpers";
 
@@ -72,44 +74,55 @@ export function RunSetup(props: RunSetupProps) {
       }}
     >
       <div className="grid gap-5">
-        <label className="grid gap-1.5 text-sm">
-          <span className="text-(--color-ink-muted)">Dataset</span>
-          <select
-            value={datasetId}
-            onChange={(e) => onDatasetChange(e.target.value)}
-            className={inputCls}
-          >
-            {datasets.map((d) => (
-              <option key={d.id} value={d.id}>
-                {d.name} ({d.examples.length} examples)
-              </option>
-            ))}
-          </select>
+        {/* Steps 1 + 2 of the run: pick the dataset, then choose what to compare. Inline numbered
+            stepper — same badge + connector language as the top StageStepper and the judge picker. */}
+        <div className="grid gap-2">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-3">
+            <Step n={1} label="Select dataset">
+              <SelectField
+                aria-label="Dataset"
+                className="w-full sm:w-[27rem]"
+                value={datasetId}
+                onChange={(e) => onDatasetChange(e.target.value)}
+              >
+                {datasets.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name} ({d.examples.length} examples)
+                  </option>
+                ))}
+              </SelectField>
+            </Step>
+
+            <StepLine />
+
+            <Step n={2} label="Compare by">
+              <div role="group" aria-label="Compare by" className="inline-flex w-fit rounded-lg border border-(--color-panel-line) p-0.5 text-sm">
+                {(["models", "prompts"] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    aria-pressed={compareBy === mode}
+                    onClick={() => onCompareByChange(mode)}
+                    className={
+                      "rounded-md px-3 py-1.5 capitalize transition-colors " +
+                      (compareBy === mode
+                        ? "bg-(--color-accent-strong) text-(--color-accent-ink)"
+                        : "text-(--color-ink-muted) hover:text-(--color-ink)")
+                    }
+                  >
+                    {mode}
+                  </button>
+                ))}
+              </div>
+            </Step>
+          </div>
+
           <span className="text-xs text-(--color-ink-faint)">
             The frozen examples every candidate is scored on.
           </span>
-        </label>
+        </div>
 
-        <div className="grid gap-3">
-          <div role="group" aria-label="Compare by" className="inline-flex w-fit rounded-lg border border-(--color-panel-line) p-0.5 text-sm">
-            {(["models", "prompts"] as const).map((mode) => (
-              <button
-                key={mode}
-                type="button"
-                aria-pressed={compareBy === mode}
-                onClick={() => onCompareByChange(mode)}
-                className={
-                  "rounded-md px-3 py-1.5 capitalize transition-colors " +
-                  (compareBy === mode
-                    ? "bg-(--color-accent-strong) text-(--color-accent-ink)"
-                    : "text-(--color-ink-muted) hover:text-(--color-ink)")
-                }
-              >
-                {mode}
-              </button>
-            ))}
-          </div>
-
+        <div>
           {compareBy === "prompts" ? (
             <PromptVariants
               variants={promptVariants}

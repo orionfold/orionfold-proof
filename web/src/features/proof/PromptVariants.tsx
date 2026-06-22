@@ -1,5 +1,6 @@
 import { Plus, X } from "lucide-react";
 import type { PromptVariant, SelectionPanel } from "../../lib/api";
+import { SelectField } from "./SelectField";
 import { inputCls } from "./formStyles";
 import { flattenModels } from "./promptVariantsHelpers";
 
@@ -28,11 +29,10 @@ export function PromptVariants(props: PromptVariantsProps) {
 
       <label className="grid gap-1.5 text-sm">
         <span className="text-(--color-ink-muted)">Prompt model</span>
-        <select
+        <SelectField
           aria-label="Prompt model"
           value={modelId}
           onChange={(e) => onChangeModel(e.target.value)}
-          className={inputCls}
         >
           {models.map((m) => (
             <option key={m.candidateId} value={m.candidateId} disabled={!m.available}>
@@ -40,7 +40,7 @@ export function PromptVariants(props: PromptVariantsProps) {
               {m.available ? "" : " (add a key)"}
             </option>
           ))}
-        </select>
+        </SelectField>
         <span className="text-xs text-(--color-ink-faint)">
           The single model every prompt variant is compared on.
         </span>

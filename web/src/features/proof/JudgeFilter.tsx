@@ -9,6 +9,7 @@ import type { SelectionPanel, Privacy } from "../../lib/api";
 import { filterJudgeModels, type JudgeTier } from "./scoring";
 import { JUDGE_TIERS } from "./selectionMeta";
 import { KeyEntry } from "./KeyEntry";
+import { Step, StepLine } from "./WorkflowStep";
 
 export interface JudgeFilterProps {
   selectedProviderId: string | null;
@@ -21,27 +22,6 @@ const toggleActive = "border-(--color-accent)/50 bg-(--color-accent)/10 text-(--
 const toggleIdle = "border-(--color-panel-line) text-(--color-ink-muted) hover:border-(--color-panel-line-strong)";
 
 const encode = (providerId: string, model: string | null) => `${providerId}::${model ?? ""}`;
-
-// A numbered step in the judge-picker flow — badge, label, and controls all inline on one row. The
-// badge is styled like the top StageStepper badge for visual consistency.
-function Step({ n, label, children }: { n: number; label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex items-center gap-2">
-      <span aria-hidden className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-(--color-accent) text-[10px] text-(--color-accent-ink)">
-        {n}
-      </span>
-      <span className="text-sm text-(--color-ink-muted)">{label}</span>
-      {children}
-    </div>
-  );
-}
-
-// Connector between steps — the same hairline the top StageStepper uses between Configure/Run/Decide,
-// so the judge flow reads as the same kind of stepper. Hidden once the row wraps so it never points
-// sideways into a stacked layout; the numbered badges still carry the ordering.
-function StepLine() {
-  return <span aria-hidden className="hidden h-px w-5 shrink-0 bg-(--color-panel-line) sm:block" />;
-}
 
 export function JudgeFilter({ selectedProviderId, selectedModel, onPick }: JudgeFilterProps) {
   const { data: panel } = useQuery<SelectionPanel>({ queryKey: ["selection"], queryFn: getSelection });
