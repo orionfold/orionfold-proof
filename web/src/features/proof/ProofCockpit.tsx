@@ -159,14 +159,6 @@ export function ProofCockpit({
           <StageStepper stage={report ? "decide" : runMutation.isPending ? "run" : "configure"} />
         </header>
 
-        {recipes.data ? (
-          <RecipeRow
-            panel={recipes.data}
-            activeRecipeId={activeRecipeId}
-            onSelectRecipe={onSelectRecipe}
-          />
-        ) : null}
-
         <RunSetup
           datasets={datasets.data}
           panel={selection.data}
@@ -187,6 +179,15 @@ export function ProofCockpit({
           onPromptVariantsChange={setPromptVariants}
           promptModel={resolvedPromptModel}
           onPromptModelChange={setPromptModel}
+          recipes={
+            recipes.data ? (
+              <RecipeRow
+                panel={recipes.data}
+                activeRecipeId={activeRecipeId}
+                onSelectRecipe={onSelectRecipe}
+              />
+            ) : null
+          }
           onRun={() =>
             runMutation.mutate(
               compareBy === "prompts"

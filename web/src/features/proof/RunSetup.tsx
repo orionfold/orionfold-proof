@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { Dataset, ProofBrief, PromptVariant, SelectionPanel } from "../../lib/api";
 import { CandidatePicker } from "./CandidatePicker";
 import { PromptVariants } from "./PromptVariants.tsx";
@@ -30,6 +31,9 @@ export interface RunSetupProps {
   onPromptVariantsChange: (next: PromptVariant[]) => void;
   promptModel: string;
   onPromptModelChange: (id: string) => void;
+  // Slot for the decision-recipe accelerator, rendered inside the Models section (it pre-fills the
+  // model panel, so it's irrelevant when comparing prompts).
+  recipes?: ReactNode;
 }
 
 export function RunSetup(props: RunSetupProps) {
@@ -54,6 +58,7 @@ export function RunSetup(props: RunSetupProps) {
     onPromptVariantsChange,
     promptModel,
     onPromptModelChange,
+    recipes,
   } = props;
 
   const canRun =
@@ -132,7 +137,12 @@ export function RunSetup(props: RunSetupProps) {
               onChangeModel={onPromptModelChange}
             />
           ) : (
-            <CandidatePicker panel={panel} selected={selectedCandidates} onToggle={onToggleCandidate} />
+            // Decision recipes pre-fill the model panel below, so they live inside the Models
+            // section (not above the whole form) and only when comparing models.
+            <div className="grid gap-6">
+              {recipes}
+              <CandidatePicker panel={panel} selected={selectedCandidates} onToggle={onToggleCandidate} />
+            </div>
           )}
         </div>
 

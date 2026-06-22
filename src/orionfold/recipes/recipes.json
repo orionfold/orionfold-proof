@@ -3,9 +3,9 @@
   "recipes": [
     {
       "id": "cost-vs-quality",
-      "title": "Cost vs quality for client summaries",
+      "title": "Cost vs quality",
       "subtitle": "Economy vs frontier of one family",
-      "decision_question": "Which model gives me trustworthy client summaries at the lowest cost?",
+      "decision_question": "Which model is trustworthy enough at the lowest cost?",
       "selectors": [
         { "label": "Economy", "family": "claude", "tier": "economy", "pick": "cheapest" },
         { "label": "Frontier", "family": "claude", "tier": "frontier" }
@@ -13,7 +13,7 @@
     },
     {
       "id": "local-vs-cloud",
-      "title": "Local vs cloud (privacy)",
+      "title": "Local vs cloud",
       "subtitle": "Private local vs frontier cloud",
       "decision_question": "Can a local model match a frontier cloud model on my task — without sending data out?",
       "selectors": [
@@ -23,7 +23,7 @@
     },
     {
       "id": "cheapest-that-passes",
-      "title": "Cheapest model that still passes",
+      "title": "Cheapest that passes",
       "subtitle": "A spread of low-cost models",
       "decision_question": "What's the cheapest model that still passes my bar?",
       "selectors": [
