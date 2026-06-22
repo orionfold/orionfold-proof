@@ -129,3 +129,41 @@ test("prompt compare: one model, two prompts → leaderboard + receipt section",
   const receipt = await receiptRes.json();
   expect(receipt.prompt_variants.length).toBe(2);
 });
+
+// Quick-compare: the unscored head-to-head lane — one prompt, two candidates, human pick,
+// saved as a clearly-labeled quick-check Proof Receipt.
+test("quick compare: run → pick → save receipt", async ({ page }) => {
+  await page.request.put("/api/settings", { data: { sandbox_enabled: true } });
+  await page.goto("/");
+  await expect(page.getByText(/Connected/)).toBeVisible();
+
+  // Give this run a unique decision question (the field is hidden in Quick mode, so set it in
+  // Models mode first) — the suite shares one DB, so a unique heading makes the receipt card
+  // deterministic to open later.
+  const question = "Quick e2e: which mock reads better?";
+  await page.getByLabel("Decision question").fill(question);
+
+  // Enter the Quick lane; the two mock candidates are pre-selected in Sandbox.
+  await page.getByRole("button", { name: /Quick/ }).click();
+  await page.getByLabel("Prompt", { exact: true }).fill("Summarize: revenue grew 22% to $48.2M.");
+  await page.getByRole("button", { name: /Run proof/ }).click();
+
+  // Head-to-head renders; Save is gated until a pick is made.
+  const quick = page.getByRole("region", { name: "Quick compare" });
+  await expect(quick).toBeVisible();
+  const save = quick.getByRole("button", { name: /Save as Proof Receipt/i });
+  await expect(save).toBeDisabled();
+
+  // Pick a winner, then save.
+  await quick.getByRole("button", { name: /wins$/ }).first().click();
+  await expect(save).toBeEnabled();
+  await save.click();
+
+  // The picked quick check now appears in Receipts and the receipt reads as a QUICK CHECK.
+  await page.getByRole("button", { name: "Receipts" }).click();
+  await page.getByRole("button", { name: new RegExp(question.replace(/[.?]/g, "\\$&")) }).first().click();
+  const preview = page.frameLocator('iframe[title="Proof Receipt preview"]');
+  await expect(preview.getByText(/QUICK CHECK/i).first()).toBeVisible();
+  await expect(preview.getByText(/Picked Mock/i)).toBeVisible();
+  await expect(preview.getByText(/Promote to a full scored run/i)).toBeVisible();
+});
