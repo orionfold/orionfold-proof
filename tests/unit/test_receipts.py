@@ -3,7 +3,7 @@
 import pytest
 
 from orionfold.data import load_dataset
-from orionfold.domain.models import Candidate, ProofBrief, Rubric
+from orionfold.domain.models import Candidate, Dataset, Example, ProofBrief, Rubric
 from orionfold.proof.engine import run_proof
 from orionfold.receipts import export
 
@@ -215,8 +215,6 @@ def test_receipt_records_prompt_variants_and_text():
 # ---------------------------------------------------------------------------
 # v8 tests — quick-compare receipt (unscored, human pick)
 # ---------------------------------------------------------------------------
-
-from orionfold.domain.models import Dataset, Example
 
 
 def _quick_report(chosen="mock_good"):
