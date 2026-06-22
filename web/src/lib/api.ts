@@ -85,7 +85,7 @@ export const extractResultSchema = z.object({
 export type ExtractResult = z.infer<typeof extractResultSchema>;
 
 export const rubricSchema = z.object({
-  kind: z.enum(["exact", "contains", "similarity", "keypoint", "judge"]),
+  kind: z.enum(["exact", "contains", "similarity", "keypoint", "judge", "none"]),
   threshold: z.number(),
   case_sensitive: z.boolean(),
   judge_provider_id: z.string().nullable().optional(),
@@ -118,10 +118,12 @@ export const resultRowSchema = z.object({
   input_text: z.string(),
   expected_text: z.string(),
   output_text: z.string(),
-  score: z.number(),
-  passed: z.boolean(),
+  score: z.number().nullable(),
+  passed: z.boolean().nullable(),
   latency_ms: z.number(),
   estimated_cost_usd: z.number(),
+  input_tokens: z.number().default(0),
+  output_tokens: z.number().default(0),
   judge_cost_usd: z.number().default(0),
   judge_latency_ms: z.number().default(0),
   privacy: Privacy,
@@ -147,6 +149,8 @@ export const proofRunSchema = z.object({
   created_at: z.string(),
   // Tightened to match the Pydantic Literal so model drift fails loudly at the boundary.
   status: z.literal("complete"),
+  mode: z.enum(["full", "quick"]).default("full"),
+  chosen_winner: z.string().nullable().optional(),
 });
 
 export const runCostSummarySchema = z.object({
@@ -316,22 +320,35 @@ export function getRuns(): Promise<ProofReport[]> {
   return getJson("/api/runs", z.array(proofReportSchema));
 }
 
+// Record the operator's head-to-head pick on a quick-compare run (candidate id or "tie").
+export function patchWinner(runId: string, chosen_winner: string): Promise<ProofReport> {
+  return mutate(`/api/runs/${runId}/winner`, "PATCH", proofReportSchema, { chosen_winner });
+}
+
 export interface PromptVariant {
   name: string;
   system_prompt: string;
 }
 
+export interface QuickExample {
+  input_text: string;
+  expected_text: string;
+}
+
 export interface RunRequest {
-  dataset_id: string;
+  dataset_id?: string;
   candidate_ids: string[];
   rubric?: z.infer<typeof rubricSchema> | null;
   brief: ProofBrief;
   prompt_variants?: PromptVariant[];
+  examples?: QuickExample[];
+  mode?: "full" | "quick";
 }
 
 export function scoredByLabel(rubric: z.infer<typeof rubricSchema>): string {
   if (rubric.kind === "keypoint") return "Keypoint coverage";
   if (rubric.kind === "judge") return `LLM judge · ${rubric.judge_model ?? rubric.judge_provider_id ?? "model"}`;
+  if (rubric.kind === "none") return "Quick check (unscored)";
   return { similarity: "Similarity", exact: "Exact match", contains: "Contains" }[rubric.kind] ?? rubric.kind;
 }
 

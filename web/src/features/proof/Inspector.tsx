@@ -87,7 +87,7 @@ function SelectedFailure({ selected }: { selected: ResultRow | null }) {
             {selected.error ? (
               <StatusBadge kind="error">error</StatusBadge>
             ) : (
-              <StatusBadge kind="fail">score {selected.score.toFixed(2)}</StatusBadge>
+              <StatusBadge kind="fail">score {(selected.score ?? 0).toFixed(2)}</StatusBadge>
             )}
           </div>
           <Detail label="Input" value={selected.input_text} />

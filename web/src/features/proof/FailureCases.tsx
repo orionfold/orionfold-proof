@@ -106,7 +106,7 @@ function FailureRow({
         {row.error ? (
           <StatusBadge kind="error">error: {row.error}</StatusBadge>
         ) : (
-          <StatusBadge kind="fail">Fail · score {row.score.toFixed(2)}</StatusBadge>
+          <StatusBadge kind="fail">Fail · score {(row.score ?? 0).toFixed(2)}</StatusBadge>
         )}
       </button>
     </li>

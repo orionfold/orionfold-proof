@@ -19,6 +19,8 @@ export const SAMPLE_REPORT: ProofReport = {
     config_hash: "a1b2c3d4e5f6",
     created_at: "2026-06-20T09:00:00Z",
     status: "complete",
+    mode: "full",
+    chosen_winner: null,
   },
   leaderboard: [
     {
