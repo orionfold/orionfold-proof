@@ -108,6 +108,7 @@ export const leaderboardEntrySchema = z.object({
   failure_count: z.number(),
   error_count: z.number(),
   recommended: z.boolean(),
+  cost_per_quality: z.number().nullable().optional(),
 });
 export type LeaderboardEntry = z.infer<typeof leaderboardEntrySchema>;
 
