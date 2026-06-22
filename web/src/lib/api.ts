@@ -54,6 +54,9 @@ export const datasetSchema = z.object({
   name: z.string(),
   description: z.string(),
   examples: z.array(exampleSchema),
+  // Seeded sample datasets are flagged so the UI can badge them and offer targeted removal.
+  // Optional (not defaulted) so the inferred type stays loose for fixtures; absent reads as falsy.
+  is_sample: z.boolean().optional(),
 });
 export type Dataset = z.infer<typeof datasetSchema>;
 
@@ -334,6 +337,52 @@ export interface RunProgressEvent {
 export interface RunStreamHandlers {
   onStart?: (e: RunStartEvent) => void;
   onProgress?: (e: RunProgressEvent) => void;
+}
+
+// --- Settings + sample data ---------------------------------------------------------------
+
+export const settingsSchema = z.object({ sandbox_enabled: z.boolean() });
+export type Settings = z.infer<typeof settingsSchema>;
+
+export const dataCountsSchema = z.object({ datasets: z.number(), receipts: z.number() });
+export type DataCounts = z.infer<typeof dataCountsSchema>;
+
+export function getSettings(): Promise<Settings> {
+  return getJson("/api/settings", settingsSchema);
+}
+
+async function mutate<T>(
+  url: string,
+  method: string,
+  schema: z.ZodType<T>,
+  body?: unknown,
+): Promise<T> {
+  const res = await fetch(url, {
+    method,
+    headers: body === undefined ? undefined : { "content-type": "application/json" },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const detail = await res.json().catch(() => ({}));
+    throw new Error(detail?.detail ?? `${method} ${url} → HTTP ${res.status}`);
+  }
+  return schema.parse(await res.json());
+}
+
+export function setSandbox(enabled: boolean): Promise<Settings> {
+  return mutate("/api/settings", "PUT", settingsSchema, { sandbox_enabled: enabled });
+}
+
+export function seedSampleData(): Promise<DataCounts> {
+  return mutate("/api/sample-data/seed", "POST", dataCountsSchema);
+}
+
+export function removeSampleData(): Promise<DataCounts> {
+  return mutate("/api/sample-data", "DELETE", dataCountsSchema);
+}
+
+export function clearAllData(): Promise<DataCounts> {
+  return mutate("/api/data", "DELETE", dataCountsSchema);
 }
 
 // POST the run and consume the SSE stream, invoking handlers as frames arrive. Resolves with
