@@ -116,7 +116,7 @@ function Detail({
   return (
     <div className="grid gap-0.5">
       <span className="text-xs text-(--color-ink-faint)">{label}</span>
-      <span className={tone === "error" ? "text-rose-300" : "text-(--color-ink)"}>{value}</span>
+      <span className={tone === "error" ? "text-(--color-danger)" : "text-(--color-ink)"}>{value}</span>
     </div>
   );
 }

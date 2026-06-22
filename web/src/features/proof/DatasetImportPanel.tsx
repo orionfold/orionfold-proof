@@ -105,7 +105,7 @@ export function DatasetImportPanel({ onClose }: { onClose: () => void }) {
       </div>
 
       {previewMutation.isError && (
-        <p className="text-sm text-rose-300">{(previewMutation.error as Error).message}</p>
+        <p className="text-sm text-(--color-danger)">{(previewMutation.error as Error).message}</p>
       )}
 
       {preview && (
@@ -141,7 +141,7 @@ export function DatasetImportPanel({ onClose }: { onClose: () => void }) {
             />
           </label>
           {createMutation.isError && (
-            <p className="text-sm text-rose-300">{(createMutation.error as Error).message}</p>
+            <p className="text-sm text-(--color-danger)">{(createMutation.error as Error).message}</p>
           )}
           <div className="flex gap-2">
             <button

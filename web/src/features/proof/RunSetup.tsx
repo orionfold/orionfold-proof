@@ -2,6 +2,7 @@ import type { Dataset, ProofBrief, PromptVariant, SelectionPanel } from "../../l
 import { CandidatePicker } from "./CandidatePicker";
 import { PromptVariants } from "./PromptVariants.tsx";
 import { ScoringMethod, type Rubric } from "./ScoringMethod";
+import { inputCls } from "./formStyles";
 import { validPromptVariants } from "./promptVariantsHelpers";
 
 // The setup is deliberately small: pick a dataset, pick candidates, frame the decision, run.
@@ -28,9 +29,6 @@ export interface RunSetupProps {
   promptModel: string;
   onPromptModelChange: (id: string) => void;
 }
-
-const inputCls =
-  "rounded-lg border border-(--color-panel-line) bg-(--color-panel) px-3 py-2 text-(--color-ink)";
 
 export function RunSetup(props: RunSetupProps) {
   const {
@@ -153,7 +151,7 @@ export function RunSetup(props: RunSetupProps) {
         />
 
         {error && (
-          <p role="alert" className="text-sm text-rose-300">
+          <p role="alert" className="text-sm text-(--color-danger)">
             {error}
           </p>
         )}

@@ -1,9 +1,7 @@
 import { Plus, X } from "lucide-react";
 import type { PromptVariant, SelectionPanel } from "../../lib/api";
+import { inputCls } from "./formStyles";
 import { flattenModels } from "./promptVariantsHelpers";
-
-const inputCls =
-  "rounded-lg border border-(--color-panel-line) bg-(--color-panel) px-3 py-2 text-(--color-ink)";
 
 export interface PromptVariantsProps {
   variants: PromptVariant[];

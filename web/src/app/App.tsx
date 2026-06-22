@@ -63,7 +63,7 @@ function EngineStatus() {
     return (
       <span className="flex flex-col gap-0.5 text-xs">
         <span className="flex items-center gap-2 text-(--color-ink-muted)">
-          <span aria-hidden className="inline-block h-2 w-2 shrink-0 rounded-full bg-rose-400" />
+          <span aria-hidden className="inline-block h-2 w-2 shrink-0 rounded-full bg-(--color-danger)" />
           Engine unreachable
         </span>
         <span className="break-words text-(--color-ink-faint)">{probe.message}</span>
@@ -75,7 +75,9 @@ function EngineStatus() {
   return (
     <span className="flex flex-col gap-0.5 text-xs">
       <span className="flex items-center gap-2 text-(--color-ink-muted)">
-        <span aria-hidden className="inline-block h-2 w-2 shrink-0 rounded-full bg-(--color-accent)" />
+        {/* PASS/verified status is GREEN (--color-ok), never the cyan action accent: a healthy
+            engine is a status, not a control. Icon dot + "Connected" text — never color alone. */}
+        <span aria-hidden className="inline-block h-2 w-2 shrink-0 rounded-full bg-(--color-ok)" />
         Connected
       </span>
       <span className="whitespace-nowrap text-(--color-ink-faint)">
@@ -149,9 +151,29 @@ function LeftRail({ view, onNavigate }: { view: View; onNavigate: (view: View) =
       className="flex flex-col gap-6 border-b border-(--color-panel-line) bg-(--color-rail) px-4 py-5 lg:sticky lg:top-0 lg:h-screen lg:overflow-y-auto lg:border-b-0 lg:border-r"
     >
       <div className="flex items-center gap-2">
-        <span aria-hidden className="h-4 w-4 rounded-sm bg-(--color-accent)" />
-        <h1 className="text-sm font-semibold tracking-tight text-(--color-ink)">
-          Orionfold Proof
+        {/* Orionfold delta-star mark: a cyan disc (the one action colour) with a white star
+            rotated 45°. Theme-aware via currentColor → --color-accent. Path ported verbatim from
+            the DS brand sprite (brand/logo/assets/glyphs.svg). */}
+        <svg
+          viewBox="0 0 64 64"
+          aria-hidden
+          className="h-5 w-5 shrink-0 text-(--color-accent)"
+        >
+          <circle cx="32" cy="32" r="32" fill="currentColor" />
+          <g transform="rotate(45 32 32)">
+            <path
+              className="fill-white"
+              d="M32,9L37.41,24.56L53.88,24.89L40.75,34.84L45.52,50.61L32,41.2L18.48,50.61L23.25,34.84L10.12,24.89L26.59,24.56Z"
+            />
+          </g>
+        </svg>
+        {/* Wordmark: "Orionfold" with a cyan "fold", then the product line. The heading's
+            accessible name still resolves to "Orionfold Proof" (text nodes concatenate). */}
+        <h1
+          aria-label="Orionfold Proof"
+          className="text-sm font-semibold tracking-tight text-(--color-ink)"
+        >
+          Orion<span className="text-(--color-accent)">fold</span> Proof
         </h1>
       </div>
 
@@ -214,6 +236,14 @@ export function App() {
 
   return (
     <div className="grid min-h-full grid-rows-[auto_1fr] lg:grid-cols-[15rem_minmax(0,1fr)] lg:grid-rows-1">
+      {/* Skip-to-content: the first focusable element, visually hidden until focused, then a cyan
+          (action) chip. Targets the Proof Run workspace — the primary, default main region. */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-(--color-accent-strong) focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-(--color-accent-ink)"
+      >
+        Skip to content
+      </a>
       <LeftRail view={view} onNavigate={navigate} />
       {/* Proof Run stays mounted (toggled with display, not unmounted) so an in-flight run, the
           brief, and the result survive a side trip to the other views. */}

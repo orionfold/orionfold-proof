@@ -12,22 +12,14 @@ function providerKind(providerId: string, privacy: "local" | "cloud"): ProviderK
   return providerId.startsWith("mock") ? "mock" : privacy;
 }
 
-const PROVIDER_STYLE: Record<ProviderKind, { label: string; cls: string; Icon: LucideIcon }> = {
-  mock: {
-    label: "Mock",
-    cls: "border-zinc-400/50 bg-zinc-400/10 text-zinc-600 dark:border-zinc-500/40 dark:bg-zinc-500/10 dark:text-zinc-300",
-    Icon: FlaskConical,
-  },
-  local: {
-    label: "Local",
-    cls: "border-slate-400/50 bg-slate-400/10 text-slate-600 dark:border-slate-400/40 dark:bg-slate-400/10 dark:text-slate-200",
-    Icon: HardDrive,
-  },
-  cloud: {
-    label: "Cloud",
-    cls: "border-sky-500/50 bg-sky-500/10 text-sky-700 dark:border-sky-400/40 dark:bg-sky-400/10 dark:text-sky-300",
-    Icon: Cloud,
-  },
+// Provider boundary is CATEGORICAL IDENTITY, not a control — so every kind wears the same neutral
+// token surface (Orionfold rule: identity tags are neutral, non-pressable, never a pill). The
+// privacy/kind still reads at a glance because each carries a distinct icon AND label — never hue
+// alone. Cyan never appears here (status/identity ≠ accent).
+const PROVIDER_STYLE: Record<ProviderKind, { label: string; Icon: LucideIcon }> = {
+  mock: { label: "Mock", Icon: FlaskConical },
+  local: { label: "Local", Icon: HardDrive },
+  cloud: { label: "Cloud", Icon: Cloud },
 };
 
 export function ProviderTag({
@@ -35,10 +27,12 @@ export function ProviderTag({
 }: {
   candidate: Pick<Candidate | LeaderboardEntry, "provider_id" | "privacy">;
 }) {
-  const { label, cls, Icon } = PROVIDER_STYLE[providerKind(candidate.provider_id, candidate.privacy)];
+  const { label, Icon } = PROVIDER_STYLE[providerKind(candidate.provider_id, candidate.privacy)];
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium ${cls}`}
+      // `rounded` (not a pill): identity tags take the receipt-stub shape so they never read as
+      // interactive. Neutral ink-muted on the card surface, distinguished by icon + label.
+      className="inline-flex items-center gap-1 rounded border border-(--color-panel-line) bg-(--color-panel-card) px-2 py-0.5 text-[11px] font-medium text-(--color-ink-muted)"
     >
       <Icon aria-hidden className="h-3 w-3 shrink-0" />
       {label}
@@ -46,15 +40,18 @@ export function ProviderTag({
   );
 }
 
-// Failure status — an outright provider error vs. a graded miss. Icon + color + text together so
-// the severity reads at a glance and never depends on color alone.
+// Failure status — token-driven, never literal hues, never the accent (status ≠ action). The two
+// kinds keep distinct tokens AND icons so severity reads without relying on color alone:
+//   • error = a hard provider/judge failure (the call broke) → --color-danger (red)
+//   • fail  = a graded rubric miss (the model ran but missed) → --color-warn (amber/caution)
+// A graded miss is an expected, legitimate outcome here, so it's caution, not alarm.
 const STATUS_STYLE: Record<"error" | "fail", { cls: string; Icon: LucideIcon }> = {
   error: {
-    cls: "border-rose-500/50 bg-rose-500/10 text-rose-700 dark:border-rose-400/40 dark:bg-rose-500/10 dark:text-rose-300",
+    cls: "border-(--color-danger)/40 bg-(--color-danger)/10 text-(--color-danger)",
     Icon: CircleX,
   },
   fail: {
-    cls: "border-amber-500/50 bg-amber-500/10 text-amber-700 dark:border-amber-400/40 dark:bg-amber-500/10 dark:text-amber-300",
+    cls: "border-(--color-warn)/40 bg-(--color-warn)/10 text-(--color-warn)",
     Icon: TriangleAlert,
   },
 };
@@ -63,7 +60,7 @@ export function StatusBadge({ kind, children }: { kind: "error" | "fail"; childr
   const { cls, Icon } = STATUS_STYLE[kind];
   return (
     <span
-      className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] ${cls}`}
+      className={`inline-flex shrink-0 items-center gap-1 rounded border px-2 py-0.5 text-[11px] ${cls}`}
     >
       <Icon aria-hidden className="h-3 w-3 shrink-0" />
       {children}

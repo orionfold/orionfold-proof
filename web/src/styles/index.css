@@ -5,30 +5,55 @@
    are handled by the :root[data-theme="light"] override below, not this variant. */
 @custom-variant dark ([data-theme="dark"] &);
 
-/* Calm instrument-panel tokens. A lab bench plus a signed receipt: restrained neutral
-   surfaces, one confident accent, semantic color reserved for status, and a distinct
-   hue per provider boundary. See docs/ux/product-design-system.md. */
+/* ── Orionfold visual system (DS 36d1c48) — three-tier tokens in this app's Tailwind v4 idiom. ──
+   THE LOAD-BEARING RULE: a single green used to serve BOTH the action accent and, by visual
+   proximity, the PASS/verdict status. Orionfold splits these:
+     • --color-accent → CYAN  = the ONE interactive color (Run button, focus ring, links, the
+                                 winner/verdict surface, score-bar fills, active nav/step/segment)
+     • --color-ok     → GREEN = PASS / verified status ONLY, never a control
+   Cyan means "action"; green means "passed." They may no longer share a hue.
+
+   DARK is the @theme default; LIGHT is the :root[data-theme="light"] override. Under Tailwind v4
+   the override is specificity (0,2,0) and beats @theme's :root (0,1,0) regardless of order, so the
+   flip is robust. (If you ever add dark-only overrides, qualify them :root[data-theme="dark"] so
+   they out-specify @theme.) See docs/ux/product-design-system.md + the DS package's DESIGN.md. */
 @theme {
-  /* Surfaces — three planes of the panel, quietly separated by lightness, not borders. */
-  --color-panel: #0b0f14; /* app background */
-  --color-rail: #0c1016; /* left rail (quietest) */
-  --color-inspector: #0e131a; /* right inspector (secondary) */
-  --color-panel-card: #161b22; /* raised surface: cards, inputs */
-  --color-panel-line: #232b36; /* hairline borders */
-  --color-panel-line-strong: #313c4a; /* emphasized borders */
+  /* Surfaces — Orionfold neutral ramp (bg → raised surface), three quiet planes. */
+  --color-panel: #15171b; /* app canvas */
+  --color-rail: #121418; /* left rail (quietest) */
+  --color-inspector: #16181d; /* right inspector (secondary) */
+  --color-panel-card: #1f2228; /* raised surface: cards, inputs */
+  --color-panel-line: #2c313a; /* hairline borders */
+  --color-panel-line-strong: #3a414c; /* emphasized borders */
 
   /* Ink */
-  --color-ink: #e6edf3;
-  --color-ink-muted: #9fb0c0;
-  --color-ink-faint: #7c8b9b;
+  --color-ink: #e9ecf0;
+  --color-ink-muted: #9aa1ab;
+  --color-ink-faint: #727a85;
 
-  /* Accent — the single confident accent. CTA + winner highlight ONLY. */
-  --color-accent: #34d399;
-  --color-accent-strong: #10b981;
-  --color-accent-ink: #022c22; /* text on a filled accent surface */
+  /* Accent — CYAN, the single interactive color. Action only, never status. */
+  --color-accent: #14c8c0; /* Tide cyan (dark) */
+  --color-accent-strong: #2ad6cd; /* accent hover */
+  --color-accent-ink: #04201f; /* text on a filled cyan surface */
+  --color-accent-soft: rgba(20, 200, 192, 0.14); /* feature-wash tint, NOT a control */
 
-  /* Focus ring — one visible ring across all controls. */
-  --color-focus: #5eead4;
+  /* Status — functional only, never a second accent. Green is split out of the old accent. */
+  --color-ok: #3fd55a; /* PASS / verified */
+  --color-ok-soft: rgba(63, 213, 90, 0.16);
+  --color-warn: #f5b14a; /* flaky / caution */
+  --color-danger: #ff7a93; /* fail / error / destructive */
+
+  /* Focus ring — one visible cyan ring across all controls (the action color). */
+  --color-focus: #14c8c0;
+
+  /* Type — Orionfold superfamily (Geist + Geist Mono loaded in index.html). */
+  --font-sans: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, "SFMono-Regular", "JetBrains Mono", "Menlo", monospace;
+
+  /* Radius — Orionfold Linear finish: 8px standard, 12px large, pill = interactive control. */
+  --radius: 0.5rem; /* 8px — cards, inputs, buttons */
+  --radius-lg: 0.75rem; /* 12px — large cards */
+  --radius-pill: 999px; /* pills/chips = interactive (categorical tags stay squared) */
 
   /* Motion — minimal and functional. Registered here so `animate-*` (and the `motion-safe:`
      variant) generate as utilities; the reduced-motion guard below neutralizes them. */
@@ -37,28 +62,32 @@
   --animate-breathe: breathe 2.4s ease-in-out infinite; /* first-run CTA affordance */
 }
 
-/* Light theme — "paper, not glare": soft gray app surface, white raised cards, deepened emerald
-   accent that stays AA-legible on white. Overrides the @theme dark base; :root[data-theme=light]
-   (0,2,0) beats @theme's :root (0,1,0). Keep token names identical so every utility re-resolves. */
+/* Light theme — Orionfold "paper, not glare": soft gray app surface, white raised cards, a cyan
+   accent deepened to stay AA-legible on white, status green darkened to match. Overrides the
+   @theme dark base; :root[data-theme=light] (0,2,0) beats @theme's :root (0,1,0). */
 :root[data-theme="light"] {
-  --color-panel: #f4f6f8;
-  --color-rail: #eceff3;
-  --color-inspector: #f0f2f5;
+  --color-panel: #f9fafb;
+  --color-rail: #eef1f5;
+  --color-inspector: #f3f5f8;
   --color-panel-card: #ffffff;
-  --color-panel-line: #dde3ea;
-  --color-panel-line-strong: #c3ccd6;
+  --color-panel-line: #e5e9f0;
+  --color-panel-line-strong: #d6dbe4;
 
-  --color-ink: #1b2430;
-  --color-ink-muted: #51616f;
-  /* Darkened from #67768a so faint hints clear WCAG AA (4.5) on the rail's slightly deeper
-     surface (#eceff3) too — measured 4.52 worst-case, still visibly quieter than ink-muted. */
-  --color-ink-faint: #5f6e80;
+  --color-ink: #1d1f25;
+  --color-ink-muted: #6b7280;
+  --color-ink-faint: #9aa1ab;
 
-  --color-accent: #047857;
-  --color-accent-strong: #047857;
+  --color-accent: #0e9e98; /* cyan — AA on white */
+  --color-accent-strong: #0c8b86;
   --color-accent-ink: #ffffff;
+  --color-accent-soft: rgba(14, 158, 152, 0.1);
 
-  --color-focus: #0d9488;
+  --color-ok: #1a9e3e; /* status green (light) */
+  --color-ok-soft: rgba(26, 158, 62, 0.12);
+  --color-warn: #b06a00;
+  --color-danger: #c0344d;
+
+  --color-focus: #0e9e98;
 }
 
 @keyframes reveal {
@@ -84,13 +113,14 @@
   }
 }
 
+/* breathe: first-run CTA glow, recolored green → cyan to match the action accent. */
 @keyframes breathe {
   0%,
   100% {
-    box-shadow: 0 0 0 0 rgba(52, 211, 153, 0);
+    box-shadow: 0 0 0 0 rgba(20, 200, 192, 0);
   }
   50% {
-    box-shadow: 0 0 0 4px rgba(52, 211, 153, 0.18);
+    box-shadow: 0 0 0 4px rgba(20, 200, 192, 0.18);
   }
 }
 
@@ -104,20 +134,20 @@ body {
   margin: 0;
   background: var(--color-panel);
   color: var(--color-ink);
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-family: var(--font-sans);
   /* Generous line height; readability over density (design system: type). */
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
 }
 
-/* Monospace for hashes, IDs, and config — the "signed receipt" half of the metaphor. */
+/* Monospace for hashes, IDs, scores, timestamps, and config — the "signed receipt" voice. */
 code,
 .mono {
-  font-family: ui-monospace, "SFMono-Regular", "JetBrains Mono", "Menlo", monospace;
+  font-family: var(--font-mono);
   font-size: 0.875em;
 }
 
-/* One consistent, visible focus ring for keyboard users (accessibility checklist). */
+/* One consistent, visible cyan focus ring for keyboard users (accessibility checklist). */
 :where(a, button, input, select, textarea, [tabindex]):focus-visible {
   outline: 2px solid var(--color-focus);
   outline-offset: 2px;

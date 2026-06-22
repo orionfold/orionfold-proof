@@ -32,7 +32,7 @@ export function ViewNotice({ tone, children }: { tone?: "error"; children: React
     <p
       className={
         "rounded-xl border border-dashed border-(--color-panel-line) p-6 text-sm " +
-        (tone === "error" ? "text-rose-300" : "text-(--color-ink-muted)")
+        (tone === "error" ? "text-(--color-danger)" : "text-(--color-ink-muted)")
       }
     >
       {children}

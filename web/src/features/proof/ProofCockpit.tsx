@@ -136,7 +136,7 @@ export function ProofCockpit({
   if (datasets.isError || selection.isError || !datasets.data || !selection.data) {
     return (
       <CenteredNotice>
-        <p className="text-rose-300">Could not reach the local engine.</p>
+        <p className="text-(--color-danger)">Could not reach the local engine.</p>
         <p className="text-sm text-(--color-ink-muted)">
           Start it with <code>orionfold up</code>, then reload this page.
         </p>
@@ -146,7 +146,9 @@ export function ProofCockpit({
 
   return (
     <div className="grid min-h-full grid-rows-[auto_auto] lg:grid-cols-[minmax(0,1fr)_22rem] lg:grid-rows-1">
-      <main className="flex flex-col gap-8 px-6 py-8 lg:px-10">
+      {/* Skip-to-content target (App's skip link → #main-content). tabIndex -1 lets it receive
+          programmatic focus without becoming a tab stop. */}
+      <main id="main-content" tabIndex={-1} className="flex flex-col gap-8 px-6 py-8 lg:px-10 focus:outline-none">
         <header className="flex flex-col gap-3">
           <div className="flex flex-col gap-1">
             <h2 className="text-xl font-semibold tracking-tight text-(--color-ink)">Proof Run</h2>
@@ -296,13 +298,13 @@ export function DecisionSummary({
           <span className="text-lg font-semibold text-(--color-ink)">{winner.label}</span>
           <ProviderTag candidate={winner} />
         </div>
-        <p className="mt-2 text-sm text-(--color-ink-muted)">
+        <p className="mt-2 text-sm tabular-nums text-(--color-ink-muted)">
           Passed {winner.pass_count}/{winner.total} examples ({Math.round(winner.pass_rate * 100)}
           %) · avg score {winner.avg_score.toFixed(2)} · {winner.avg_latency_ms}ms avg · $
           {winner.total_estimated_cost_usd.toFixed(2)} est.
         </p>
         {scoredBy && (
-          <p className="mt-1 text-sm text-(--color-ink-faint)">
+          <p className="mt-1 text-sm tabular-nums text-(--color-ink-faint)">
             Scored by {scoredBy}
             {cost && ` · Run cost: candidate $${cost.candidate_cost_usd.toFixed(4)} · judge $${cost.judge_cost_usd.toFixed(4)} · total $${cost.total_cost_usd.toFixed(4)}`}
           </p>

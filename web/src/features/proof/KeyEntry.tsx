@@ -79,7 +79,7 @@ export function KeyEntry({
         Save key
       </button>
       {mutation.isError ? (
-        <span role="alert" className="text-xs text-rose-300">
+        <span role="alert" className="text-xs text-(--color-danger)">
           Could not save the key.
         </span>
       ) : null}

@@ -4,6 +4,14 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Orionfold Proof</title>
+    <!-- Orionfold superfamily: Geist (sans) + Geist Mono (the "receipt voice" for hashes, scores,
+         timestamps, config-hash). Wired to --font-sans / --font-mono in src/styles/index.css. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
     <script>
       // Apply the persisted theme before first paint so there is no dark→light flash.
       // Mirrors web/src/lib/theme.ts (key + resolution); the React hook re-attaches listeners.
