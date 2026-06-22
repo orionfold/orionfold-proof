@@ -24,17 +24,12 @@ export function PromptVariants(props: PromptVariantsProps) {
   const remove = (i: number) => onChangeVariants(variants.filter((_, idx) => idx !== i));
 
   return (
-    <fieldset className="grid gap-4 text-sm">
-      <legend className="text-(--color-ink-muted)">Prompt variants</legend>
-      <p className="text-xs text-(--color-ink-faint)">
-        One model, several system prompts. Hold the model fixed and compare which wording wins on the
-        same examples.
-      </p>
-
+    <div className="grid gap-4 text-sm">
       <label className="grid gap-1.5 text-sm">
         <span className="text-(--color-ink-muted)">Prompt model</span>
         <SelectField
           aria-label="Prompt model"
+          className="w-full md:w-1/2"
           value={modelId}
           onChange={(e) => onChangeModel(e.target.value)}
         >
@@ -51,6 +46,13 @@ export function PromptVariants(props: PromptVariantsProps) {
       </label>
 
       <div className="grid gap-3">
+        <div className="grid gap-1">
+          <span className="text-(--color-ink-muted)">Prompt variants</span>
+          <p className="text-xs text-(--color-ink-faint)">
+            One model, several system prompts. Hold the model fixed and compare which wording wins on
+            the same examples.
+          </p>
+        </div>
         {variants.map((v, i) => (
           <div key={i} className="grid gap-2 rounded-lg border border-(--color-panel-line) p-3">
             <div className="flex items-center gap-2">
@@ -92,6 +94,6 @@ export function PromptVariants(props: PromptVariantsProps) {
           <Plus aria-hidden className="h-4 w-4" /> Add prompt
         </button>
       </div>
-    </fieldset>
+    </div>
   );
 }
