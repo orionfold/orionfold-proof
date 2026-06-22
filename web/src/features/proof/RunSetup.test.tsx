@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RunSetup } from "./RunSetup";
 import type { Dataset, SelectionPanel } from "../../lib/api";
@@ -40,6 +40,8 @@ function renderRunSetup(overrides: Partial<RunSetupProps> = {}) {
     onPromptVariantsChange: () => {},
     promptModel: "mock_good",
     onPromptModelChange: () => {},
+    quickPrompt: "",
+    onQuickPromptChange: () => {},
   };
   return render(wrap(<RunSetup {...defaults} {...overrides} />));
 }
@@ -67,5 +69,35 @@ describe("RunSetup", () => {
       brief: { task_name: "t", decision_question: "q", success_criteria: "" },
     });
     expect(screen.getByRole("button", { name: /Run proof/ })).toBeDisabled();
+  });
+
+  it("quick mode: disables Run until a prompt + exactly 2 candidates", () => {
+    const { rerender } = renderRunSetup({ compareBy: "quick", selectedCandidates: [] });
+    expect(screen.getByRole("button", { name: /Run proof/i })).toBeDisabled();
+    rerender(
+      wrap(
+        <RunSetup
+          {...({
+            datasets, panel, datasetId: "d", onDatasetChange: () => {},
+            selectedCandidates: ["mock_good", "mock_bad"], onToggleCandidate: () => {},
+            brief: { task_name: "T", decision_question: "Q", success_criteria: "" },
+            onBriefChange: () => {}, onRun: () => {}, isRunning: false, hasRun: false, error: null,
+            rubric: null, onRubricChange: () => {}, compareBy: "quick", onCompareByChange: () => {},
+            promptVariants: STARTER_VARIANTS, onPromptVariantsChange: () => {},
+            promptModel: "mock_good", onPromptModelChange: () => {},
+            quickPrompt: "Summarize this", onQuickPromptChange: () => {},
+          } satisfies RunSetupProps)}
+        />,
+      ),
+    );
+    expect(screen.getByRole("button", { name: /Run proof/i })).toBeEnabled();
+  });
+
+  it("quick mode: shows a hint when not exactly 2 candidates and edits the prompt", () => {
+    const onQuickPromptChange = vi.fn();
+    renderRunSetup({ compareBy: "quick", selectedCandidates: ["mock_good"], onQuickPromptChange });
+    expect(screen.getByText(/exactly 2/i)).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText(/^Prompt$/i), { target: { value: "hello" } });
+    expect(onQuickPromptChange).toHaveBeenCalledWith("hello");
   });
 });

@@ -55,7 +55,8 @@ export function ProofCockpit({
   const [selected, setSelected] = useState<string[]>([]);
   const [brief, setBrief] = useState<ProofBrief>(DEFAULT_BRIEF);
   const [rubric, setRubric] = useState<Rubric | null>(null);
-  const [compareBy, setCompareBy] = useState<"models" | "prompts">("models");
+  const [compareBy, setCompareBy] = useState<"models" | "prompts" | "quick">("models");
+  const [quickPrompt, setQuickPrompt] = useState("");
   const [promptVariants, setPromptVariants] = useState<PromptVariant[]>(STARTER_VARIANTS);
   const [promptModel, setPromptModel] = useState("");
   // The Task name headlines the receipt, so it should describe the dataset under test. Until the
@@ -116,7 +117,12 @@ export function ProofCockpit({
   const toggleCandidate = (id: string) => {
     setActiveRecipeId(null);
     const base = resolvedSelected;
-    setSelected(base.includes(id) ? base.filter((c) => c !== id) : [...base, id]);
+    if (base.includes(id)) {
+      setSelected(base.filter((c) => c !== id));
+      return;
+    }
+    // Quick-compare is strictly head-to-head: a third pick replaces the oldest.
+    setSelected(compareBy === "quick" && base.length >= 2 ? [base[1], id] : [...base, id]);
   };
 
   const onSelectRecipe = (recipe: ResolvedRecipe) => {
@@ -179,6 +185,8 @@ export function ProofCockpit({
           onPromptVariantsChange={setPromptVariants}
           promptModel={resolvedPromptModel}
           onPromptModelChange={setPromptModel}
+          quickPrompt={quickPrompt}
+          onQuickPromptChange={setQuickPrompt}
           recipes={
             recipes.data ? (
               <RecipeRow
@@ -198,12 +206,20 @@ export function ProofCockpit({
                     brief: effectiveBrief,
                     ...(rubric ? { rubric } : {}),
                   }
-                : {
-                    dataset_id: resolvedDatasetId,
-                    candidate_ids: resolvedSelected,
-                    brief: effectiveBrief,
-                    ...(rubric ? { rubric } : {}),
-                  },
+                : compareBy === "quick"
+                  ? {
+                      candidate_ids: resolvedSelected,
+                      examples: [{ input_text: quickPrompt, expected_text: "" }],
+                      rubric: { kind: "none", threshold: 0, case_sensitive: false },
+                      mode: "quick",
+                      brief: effectiveBrief,
+                    }
+                  : {
+                      dataset_id: resolvedDatasetId,
+                      candidate_ids: resolvedSelected,
+                      brief: effectiveBrief,
+                      ...(rubric ? { rubric } : {}),
+                    },
             )
           }
         />
