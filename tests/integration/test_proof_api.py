@@ -639,3 +639,12 @@ def test_patch_winner_rejects_unknown_candidate(client):
 def test_patch_winner_404_for_unknown_run(client):
     res = client.patch("/api/runs/run_missing/winner", json={"chosen_winner": "tie"})
     assert res.status_code == 404
+
+
+def test_unpicked_quick_runs_are_hidden_from_the_list(client):
+    run_id = _make_quick_run(client)
+    listed = client.get("/api/runs").json()
+    assert all(r["run"]["id"] != run_id for r in listed)  # no pick yet → hidden
+    client.patch(f"/api/runs/{run_id}/winner", json={"chosen_winner": "tie"})
+    listed = client.get("/api/runs").json()
+    assert any(r["run"]["id"] == run_id for r in listed)   # picked → visible

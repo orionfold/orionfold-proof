@@ -202,9 +202,14 @@ def get_report(conn: sqlite3.Connection, run_id: str) -> ProofReport | None:
 
 
 def list_runs(conn: sqlite3.Connection) -> list[ProofReport]:
-    """Most recent first. v0 keeps the full report inline — fine for single-user local use."""
+    """Most recent first. Un-picked quick-compare runs are hidden — the pick is the proof, so a
+    quick run without one is an abandoned draft, not a receipt."""
     rows = conn.execute("SELECT report FROM runs ORDER BY created_at DESC").fetchall()
-    return [ProofReport.model_validate_json(r["report"]) for r in rows]
+    reports = [ProofReport.model_validate_json(r["report"]) for r in rows]
+    return [
+        rep for rep in reports
+        if not (rep.run.mode == "quick" and rep.run.chosen_winner is None)
+    ]
 
 
 def _examples_json(dataset: Dataset) -> str:
