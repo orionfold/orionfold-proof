@@ -22,3 +22,9 @@ test("falls back to a status dot for unbranded providers (mocks)", () => {
   expect(screen.queryByLabelText(/logo/)).toBeNull();
   expect(container.querySelector("span.rounded-full")).not.toBeNull();
 });
+
+test("the sandbox 'mock' provider renders a flask icon (not a brand glyph or bare dot)", () => {
+  const { container } = render(<ProviderLogo providerId="mock" available label="Mock" />);
+  // lucide FlaskConical renders an <svg>; assert an icon SVG is present.
+  expect(container.querySelector("svg")).toBeTruthy();
+});

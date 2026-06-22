@@ -91,11 +91,10 @@ export function ProofCockpit({
   };
   const resolvedSelected = useMemo(() => {
     if (selected.length > 0) return selected;
-    // Mocks are the keyless default path: groups that ARE a candidate (candidate_id set).
-    const groups = selection.data?.providers ?? [];
-    return groups
-      .filter((g) => g.candidate_id)
-      .map((g) => g.candidate_id as string);
+    // Mocks are now one "mock" provider group, present only when Sandbox is on. Pre-select its
+    // models (mock_good / mock_bad) so a sandbox user keeps the one-click keyless run. Off → none.
+    const mock = (selection.data?.providers ?? []).find((g) => g.provider_id === "mock");
+    return mock ? mock.models.map((m) => m.candidate_id) : [];
   }, [selected, selection.data]);
   const resolvedPromptModel = promptModel || defaultPromptModel(selection.data);
 
@@ -333,10 +332,10 @@ function EmptyResults() {
     <section aria-label="Results" className="rounded-xl border border-dashed border-(--color-panel-line) p-6">
       <h3 className="text-sm font-medium text-(--color-ink)">No proof run yet</h3>
       <p className="mt-1 max-w-prose text-sm text-(--color-ink-muted)">
-        A Proof Run compares your candidates on the same frozen examples so you can decide what
-        to trust. The sample dataset and both mock providers are pre-selected — press{" "}
-        <span className="text-(--color-ink)">Run proof</span> to get a leaderboard, failure
-        cases, and a shareable receipt without any API keys.
+        A Proof Run compares your candidates on the same frozen examples so you can decide what to
+        trust. No keys yet? Add a provider key, enable{" "}
+        <span className="text-(--color-ink)">Sandbox</span> in Settings to try the simulated mocks,
+        or seed sample data to explore a finished receipt.
       </p>
     </section>
   );

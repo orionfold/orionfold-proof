@@ -43,7 +43,14 @@ export function DatasetsView() {
               className="rounded-xl border border-(--color-panel-line) bg-(--color-panel-card) p-5"
             >
               <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <h3 className="text-base font-medium text-(--color-ink)">{d.name}</h3>
+                <h3 className="flex items-center gap-2 text-base font-medium text-(--color-ink)">
+                  {d.name}
+                  {d.is_sample ? (
+                    <span className="rounded border border-(--color-panel-line) bg-(--color-panel-card) px-2 py-0.5 text-[11px] font-medium text-(--color-ink-muted)">
+                      Sample
+                    </span>
+                  ) : null}
+                </h3>
                 <span className="text-xs text-(--color-ink-faint)">
                   {d.examples.length} example{d.examples.length === 1 ? "" : "s"}
                 </span>

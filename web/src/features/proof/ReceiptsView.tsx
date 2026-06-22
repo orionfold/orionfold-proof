@@ -64,7 +64,16 @@ function ReceiptCard({ report, onOpen }: { report: ProofReport; onOpen: () => vo
         className="grid w-full gap-2 rounded-t-xl px-5 pt-4 pb-3 text-left"
       >
         <div className="flex items-start justify-between gap-3">
-          <span className="font-medium text-(--color-ink)">{heading}</span>
+          <span className="flex items-center gap-2 font-medium text-(--color-ink)">
+            {heading}
+            {/* Seeded sample receipts use the stable run id prefix `run_sample…`; real run ids are
+                hex (`run_<uuid>`), so this never collides with a user's own receipt. */}
+            {run.id.startsWith("run_sample") ? (
+              <span className="rounded border border-(--color-panel-line) px-2 py-0.5 text-[11px] font-medium text-(--color-ink-muted)">
+                Sample
+              </span>
+            ) : null}
+          </span>
           <span aria-hidden className="flex shrink-0 items-center gap-0.5 text-(--color-ink-faint)">
             Open
             <ChevronRight className="h-4 w-4" />

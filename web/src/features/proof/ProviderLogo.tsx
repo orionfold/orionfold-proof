@@ -3,6 +3,8 @@
 // not — replacing the plain availability bullet in the candidate picker. Mocks have no brand,
 // so they fall back to the original status dot.
 
+import { FlaskConical } from "lucide-react";
+
 const BRAND_PATHS: Record<string, string> = {
   anthropic:
     "M17.3041 3.541h-3.6718l6.696 16.918H24Zm-10.6082 0L0 20.459h3.7442l1.3693-3.5527h7.0052l1.3693 3.5528h3.7442L10.5363 3.5409Zm-.3712 10.2232 2.2914-5.9456 2.2914 5.9456Z",
@@ -27,6 +29,17 @@ export function ProviderLogo({
   available: boolean;
   label: string;
 }) {
+  if (providerId === "mock") {
+    // The sandbox Mock provider gets a flask glyph (a simulation, not a real brand).
+    return (
+      <FlaskConical
+        aria-hidden
+        className={
+          "h-4 w-4 shrink-0 " + (available ? "text-(--color-ink)" : "text-(--color-ink-faint)")
+        }
+      />
+    );
+  }
   const path = BRAND_PATHS[providerId];
   if (!path) {
     // Mocks (and any unbranded provider) keep the original availability dot.
