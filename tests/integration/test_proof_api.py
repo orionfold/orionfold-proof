@@ -544,3 +544,39 @@ def test_patch_dataset_updates_tags_and_404s_for_unknown(client):
     assert res.json()["tags"] == ["Support"]
     assert res.json()["check_hint"] == "exact"
     assert client.patch("/api/datasets/does-not-exist", json={"tags": ["x"]}).status_code == 404
+
+
+def _xlsx_upload_bytes() -> bytes:
+    import io as _io
+
+    from openpyxl import Workbook
+
+    wb = Workbook()
+    ws = wb.active
+    ws.append(["input", "expected"])
+    ws.append(["Ping?", "Pong."])
+    buf = _io.BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
+
+
+def test_extract_xlsx_returns_csv_text_without_writing(client):
+    before = len(client.get("/api/datasets").json())
+    files = {
+        "file": (
+            "cases.xlsx",
+            _xlsx_upload_bytes(),
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+    }
+    res = client.post("/api/datasets/extract", files=files)
+    assert res.status_code == 200
+    body = res.json()
+    assert body["format"] == "csv"
+    assert "Ping?" in body["text"]
+    assert len(client.get("/api/datasets").json()) == before  # no write
+
+
+def test_extract_rejects_unknown_extension(client):
+    files = {"file": ("notes.txt", b"hello", "text/plain")}
+    assert client.post("/api/datasets/extract", files=files).status_code == 422

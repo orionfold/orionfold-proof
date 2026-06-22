@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 
 from collections.abc import Iterator
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, File, HTTPException, Request, UploadFile
 from fastapi.responses import PlainTextResponse, Response, StreamingResponse
 from pydantic import BaseModel
 
@@ -25,6 +25,12 @@ from orionfold.config.keys import CLOUD_KEY_NAMES, has_key
 from orionfold.providers.selection import SelectionPanel, selection_panel
 from orionfold.recipes.resolution import RecipesPanel, resolve_recipes
 from orionfold.data.importers import DatasetParseError, ImportFormat, ParseResult, parse_dataset
+from orionfold.data.extractors import (
+    DocExtractError,
+    ExtractResult,
+    doc_format_for,
+    extract_document,
+)
 from orionfold.domain.models import Candidate, Dataset, Example, ProofBrief, ProofReport, ProofRun, PromptVariant, Rubric
 from orionfold.proof.engine import build_cost_summary, config_hash, iter_matrix, run_proof
 from orionfold.proof.leaderboard import build_leaderboard
@@ -56,6 +62,8 @@ from orionfold.storage.repository import (
 from orionfold.storage.settings import get_sandbox_enabled, set_sandbox_enabled
 
 router = APIRouter(prefix="/api")
+
+MAX_UPLOAD_BYTES = 5 * 1024 * 1024  # 5 MB — datasets are small; this guards memory + abuse.
 
 
 class DatasetPreviewRequest(BaseModel):
@@ -190,6 +198,24 @@ def create_dataset(request: Request, body: DatasetCreateRequest) -> DatasetRow:
         raise HTTPException(status_code=409, detail=str(exc))
     finally:
         conn.close()
+
+
+@router.post("/datasets/extract")
+async def extract_dataset(file: UploadFile = File(...)) -> ExtractResult:
+    """Extract an uploaded .xlsx/.docx/.pdf into normalized import text. Never writes."""
+    doc_format = doc_format_for(file.filename or "")
+    if doc_format is None:
+        raise HTTPException(
+            status_code=422,
+            detail="Unsupported file type. Upload .xlsx, .docx, or .pdf (or paste text directly).",
+        )
+    data = await file.read()
+    if len(data) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail="File too large (5 MB max).")
+    try:
+        return extract_document(data, doc_format)
+    except DocExtractError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
 
 
 @router.patch("/datasets/{dataset_id}")
