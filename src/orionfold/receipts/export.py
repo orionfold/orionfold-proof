@@ -198,9 +198,75 @@ def to_json(report: ProofReport) -> str:
     return json.dumps(build_receipt(report), indent=2, ensure_ascii=False)
 
 
+def _tokens_by_candidate(report: ProofReport) -> dict[str, int]:
+    """Total tokens (input+output) per candidate across the quick run's single example."""
+    totals: dict[str, int] = {}
+    for r in report.results:
+        totals[r.candidate_id] = totals.get(r.candidate_id, 0) + r.input_tokens + r.output_tokens
+    return totals
+
+
+def _quick_markdown(report: ProofReport, data: dict) -> str:
+    """Markdown for an unscored quick-compare check: objective table + outputs + the pick."""
+    brief = data["brief"]
+    repro = data["repro"]
+    tokens = _tokens_by_candidate(report)
+    pick = data["chosen_winner"]
+    lines: list[str] = [
+        "# Proof Receipt",
+        "",
+        "> **QUICK CHECK** · 1 example · not scored proof",
+        "",
+        f"**Verdict: {data['verdict']}** — {data['recommendation']}",
+        "",
+        f"_{data['summary']}_",
+        "",
+        f"- **Decision:** {brief['decision_question']}",
+        f"- **Task:** {brief['task_name']}",
+        f"- **Run id:** `{data['run_id']}`",
+        f"- **Config hash:** `{data['config_hash']}`",
+        f"- **Generated:** {data['created_at']}",
+        f"- **Receipt schema:** v{data['receipt_version']}",
+        "",
+        "## Head-to-head",
+        "",
+        "| Candidate | Provider | Privacy | Latency | Cost | Tokens |",
+        "| --- | --- | --- | --- | --- | --- |",
+    ]
+    for e in data["leaderboard"]:
+        marker = " ⭐" if e["candidate_id"] == pick else ""
+        lines.append(
+            f"| {_md_cell(e['label'])}{marker} | {_md_cell(e['provider_id'])} | "
+            f"{_md_cell(e['privacy'])} | {e['avg_latency_ms']}ms | "
+            f"${e['total_estimated_cost_usd']:.4f} | {tokens.get(e['candidate_id'], 0)} |"
+        )
+    lines += ["", "## Outputs", ""]
+    by_id = {c.id: c for c in report.run.candidates}
+    for r in report.results:
+        cand = by_id.get(r.candidate_id)
+        label = cand.label if cand else r.candidate_id
+        star = " ⭐" if r.candidate_id == pick else ""
+        body = f"error: {r.error}" if r.error else (_md_inline(r.output_text) or "—")
+        lines += [f"- **{_md_cell(label)}{star}** — {body}"]
+    lines += [
+        "",
+        f"_{data['quick_note']}_",
+        "",
+        "## Repro",
+        "",
+        f"- **Run id:** `{repro['run_id']}`",
+        f"- **Config hash:** `{repro['config_hash']}` (identical inputs reproduce this hash)",
+        f"- **Generated:** {repro['created_at']}",
+        "",
+    ]
+    return "\n".join(lines)
+
+
 def to_markdown(report: ProofReport) -> str:
     """Human, client-shareable receipt in Markdown."""
     data = build_receipt(report)
+    if data["mode"] == "quick":
+        return _quick_markdown(report, data)
     brief = data["brief"]
     repro = data["repro"]
     lines: list[str] = [

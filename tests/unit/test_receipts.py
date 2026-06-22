@@ -252,3 +252,13 @@ def test_quick_receipt_is_pick_based_and_unscored():
 def test_quick_receipt_tie():
     data = export.build_receipt(_quick_report(chosen="tie"))
     assert "Tie" in data["verdict"]
+
+
+def test_quick_markdown_has_objective_columns_and_no_score():
+    md = export.to_markdown(_quick_report(chosen="mock_good"))
+    assert "QUICK CHECK" in md
+    assert "Tokens" in md and "Latency" in md
+    assert "Pass rate" not in md and "$ / quality" not in md
+    assert "Failure cases" not in md
+    assert "Promote to a full scored run" in md
+    assert "⭐" in md  # the picked candidate is starred
