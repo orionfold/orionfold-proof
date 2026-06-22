@@ -6,9 +6,10 @@
 > To resume: in a fresh session say **"read from handoff"** (or "continue from last
 > session"), or `/clear` and paste the prompt below.
 
-_Last updated: 2026-06-22 · **SHIPPED: Settings — sample data, sandbox, mocks out of the happy
-path** (8 TDD commits on `main`). Earlier today: Orionfold DS skin + delta-star brand mark. v0 stays
-real-world-verified. Remaining work is the non-blocking backlog + one operator chore._
+_Last updated: 2026-06-22 · **SHIPPED + LIVE-DEMOED: Settings — sample data, sandbox, mocks out of
+the happy path** (8 TDD commits on `main`; all controls exercised in-browser). Earlier today:
+Orionfold DS skin + delta-star brand mark. v0 stays real-world-verified. Remaining work is the
+non-blocking backlog (top item: **git remote + push** — `main` is unpushed) + one operator chore._
 
 ## ✅ THIS SESSION — Settings: sample data, sandbox, mocks off the happy path
 > Spec: `docs/superpowers/specs/2026-06-22-settings-sample-data-and-sandbox-design.md` · Plan:
@@ -35,7 +36,9 @@ credibility risk. Mocks are now infrastructure (tests + opt-in onboarding), not 
 `pnpm --dir web build` clean · `bash scripts/build.sh` + `pnpm --dir web e2e` 8/8 (now **serial** —
 `workers:1` — because the suite shares one embedded server + one DB and mutates global state) ·
 real-browser both-theme check (sandbox-off = no mocks; SettingsView light+dark; sandbox-on = Mock
-provider with Good/Bad). Committed directly to `main` (no remote configured).
+provider with Good/Bad). **Full data lifecycle also demoed live in-browser:** seed → Sample receipt
+appears alongside a real run → Remove sample data deletes ONLY the sample (real run kept) → Clear all
+data wipes everything (settings preserved). Committed directly to `main` (no remote configured).
 
 ## ⚠️ OPERATOR ACTION (env, NOT code) — stale shell `OPENAI_API_KEY` shadows `.env.local`
 Precedence is system-env-first by design (`config/keys.py`). A stale exported `OPENAI_API_KEY` (suffix
