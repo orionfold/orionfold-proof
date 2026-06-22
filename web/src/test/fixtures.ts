@@ -35,6 +35,7 @@ export const SAMPLE_REPORT: ProofReport = {
       failure_count: 0,
       error_count: 0,
       recommended: true,
+      cost_per_quality: 0,
     },
   ],
   results: [],
@@ -49,13 +50,13 @@ export const NO_WINNER_REPORT: ProofReport = {
       candidate_id: "real", label: "Real · ran", provider_id: "ollama", privacy: "local",
       model: "llama3.2", total: 5, pass_count: 0, pass_rate: 0, avg_score: 0.05,
       avg_latency_ms: 3000, total_estimated_cost_usd: 0, failure_count: 5, error_count: 0,
-      recommended: false,
+      recommended: false, cost_per_quality: 0,
     },
     {
       candidate_id: "erro", label: "Erro · errored", provider_id: "anthropic", privacy: "cloud",
       model: "claude-opus-4-8", total: 5, pass_count: 0, pass_rate: 0, avg_score: 0,
       avg_latency_ms: 0, total_estimated_cost_usd: 0, failure_count: 5, error_count: 5,
-      recommended: false,
+      recommended: false, cost_per_quality: null,
     },
   ],
 };
