@@ -12,14 +12,14 @@ _2 candidate(s) × 5 example(s) · rubric keypoint ≥ 0.8_
 - **Run id:** `run_sampledemo01`
 - **Config hash:** `467ddd96c9a5`
 - **Generated:** 2026-06-19T12:00:00Z
-- **Receipt schema:** v6
+- **Receipt schema:** v7
 
 ## Leaderboard
 
-| Candidate | Provider | Privacy | Pass rate | Avg score | Avg latency | Est. cost | Failures |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| Mock · good ⭐ | mock_good | local | 100% (5/5) | 1.00 | 57ms | $0.00 | 0 |
-| Mock · bad | mock_bad | local | 0% (0/5) | 0.00 | 126ms | $0.00 | 5 |
+| Candidate | Provider | Privacy | Pass rate | $ / quality | Avg score | Avg latency | Est. cost | Failures |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Mock · good ⭐ | mock_good | local | 100% (5/5) | Free | 1.00 | 57ms | $0.00 | 0 |
+| Mock · bad | mock_bad | local | 0% (0/5) | — | 0.00 | 126ms | $0.00 | 5 |
 
 _Run cost: candidate $0.0000 · judge $0.0000 · total $0.0000_
 

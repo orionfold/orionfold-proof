@@ -21,8 +21,10 @@ from orionfold.domain.models import LeaderboardEntry, ProofReport, ResultRow
 # judge · <model>) and a run-level cost summary (candidate + judge + total).
 # v6: prompt-variant runs — each leaderboard entry carries its system_prompt; the receipt adds a
 # "Prompt variants" section (name + full prompt text) for provenance. Empty for model-compare runs.
+# v7: leaderboard entries carry a `cost_per_quality` field ($ per quality point); the receipt adds
+# a "$ / quality" efficiency column. Presentation only — ranking is unchanged.
 # Bump on any schema change so downstream consumers can detect drift.
-RECEIPT_VERSION = 6
+RECEIPT_VERSION = 7
 
 
 def _verdict(top: LeaderboardEntry) -> str:
@@ -53,6 +55,15 @@ def _failures_label(e: dict) -> str:
     if e["total"] and e["error_count"] == e["total"]:
         return f"{e['failure_count']} (errored, no output)"
     return str(e["failure_count"])
+
+
+def _cost_per_quality_label(v: float | None) -> str:
+    """Display rule for the $/quality efficiency cell, shared by MD and HTML."""
+    if v is None:
+        return "—"
+    if v == 0:
+        return "Free"
+    return f"${v:.4f}"
 
 
 def _scored_by(rubric) -> str:
@@ -174,15 +185,16 @@ def to_markdown(report: ProofReport) -> str:
         "",
         "## Leaderboard",
         "",
-        "| Candidate | Provider | Privacy | Pass rate | Avg score | Avg latency | Est. cost | Failures |",
-        "| --- | --- | --- | --- | --- | --- | --- | --- |",
+        "| Candidate | Provider | Privacy | Pass rate | $ / quality | Avg score | Avg latency | Est. cost | Failures |",
+        "| --- | --- | --- | --- | --- | --- | --- | --- | --- |",
     ]
     for e in data["leaderboard"]:
         marker = " ⭐" if e["recommended"] else ""
         lines.append(
             f"| {_md_cell(e['label'])}{marker} | {_md_cell(e['provider_id'])} | "
             f"{_md_cell(e['privacy'])} | "
-            f"{e['pass_rate']:.0%} ({e['pass_count']}/{e['total']}) | {e['avg_score']:.2f} | "
+            f"{e['pass_rate']:.0%} ({e['pass_count']}/{e['total']}) | "
+            f"{_cost_per_quality_label(e['cost_per_quality'])} | {e['avg_score']:.2f} | "
             f"{e['avg_latency_ms']}ms | ${e['total_estimated_cost_usd']:.2f} | {_failures_label(e)} |"
         )
 
@@ -237,6 +249,7 @@ def to_html(report: ProofReport, theme: str | None = None) -> str:
         f"<td>{html.escape(e['provider_id'])}</td>"
         f"<td>{html.escape(e['privacy'])}</td>"
         f"<td>{e['pass_rate']:.0%} ({e['pass_count']}/{e['total']})</td>"
+        f"<td>{html.escape(_cost_per_quality_label(e['cost_per_quality']))}</td>"
         f"<td>{e['avg_score']:.2f}</td>"
         f"<td>{e['avg_latency_ms']}ms</td>"
         f"<td>${e['total_estimated_cost_usd']:.2f}</td>"
@@ -346,6 +359,7 @@ def to_html(report: ProofReport, theme: str | None = None) -> str:
   <table>
     <thead><tr>
       <th>Candidate</th><th>Provider</th><th>Privacy</th><th>Pass rate</th>
+      <th>$ / quality</th>
       <th>Avg score</th><th>Avg latency</th><th>Est. cost</th><th>Failures</th>
     </tr></thead>
     <tbody>{rows}</tbody>

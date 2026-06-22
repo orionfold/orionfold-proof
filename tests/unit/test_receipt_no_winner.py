@@ -63,7 +63,7 @@ def test_no_winner_verdict_and_reason():
         for i in range(5)
     ]
     data = build_receipt(_run([cand], results))
-    assert data["receipt_version"] == 6
+    assert data["receipt_version"] == 7
     assert data["verdict"] == "No clear winner"
     assert "No candidate passed the rubric" in data["recommendation"]
     assert "0.80" in data["recommendation"]
@@ -113,5 +113,5 @@ def test_version_is_four_with_a_winner():
         for i in range(5)
     ]
     data = build_receipt(_run([cand], results))
-    assert data["receipt_version"] == 6
+    assert data["receipt_version"] == 7
     assert data["verdict"] != "No clear winner"

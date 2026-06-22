@@ -123,8 +123,18 @@ def make_report():
     return _make
 
 
-def test_receipt_version_is_6():
-    assert export.RECEIPT_VERSION == 6
+def test_receipt_version_is_7():
+    assert export.RECEIPT_VERSION == 7
+
+
+def test_receipt_has_cost_per_quality_column_and_field():
+    report = _report()  # mock_good passes 5/5 at cost $0.00 -> "Free"
+    md = export.to_markdown(report)
+    html = export.to_html(report)
+    assert "$ / quality" in md
+    assert "$ / quality" in html
+    assert "Free" in md
+    assert '"cost_per_quality"' in export.to_json(report)
 
 
 def test_scored_by_keypoint(make_report):
@@ -188,7 +198,7 @@ def test_receipt_records_prompt_variants_and_text():
                          cost_summary=RunCostSummary(candidate_cost_usd=0, judge_cost_usd=0, total_cost_usd=0))
 
     data = export.build_receipt(report)
-    assert data["receipt_version"] == 6
+    assert data["receipt_version"] == 7
     assert data["prompt_variants"] == [
         {"name": "Baseline", "system_prompt": "Be neutral."},
         {"name": "Concise", "system_prompt": "Be terse."},
