@@ -91,7 +91,7 @@ test("decision recipes pre-fill the setup", async ({ page }) => {
   // The recipe row renders above setup.
   await expect(page.getByRole("heading", { name: "Start from a decision recipe" })).toBeVisible();
   // A recipe with a keyless local arm pre-fills the decision question.
-  const recipe = page.getByRole("button", { name: /Same model, different providers/i });
+  const recipe = page.getByRole("button", { name: /Different providers/i });
   await expect(recipe).toBeVisible();
   await recipe.click();
   await expect(page.getByLabel(/decision question/i)).toHaveValue(/different hosts/i);
