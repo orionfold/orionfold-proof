@@ -150,3 +150,23 @@ def test_cost_per_quality_does_not_change_ranking():
     ]
     entries = build_leaderboard(cands, results)
     assert entries[0].candidate_id == "good"  # pass_rate wins; cheaper "bad" does not jump it
+
+
+def test_leaderboard_is_none_safe_for_unscored_rows():
+    # Quick-compare rows have score=None/passed=None; aggregation must not crash and must
+    # never crown an unscored candidate.
+    cands = [_cand("a"), _cand("b")]
+    results = [
+        ResultRow(candidate_id="a", example_index=0, input_text="x", expected_text="",
+                  output_text="out", score=None, passed=None, latency_ms=10,
+                  estimated_cost_usd=0.0, privacy="local"),
+        ResultRow(candidate_id="b", example_index=0, input_text="x", expected_text="",
+                  output_text="out", score=None, passed=None, latency_ms=20,
+                  estimated_cost_usd=0.0, privacy="local"),
+    ]
+    entries = build_leaderboard(cands, results)
+    assert len(entries) == 2
+    for e in entries:
+        assert e.avg_score == 0.0
+        assert e.pass_count == 0
+        assert e.recommended is False

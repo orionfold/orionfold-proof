@@ -12,7 +12,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 Privacy = Literal["local", "cloud"]
-RubricKind = Literal["exact", "contains", "similarity", "keypoint", "judge"]
+RubricKind = Literal["exact", "contains", "similarity", "keypoint", "judge", "none"]
 
 
 class Example(BaseModel):
@@ -83,17 +83,23 @@ class ProviderResult(BaseModel):
 
 
 class ResultRow(BaseModel):
-    """One cell of the run matrix: a candidate's attempt at one example, scored."""
+    """One cell of the run matrix: a candidate's attempt at one example.
+
+    ``score``/``passed`` are ``None`` for an unscored (quick-compare) run — an honest
+    absence, never a placeholder zero.
+    """
 
     candidate_id: str
     example_index: int
     input_text: str
     expected_text: str
     output_text: str
-    score: float
-    passed: bool
+    score: float | None
+    passed: bool | None
     latency_ms: int
     estimated_cost_usd: float
+    input_tokens: int = 0
+    output_tokens: int = 0
     privacy: Privacy
     error: str | None = None
     judge_cost_usd: float = 0.0  # cost of the judge call for this cell (0 for non-judge)
@@ -141,6 +147,10 @@ class ProofRun(BaseModel):
     config_hash: str
     created_at: str
     status: Literal["complete"] = "complete"
+    # Quick-compare provenance. Presentation only — EXCLUDED from config_hash so a quick run's
+    # hash is identical before and after a pick is recorded.
+    mode: Literal["full", "quick"] = "full"
+    chosen_winner: str | None = None  # a candidate_id, the literal "tie", or None (no pick yet)
 
 
 class RunCostSummary(BaseModel):

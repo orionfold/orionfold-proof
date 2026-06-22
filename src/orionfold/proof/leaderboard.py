@@ -29,7 +29,7 @@ def build_leaderboard(
         pass_count = sum(1 for r in rows if r.passed)
         failure_count = total - pass_count
         error_count = sum(1 for r in rows if r.error is not None)
-        avg_score = sum(r.score for r in rows) / total if total else 0.0
+        avg_score = sum((r.score or 0.0) for r in rows) / total if total else 0.0
         avg_latency = round(sum(r.latency_ms for r in rows) / total) if total else 0
         total_cost = sum(r.estimated_cost_usd for r in rows)
         cost_per_quality = total_cost / avg_score if avg_score > 0 else None

@@ -8,7 +8,7 @@ import pytest
 from orionfold import __version__
 from orionfold.data import load_dataset
 from orionfold.domain.models import Candidate, Dataset, Example, ProofBrief, Rubric
-from orionfold.proof.engine import config_hash, run_proof
+from orionfold.proof.engine import config_hash, run_matrix, run_proof
 
 _CANDS = [
     Candidate(id="mock_good", label="Mock · good", provider_id="mock_good"),
@@ -143,3 +143,39 @@ def test_config_hash_distinguishes_prompt_variants():
     same_id_a = [Candidate(id="ollama#x", label="X", provider_id="ollama", model="llama3.2", system_prompt="terse")]
     same_id_b = [Candidate(id="ollama#x", label="X", provider_id="ollama", model="llama3.2", system_prompt="verbose")]
     assert config_hash(ds, same_id_a, Rubric()) != config_hash(ds, same_id_b, Rubric())
+
+
+def test_none_rubric_skips_scoring_and_captures_tokens():
+    # Quick-compare: generate both candidates on one prompt, capture metrics, never score.
+    dataset = Dataset(
+        id="quick-compare",
+        name="Quick Compare",
+        examples=[Example(input_text="Summarize: revenue grew 22%.", expected_text="")],
+    )
+    rows = run_matrix(dataset, _CANDS, Rubric(kind="none"))
+    assert len(rows) == 2
+    for r in rows:
+        assert r.score is None
+        assert r.passed is None
+        # the bars read token counts off the row
+        assert r.output_tokens >= 0
+        assert r.input_tokens >= 0
+
+
+def test_config_hash_excludes_mode_and_chosen_winner():
+    dataset = Dataset(
+        id="quick-compare", name="Quick Compare",
+        examples=[Example(input_text="x", expected_text="")],
+    )
+    rubric = Rubric(kind="none")
+    h = config_hash(dataset, _CANDS, rubric)
+    assert isinstance(h, str) and len(h) == 12
+    from orionfold.domain.models import ProofRun
+    run = ProofRun(
+        id="run_x", brief=_BRIEF, dataset_id=dataset.id, dataset_name=dataset.name,
+        rubric=rubric, candidates=_CANDS, config_hash=h, created_at="2026-06-22T00:00:00Z",
+        mode="quick", chosen_winner="mock_good",
+    )
+    assert run.config_hash == h
+    assert run.mode == "quick"
+    assert run.chosen_winner == "mock_good"

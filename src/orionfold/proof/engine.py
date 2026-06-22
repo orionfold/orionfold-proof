@@ -77,7 +77,12 @@ def iter_matrix(
         for index, example in enumerate(dataset.examples):
             result = safe_generate(provider, example, candidate)
             judge_cost, judge_latency, judge_error = 0.0, 0, None
-            if result.error is not None:
+            score_value: float | None
+            did_pass: bool | None
+            if rubric.kind == "none":
+                # Unscored quick-compare: capture output + metrics, never a score.
+                score_value, did_pass = None, None
+            elif result.error is not None:
                 score_value, did_pass = 0.0, False
             elif rubric.kind == "keypoint":
                 score_value = (
@@ -107,6 +112,8 @@ def iter_matrix(
                 passed=did_pass,
                 latency_ms=result.latency_ms,
                 estimated_cost_usd=result.estimated_cost_usd,
+                input_tokens=result.input_tokens,
+                output_tokens=result.output_tokens,
                 judge_cost_usd=judge_cost,
                 judge_latency_ms=judge_latency,
                 privacy=result.privacy,
