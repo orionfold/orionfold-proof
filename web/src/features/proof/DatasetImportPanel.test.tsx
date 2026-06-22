@@ -18,6 +18,10 @@ test("paste → preview → freeze calls createDataset and closes", async () => 
     name: "My Set",
     description: "",
     examples: [{ input_text: "a", expected_text: "b", keypoints: [] }],
+    tags: [],
+    created_at: "",
+    source: "pasted",
+    check_hint: null,
   });
   const onClose = vi.fn();
   renderWithQuery(<DatasetImportPanel onClose={onClose} />);
@@ -43,4 +47,25 @@ test("shows the server error when preview fails", async () => {
   fireEvent.change(screen.getByLabelText(/Paste or upload/i), { target: { value: "junk" } });
   fireEvent.click(screen.getByRole("button", { name: /Preview/i }));
   await waitFor(() => expect(screen.getByText(/No valid examples found/)).toBeVisible());
+});
+
+test("extracts an uploaded .xlsx into the textarea and shows warnings", async () => {
+  vi.spyOn(api, "extractDataset").mockResolvedValue({
+    format: "csv",
+    text: "input,expected\nPing?,Pong.",
+    warnings: ["heads up"],
+  });
+  renderWithQuery(<DatasetImportPanel onClose={vi.fn()} />);
+  const file = new File([new Uint8Array([1, 2, 3])], "cases.xlsx", {
+    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  });
+  fireEvent.change(screen.getByLabelText(/Upload dataset file/i), { target: { files: [file] } });
+
+  await waitFor(() =>
+    expect((screen.getByLabelText(/Paste or upload/i) as HTMLTextAreaElement).value).toContain(
+      "Ping?",
+    ),
+  );
+  expect(api.extractDataset).toHaveBeenCalled();
+  expect(screen.getByText(/heads up/)).toBeVisible();
 });

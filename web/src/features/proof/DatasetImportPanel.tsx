@@ -3,16 +3,20 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import {
   createDataset,
+  extractDataset,
   previewDataset,
   type ImportFormat,
   type ParseResult,
 } from "../../lib/api";
+import { CHECK_HINTS } from "./tags";
 
 const FORMATS: { value: ImportFormat; label: string; hint: string }[] = [
   { value: "jsonl", label: "JSONL", hint: '{"input": "...", "expected": "..."} per line' },
   { value: "csv", label: "CSV", hint: "input,expected header + one row per example" },
   { value: "markdown", label: "Markdown", hint: "## Input / ## Expected pairs, split by ---" },
 ];
+
+const DOC_EXTENSIONS = [".xlsx", ".docx", ".pdf"];
 
 // Inline import: pick a format, paste or upload text, preview the parsed pairs (+ warnings),
 // then freeze into a new dataset. The server re-parses on freeze, so this preview is advisory.
@@ -22,13 +26,22 @@ export function DatasetImportPanel({ onClose }: { onClose: () => void }) {
   const [text, setText] = useState("");
   const [name, setName] = useState("");
   const [preview, setPreview] = useState<ParseResult | null>(null);
+  const [tags, setTags] = useState<string[]>([]);
+  const [tagDraft, setTagDraft] = useState("");
+  const [checkHint, setCheckHint] = useState("");
+  const [source, setSource] = useState("pasted");
+  const [extractWarnings, setExtractWarnings] = useState<string[]>([]);
 
   const previewMutation = useMutation({
     mutationFn: () => previewDataset({ format, text }),
     onSuccess: setPreview,
   });
+  const extractMutation = useMutation({
+    mutationFn: (file: File) => extractDataset(file),
+  });
   const createMutation = useMutation({
-    mutationFn: () => createDataset({ name, format, text }),
+    mutationFn: () =>
+      createDataset({ name, format, text, tags, source, check_hint: checkHint || null }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["datasets"] });
       onClose();
@@ -38,9 +51,25 @@ export function DatasetImportPanel({ onClose }: { onClose: () => void }) {
   async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    setText(await file.text());
     setPreview(null);
     previewMutation.reset();
+    setExtractWarnings([]);
+    setSource(`file:${file.name}`);
+    const isDoc = DOC_EXTENSIONS.some((ext) => file.name.toLowerCase().endsWith(ext));
+    if (isDoc) {
+      const result = await extractMutation.mutateAsync(file);
+      setText(result.text);
+      setFormat(result.format);
+      setExtractWarnings(result.warnings);
+    } else {
+      setText(await file.text());
+    }
+  }
+
+  function addTag() {
+    const t = tagDraft.trim();
+    if (t && !tags.includes(t)) setTags([...tags, t]);
+    setTagDraft("");
   }
 
   const hint = FORMATS.find((f) => f.value === format)?.hint ?? "";
@@ -89,7 +118,7 @@ export function DatasetImportPanel({ onClose }: { onClose: () => void }) {
       <div className="flex flex-wrap items-center gap-3">
         <input
           type="file"
-          accept=".jsonl,.json,.csv,.md,.markdown,.txt"
+          accept=".jsonl,.json,.csv,.md,.markdown,.txt,.xlsx,.docx,.pdf"
           onChange={onFile}
           aria-label="Upload dataset file"
           className="text-xs text-(--color-ink-muted)"
@@ -103,6 +132,20 @@ export function DatasetImportPanel({ onClose }: { onClose: () => void }) {
           {previewMutation.isPending ? "Parsing…" : "Preview"}
         </button>
       </div>
+
+      {extractMutation.isPending && (
+        <p className="text-xs text-(--color-ink-faint)">Reading document…</p>
+      )}
+      {extractMutation.isError && (
+        <p className="text-sm text-(--color-danger)">{(extractMutation.error as Error).message}</p>
+      )}
+      {extractWarnings.length > 0 && (
+        <ul className="grid gap-1 rounded-lg border border-dashed border-(--color-panel-line) p-3 text-xs text-(--color-ink-faint)">
+          {extractWarnings.map((w, i) => (
+            <li key={i}>{w}</li>
+          ))}
+        </ul>
+      )}
 
       {previewMutation.isError && (
         <p className="text-sm text-(--color-danger)">{(previewMutation.error as Error).message}</p>
@@ -140,6 +183,52 @@ export function DatasetImportPanel({ onClose }: { onClose: () => void }) {
               placeholder="e.g. Client summaries v1"
             />
           </label>
+          <label className="grid gap-1 text-sm">
+            <span className="text-(--color-ink-muted)">Tags (optional)</span>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {tags.map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => setTags(tags.filter((x) => x !== t))}
+                  className="rounded border border-(--color-panel-line) px-2 py-0.5 text-xs text-(--color-ink-muted) hover:text-(--color-ink)"
+                  aria-label={`Remove tag ${t}`}
+                >
+                  {t} ×
+                </button>
+              ))}
+              <input
+                value={tagDraft}
+                onChange={(e) => setTagDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    addTag();
+                  }
+                }}
+                onBlur={addTag}
+                placeholder="e.g. Legal"
+                aria-label="Add tag"
+                className="rounded-lg border border-(--color-panel-line) bg-(--color-panel-card) p-1.5 text-xs text-(--color-ink)"
+              />
+            </div>
+          </label>
+
+          <label className="grid gap-1 text-sm">
+            <span className="text-(--color-ink-muted)">Check hint (suggests a rubric)</span>
+            <select
+              value={checkHint}
+              onChange={(e) => setCheckHint(e.target.value)}
+              className="w-full rounded-lg border border-(--color-panel-line) bg-(--color-panel-card) p-2 text-sm text-(--color-ink)"
+            >
+              {CHECK_HINTS.map((h) => (
+                <option key={h.value} value={h.value}>
+                  {h.label}
+                </option>
+              ))}
+            </select>
+          </label>
+
           {createMutation.isError && (
             <p className="text-sm text-(--color-danger)">{(createMutation.error as Error).message}</p>
           )}
