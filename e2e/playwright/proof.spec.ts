@@ -3,19 +3,26 @@ import { expect, test } from "@playwright/test";
 // The charter's happy path, graded in a real browser against the embedded build:
 // open → run sample proof → see leaderboard → open a failure case → export all three receipts.
 test("proof loop: run → leaderboard → failure case → receipts", async ({ page }) => {
+  // Mocks are off the customer happy path — enable Sandbox up front. The flag is global and the
+  // suite shares one DB, so set it deterministically via the API rather than clicking the toggle.
+  await page.request.put("/api/settings", { data: { sandbox_enabled: true } });
   await page.goto("/");
 
   // Engine reachable and setup rendered.
   await expect(page.getByRole("heading", { name: "Orionfold Proof" })).toBeVisible();
   await expect(page.getByText(/Connected/)).toBeVisible();
 
-  // The model picker renders catalog models per provider (the #4 capability). A local model
-  // chip is selectable; cloud providers without a key are greyed. Mocks stay default-selected.
+  // The shared DB may hold datasets from other tests; pin the keypoint demo set explicitly so the
+  // 5-example / keypoint-coverage / 5-failure-cases assertions below are deterministic.
+  await page.getByLabel("Dataset").selectOption("investment-memo-summarization");
+
+  // The Mock provider's Good/Bad models appear in the picker, pre-selected for a keyless run.
   await expect(page.locator("legend").filter({ hasText: /^Candidates$/ })).toBeVisible();
-  await expect(page.getByRole("checkbox", { name: "Mock · good" })).toBeChecked();
+  await expect(page.getByRole("checkbox", { name: "Good model" })).toBeChecked();
+  await expect(page.getByRole("checkbox", { name: "Bad model" })).toBeChecked();
   await expect(page.getByRole("button", { name: /custom model for Ollama/i })).toBeVisible();
 
-  // Run the sample proof (both mock candidates are selected by default).
+  // Run the sample proof (both mock candidates are selected by default in Sandbox).
   await page.getByRole("button", { name: /Run proof/ }).click();
 
   // Leaderboard: mock_good is recommended and passes everything.
@@ -91,6 +98,8 @@ test("decision recipes pre-fill the setup", async ({ page }) => {
 });
 
 test("prompt compare: one model, two prompts → leaderboard + receipt section", async ({ page }) => {
+  // Prompt-compare keyless needs a mock model — enable Sandbox up front via the API (deterministic).
+  await page.request.put("/api/settings", { data: { sandbox_enabled: true } });
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "Orionfold Proof" })).toBeVisible();
 

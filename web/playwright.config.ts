@@ -8,7 +8,11 @@ const DB = "/tmp/orionfold-e2e.db";
 
 export default defineConfig({
   testDir: "../e2e/playwright",
-  fullyParallel: true,
+  // Serial: every test shares ONE embedded server + ONE SQLite DB, and the suite mutates global
+  // state (runs, and the single `sandbox_enabled` settings row). Parallel workers would race on
+  // that shared state, so we run one worker for deterministic, isolated-by-order execution.
+  fullyParallel: false,
+  workers: 1,
   reporter: [["line"]],
   use: {
     baseURL: `http://127.0.0.1:${PORT}`,
