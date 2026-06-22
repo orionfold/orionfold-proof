@@ -23,8 +23,11 @@ from orionfold.domain.models import LeaderboardEntry, ProofReport, ResultRow
 # "Prompt variants" section (name + full prompt text) for provenance. Empty for model-compare runs.
 # v7: leaderboard entries carry a `cost_per_quality` field ($ per quality point); the receipt adds
 # a "$ / quality" efficiency column. Presentation only — ranking is unchanged.
+# v8: quick-compare runs — the receipt carries `mode` ("full"|"quick") and `chosen_winner`. A quick
+# receipt is a single-example, un-scored, human-picked check: objective columns only (latency / cost
+# / tokens), no failure cases, a "quick check — not scored proof" note, and a promote-to-full CTA.
 # Bump on any schema change so downstream consumers can detect drift.
-RECEIPT_VERSION = 7
+RECEIPT_VERSION = 8
 
 
 def _verdict(top: LeaderboardEntry) -> str:
@@ -47,7 +50,22 @@ def _recommendation_line(top: LeaderboardEntry) -> str:
 
 
 def _failure_cases(report: ProofReport) -> list[ResultRow]:
+    # A quick check is unscored (passed is None), so there is no notion of a failure case.
+    if report.run.mode == "quick":
+        return []
     return [r for r in report.results if not r.passed]
+
+
+def _quick_pick_lines(report: ProofReport) -> tuple[str, str]:
+    """(verdict, recommendation) for a quick-compare run, driven by the human pick."""
+    pick = report.run.chosen_winner
+    if pick == "tie" or pick is None:
+        return "Tie", "No clear winner — the two outputs were judged a tie."
+    by_id = {c.id: c for c in report.run.candidates}
+    cand = by_id.get(pick)
+    label = cand.label if cand else pick
+    provider = cand.provider_id if cand else "?"
+    return f"Picked {label}", f"{label} ({provider}) — your pick on a single-example quick check."
 
 
 def _failures_label(e: dict) -> str:
@@ -107,11 +125,17 @@ def build_receipt(report: ProofReport) -> dict:
     run = report.run
     top = report.leaderboard[0] if report.leaderboard else None
     has_winner = top is not None and top.pass_count > 0
+    is_quick = run.mode == "quick"
     candidate_ids = [c.id for c in run.candidates]
-    summary = (
-        f"{len(run.candidates)} candidate(s) × {len(report.results) // max(len(run.candidates), 1)} "
-        f"example(s) · rubric {run.rubric.kind} ≥ {run.rubric.threshold}"
-    )
+    n_examples = len(report.results) // max(len(run.candidates), 1)
+    if is_quick:
+        summary = f"{len(run.candidates)} candidate(s) × {n_examples} example(s) · quick check (unscored)"
+        quick_verdict, quick_reco = _quick_pick_lines(report)
+    else:
+        summary = (
+            f"{len(run.candidates)} candidate(s) × {n_examples} "
+            f"example(s) · rubric {run.rubric.kind} ≥ {run.rubric.threshold}"
+        )
     return {
         "receipt_version": RECEIPT_VERSION,
         "run_id": run.id,
@@ -127,14 +151,27 @@ def build_receipt(report: ProofReport) -> dict:
             "judge": report.cost_summary.judge_cost_usd,
             "total": report.cost_summary.total_cost_usd,
         },
-        "verdict": _verdict(top) if has_winner else ("No clear winner" if top else "No run"),
+        "mode": run.mode,
+        "chosen_winner": run.chosen_winner,
+        "quick_note": (
+            "Single-example quick check — not scored proof. Promote to a full scored run for "
+            "repeatable proof."
+            if is_quick else ""
+        ),
+        "verdict": (
+            quick_verdict if is_quick
+            else (_verdict(top) if has_winner else ("No clear winner" if top else "No run"))
+        ),
         "recommendation": (
-            _recommendation_line(top)
-            if has_winner
+            quick_reco if is_quick
             else (
-                f"No candidate passed the rubric (threshold {run.rubric.threshold:.2f})."
-                if top
-                else "No candidates were run."
+                _recommendation_line(top)
+                if has_winner
+                else (
+                    f"No candidate passed the rubric (threshold {run.rubric.threshold:.2f})."
+                    if top
+                    else "No candidates were run."
+                )
             )
         ),
         "leaderboard": [e.model_dump() for e in report.leaderboard],

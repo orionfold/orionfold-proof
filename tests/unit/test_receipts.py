@@ -123,8 +123,8 @@ def make_report():
     return _make
 
 
-def test_receipt_version_is_7():
-    assert export.RECEIPT_VERSION == 7
+def test_receipt_version_is_8():
+    assert export.RECEIPT_VERSION == 8
 
 
 def test_receipt_has_cost_per_quality_column_and_field():
@@ -198,7 +198,7 @@ def test_receipt_records_prompt_variants_and_text():
                          cost_summary=RunCostSummary(candidate_cost_usd=0, judge_cost_usd=0, total_cost_usd=0))
 
     data = export.build_receipt(report)
-    assert data["receipt_version"] == 7
+    assert data["receipt_version"] == 8
     assert data["prompt_variants"] == [
         {"name": "Baseline", "system_prompt": "Be neutral."},
         {"name": "Concise", "system_prompt": "Be terse."},
@@ -210,3 +210,45 @@ def test_receipt_records_prompt_variants_and_text():
     assert "Prompt variants" in html and "Be terse." in html
     # Provenance, not secrets: nothing key-shaped leaks (sanity).
     assert "API_KEY" not in md and "API_KEY" not in html
+
+
+# ---------------------------------------------------------------------------
+# v8 tests — quick-compare receipt (unscored, human pick)
+# ---------------------------------------------------------------------------
+
+from orionfold.domain.models import Dataset, Example
+
+
+def _quick_report(chosen="mock_good"):
+    dataset = Dataset(
+        id="quick-compare", name="Quick Compare",
+        examples=[Example(input_text="Summarize: revenue grew 22%.", expected_text="")],
+    )
+    report = run_proof(
+        run_id="run_q", created_at="2026-06-22T00:00:00Z",
+        brief=ProofBrief(task_name="Quick check", decision_question="Which reads better?"),
+        dataset=dataset,
+        candidates=[
+            Candidate(id="mock_good", label="Mock · good", provider_id="mock_good"),
+            Candidate(id="mock_bad", label="Mock · bad", provider_id="mock_bad"),
+        ],
+        rubric=Rubric(kind="none"),
+    )
+    report.run.mode = "quick"
+    report.run.chosen_winner = chosen
+    return report
+
+
+def test_quick_receipt_is_pick_based_and_unscored():
+    data = export.build_receipt(_quick_report(chosen="mock_good"))
+    assert data["mode"] == "quick"
+    assert data["chosen_winner"] == "mock_good"
+    assert data["failure_cases"] == []           # no scoring → no failures section
+    assert "Picked" in data["verdict"]
+    assert "mock_good" in data["recommendation"]
+    assert "quick" in data["quick_note"].lower()
+
+
+def test_quick_receipt_tie():
+    data = export.build_receipt(_quick_report(chosen="tie"))
+    assert "Tie" in data["verdict"]
