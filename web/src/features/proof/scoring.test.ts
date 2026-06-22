@@ -74,4 +74,21 @@ describe("filterJudgeModels", () => {
     expect(r.options).toEqual([]);
     expect(r.defaultProviderId).toBeNull();
   });
+  // Issue-2 guard: when the first-listed recommended cloud provider (Anthropic) has NO key, it must
+  // become a gated hint-row, never the selected default — the Hosted default must land on a keyed
+  // provider, so the judge step can't auto-pick a model that will error for a missing key.
+  it("never defaults Hosted to an unavailable provider; picks the keyed one instead", () => {
+    const noAnthropicKey: SelectionPanel = {
+      providers: [
+        { provider_id: "anthropic", label: "Anthropic", privacy: "cloud", available: false, supports_custom: false, candidate_id: null, models: [] },
+        { provider_id: "openai", label: "OpenAI", privacy: "cloud", available: true, supports_custom: false, candidate_id: null,
+          models: [model({ model: "gpt-eco", display_name: "GPT eco", tier: "economy", recommended: true })] },
+      ],
+    };
+    const r = filterJudgeModels(noAnthropicKey, "cloud", "economy");
+    expect(r.defaultProviderId).toBe("openai");
+    expect(r.defaultModel).toBe("gpt-eco");
+    expect(r.options.some((o) => o.providerId === "anthropic")).toBe(false);
+    expect(r.gated).toEqual([{ providerId: "anthropic", label: "Anthropic", keyName: "ANTHROPIC_API_KEY" }]);
+  });
 });

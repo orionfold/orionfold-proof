@@ -100,6 +100,15 @@ for [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **OpenAI candidates and the OpenAI hosted judge no longer error on the output cap.** OpenAI's
+  GPT-5.x models reject the legacy `max_tokens` parameter (`HTTP 400: "Unsupported parameter:
+  'max_tokens' is not supported with this model. Use 'max_completion_tokens' instead."`), which
+  blocked **every** OpenAI run and any LLM-judge run routed to OpenAI. The OpenAI-compatible provider
+  now carries a per-profile `token_param`: the OpenAI profile sends `max_completion_tokens`, while
+  OpenRouter and LM Studio (which share the class and accept the legacy name) keep `max_tokens`. No
+  receipt-schema or wire change for the other providers; the cap value (`ORIONFOLD_MAX_TOKENS`) is
+  unchanged.
+
 - **Leaderboard never recommends a candidate that produced nothing.** An errored candidate reports
   `0 ms / $0.00`, so at a 0%-pass tie it used to win the latency/cost tiebreak and get crowned
   **Recommended** (a model returning HTTP 404 on every example was once "recommended"). A fully-

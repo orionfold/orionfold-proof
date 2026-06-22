@@ -252,6 +252,56 @@ def test_providers_send_the_configured_token_cap(monkeypatch):
     assert captured["max_tokens"] == 4096
 
 
+def _capture_openai_payload(monkeypatch, provider) -> dict:
+    """Run one ``generate`` against ``provider`` with a stubbed POST; return the sent JSON body."""
+    captured: dict = {}
+
+    def fake_post(url, json=None, headers=None, timeout=None):
+        captured.clear()
+        captured.update(json or {})
+        return httpx.Response(
+            200,
+            json={"choices": [{"message": {"content": "ok"}}], "usage": {"prompt_tokens": 1, "completion_tokens": 1}},
+            request=httpx.Request("POST", url),
+        )
+
+    monkeypatch.setattr(http_mod.httpx, "post", fake_post)
+    provider.generate(_example(), _candidate(provider.id, provider.default_model))
+    return captured
+
+
+def test_openai_profile_sends_max_completion_tokens(monkeypatch):
+    # GPT-5.x rejects "max_tokens" (HTTP 400 "Use 'max_completion_tokens' instead"). The OpenAI
+    # profile must send the newer param; "max_tokens" must NOT appear on the wire.
+    monkeypatch.setenv("OPENAI_API_KEY", "fake")
+    provider = OpenAICompatibleProvider(
+        id="openai",
+        label="OpenAI",
+        base_url="https://api.openai.com/v1",
+        default_model="gpt-5-mini",
+        key_name="OPENAI_API_KEY",
+        token_param="max_completion_tokens",
+    )
+    payload = _capture_openai_payload(monkeypatch, provider)
+    assert payload["max_completion_tokens"] == http_mod.max_output_tokens()
+    assert "max_tokens" not in payload
+
+
+def test_openai_compatible_defaults_to_max_tokens(monkeypatch):
+    # OpenRouter + LM Studio share the class but accept "max_tokens" — the default must not regress.
+    provider = OpenAICompatibleProvider(
+        id="lmstudio",
+        label="LM Studio",
+        base_url="http://localhost:1234/v1",
+        default_model="local-model",
+        key_name=None,
+        privacy="local",
+    )
+    payload = _capture_openai_payload(monkeypatch, provider)
+    assert payload["max_tokens"] == http_mod.max_output_tokens()
+    assert "max_completion_tokens" not in payload
+
+
 def test_idle_budget_is_per_provider_class(monkeypatch):
     # No override: local gets the generous budget, cloud the tighter one (ADR-0003 follow-up).
     monkeypatch.delenv("ORIONFOLD_TIMEOUT_S", raising=False)

@@ -56,6 +56,16 @@ def test_local_candidates_carry_model_and_label():
     assert cands["mock_good"].model is None
 
 
+def test_openai_profile_uses_max_completion_tokens_others_keep_max_tokens(monkeypatch):
+    # GPT-5.x rejects "max_tokens"; only the OpenAI profile must switch to the newer param.
+    # OpenRouter + LM Studio share the class but accept "max_tokens" — they must not regress.
+    monkeypatch.setenv("OPENAI_API_KEY", "dummy-key-no-network-in-listing")
+    monkeypatch.setenv("OPENROUTER_API_KEY", "dummy-key-no-network-in-listing")
+    assert get_provider("openai").token_param == "max_completion_tokens"
+    assert get_provider("openrouter").token_param == "max_tokens"
+    assert get_provider("lmstudio").token_param == "max_tokens"
+
+
 def test_unknown_provider_raises():
     with pytest.raises(KeyError):
         get_provider("does-not-exist")

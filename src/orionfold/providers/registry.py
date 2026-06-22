@@ -73,6 +73,8 @@ def _build() -> dict[str, _Entry]:
                 base_url=resolve("OPENAI_BASE_URL", "https://api.openai.com/v1"),
                 default_model=model,
                 key_name="OPENAI_API_KEY",
+                # GPT-5.x rejects "max_tokens"; OpenAI requires "max_completion_tokens".
+                token_param="max_completion_tokens",
             ),
             model,
         )

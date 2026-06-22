@@ -31,6 +31,7 @@ class OpenAICompatibleProvider:
         default_model: str,
         key_name: str | None = None,
         privacy: Privacy = "cloud",
+        token_param: str = "max_tokens",
     ) -> None:
         self.id = id
         self.label = label
@@ -38,6 +39,9 @@ class OpenAICompatibleProvider:
         self.default_model = default_model
         self.key_name = key_name  # None → keyless (LM Studio)
         self.privacy: Privacy = privacy
+        # Output-cap field name. OpenAI's GPT-5.x rejects "max_tokens" (HTTP 400) and requires
+        # "max_completion_tokens"; OpenRouter + LM Studio keep the original. One knob per profile.
+        self.token_param = token_param
 
     def generate(self, example: Example, candidate: Candidate) -> ProviderResult:
         model = candidate.model or self.default_model
@@ -53,7 +57,7 @@ class OpenAICompatibleProvider:
                 {"role": "system", "content": system_prompt_for(candidate)},
                 {"role": "user", "content": example.input_text},
             ],
-            "max_tokens": max_output_tokens(),
+            self.token_param: max_output_tokens(),
         }
         data, latency_ms = post_json(
             f"{self.base_url}/chat/completions",
