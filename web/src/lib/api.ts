@@ -57,6 +57,12 @@ export const datasetSchema = z.object({
   // Seeded sample datasets are flagged so the UI can badge them and offer targeted removal.
   // Optional (not defaulted) so the inferred type stays loose for fixtures; absent reads as falsy.
   is_sample: z.boolean().optional(),
+  // Display/management metadata — lives on the API row only (never the domain model). Loose +
+  // defaulted so older fixtures and pre-metadata responses still parse.
+  tags: z.array(z.string()).optional().default([]),
+  created_at: z.string().optional().default(""),
+  source: z.string().optional().default(""),
+  check_hint: z.string().nullable().optional(),
 });
 export type Dataset = z.infer<typeof datasetSchema>;
 
@@ -69,6 +75,13 @@ export const parseResultSchema = z.object({
   count: z.number(),
 });
 export type ParseResult = z.infer<typeof parseResultSchema>;
+
+export const extractResultSchema = z.object({
+  format: importFormatSchema,
+  text: z.string(),
+  warnings: z.array(z.string()),
+});
+export type ExtractResult = z.infer<typeof extractResultSchema>;
 
 export const rubricSchema = z.object({
   kind: z.enum(["exact", "contains", "similarity", "keypoint", "judge"]),
@@ -191,6 +204,9 @@ export async function createDataset(body: {
   description?: string;
   format: ImportFormat;
   text: string;
+  tags?: string[];
+  source?: string;
+  check_hint?: string | null;
 }): Promise<Dataset> {
   const res = await fetch("/api/datasets", {
     method: "POST",
@@ -200,6 +216,33 @@ export async function createDataset(body: {
   if (!res.ok) {
     const detail = await res.json().catch(() => ({}));
     throw new Error(detail?.detail ?? `Import failed (HTTP ${res.status})`);
+  }
+  return datasetSchema.parse(await res.json());
+}
+
+export async function extractDataset(file: File): Promise<ExtractResult> {
+  const form = new FormData();
+  form.append("file", file);
+  const res = await fetch("/api/datasets/extract", { method: "POST", body: form });
+  if (!res.ok) {
+    const detail = await res.json().catch(() => ({}));
+    throw new Error(detail?.detail ?? `Could not read the file (HTTP ${res.status})`);
+  }
+  return extractResultSchema.parse(await res.json());
+}
+
+export async function updateDataset(
+  id: string,
+  patch: { tags?: string[]; description?: string; check_hint?: string | null },
+): Promise<Dataset> {
+  const res = await fetch(`/api/datasets/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(patch),
+  });
+  if (!res.ok) {
+    const detail = await res.json().catch(() => ({}));
+    throw new Error(detail?.detail ?? `Update failed (HTTP ${res.status})`);
   }
   return datasetSchema.parse(await res.json());
 }

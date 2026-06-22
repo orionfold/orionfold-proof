@@ -2,6 +2,8 @@ import { afterEach, describe, expect, it, test, vi } from "vitest";
 
 import {
   createDataset,
+  datasetSchema,
+  extractResultSchema,
   getSettings,
   previewDataset,
   proofReportSchema,
@@ -70,5 +72,30 @@ describe("settings + sample-data client", () => {
   it("seedSampleData parses counts", async () => {
     mockResponse({ datasets: 1, receipts: 1 });
     expect(await seedSampleData()).toEqual({ datasets: 1, receipts: 1 });
+  });
+});
+
+describe("dataset metadata schemas", () => {
+  it("datasetSchema defaults tags to [] and accepts metadata", () => {
+    const d = datasetSchema.parse({
+      id: "x",
+      name: "n",
+      description: "",
+      examples: [],
+      created_at: "2026-06-22T00:00:00Z",
+      source: "pasted",
+      check_hint: "substring",
+    });
+    expect(d.tags).toEqual([]);
+    expect(d.check_hint).toBe("substring");
+  });
+
+  it("extractResultSchema parses an extract response", () => {
+    const r = extractResultSchema.parse({
+      format: "csv",
+      text: "input,expected\na,b",
+      warnings: [],
+    });
+    expect(r.format).toBe("csv");
   });
 });
