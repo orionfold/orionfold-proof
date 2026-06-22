@@ -30,6 +30,18 @@ MIGRATIONS: list[str] = [
         report      TEXT NOT NULL          -- JSON of the full ProofReport
     );
     """,
+    """
+    ALTER TABLE datasets ADD COLUMN is_sample INTEGER NOT NULL DEFAULT 0;
+    """,
+    """
+    ALTER TABLE runs ADD COLUMN is_sample INTEGER NOT NULL DEFAULT 0;
+    """,
+    """
+    CREATE TABLE settings (
+        key   TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+    );
+    """,
 ]
 
 
