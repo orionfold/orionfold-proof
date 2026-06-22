@@ -57,11 +57,12 @@ export const datasetSchema = z.object({
   // Seeded sample datasets are flagged so the UI can badge them and offer targeted removal.
   // Optional (not defaulted) so the inferred type stays loose for fixtures; absent reads as falsy.
   is_sample: z.boolean().optional(),
-  // Display/management metadata — lives on the API row only (never the domain model). Loose +
-  // defaulted so older fixtures and pre-metadata responses still parse.
-  tags: z.array(z.string()).optional().default([]),
-  created_at: z.string().optional().default(""),
-  source: z.string().optional().default(""),
+  // Display/management metadata — lives on the API row only (never the domain model). Optional
+  // (not defaulted) so the inferred type stays loose for fixtures, matching is_sample; consumers
+  // read with `?? []` / `?? ""`.
+  tags: z.array(z.string()).optional(),
+  created_at: z.string().optional(),
+  source: z.string().optional(),
   check_hint: z.string().nullable().optional(),
 });
 export type Dataset = z.infer<typeof datasetSchema>;

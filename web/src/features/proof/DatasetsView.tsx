@@ -1,9 +1,11 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { getDatasets } from "../../lib/api";
+import { getDatasets, updateDataset, type Dataset } from "../../lib/api";
 import { ViewNotice, ViewShell } from "./ViewShell";
 import { DatasetImportPanel } from "./DatasetImportPanel";
+import { TagChips } from "./TagChips";
+import { checkHintLabel } from "./tags";
 
 // A read-only reference: the frozen example sets a proof run scores candidates against. Seeing
 // the exact inputs/expected answers is part of trusting the receipt — nothing is hidden.
@@ -38,47 +40,114 @@ export function DatasetsView() {
       ) : (
         <div className="grid gap-4">
           {datasets.data.map((d) => (
-            <section
-              key={d.id}
-              className="rounded-xl border border-(--color-panel-line) bg-(--color-panel-card) p-5"
-            >
-              <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <h3 className="flex items-center gap-2 text-base font-medium text-(--color-ink)">
-                  {d.name}
-                  {d.is_sample ? (
-                    <span className="rounded border border-(--color-panel-line) bg-(--color-panel-card) px-2 py-0.5 text-[11px] font-medium text-(--color-ink-muted)">
-                      Sample
-                    </span>
-                  ) : null}
-                </h3>
-                <span className="text-xs text-(--color-ink-faint)">
-                  {d.examples.length} example{d.examples.length === 1 ? "" : "s"}
-                </span>
-              </div>
-              {d.description && (
-                <p className="mt-1 text-sm text-(--color-ink-muted)">{d.description}</p>
-              )}
-              <details className="mt-3">
-                <summary className="cursor-pointer text-sm text-(--color-ink-muted) hover:text-(--color-ink)">
-                  Examples
-                </summary>
-                <ol className="mt-3 grid gap-3">
-                  {d.examples.map((ex, i) => (
-                    <li
-                      key={i}
-                      className="grid gap-1 border-t border-(--color-panel-line) pt-3 text-sm"
-                    >
-                      <ExampleField label="Input" value={ex.input_text} />
-                      <ExampleField label="Expected" value={ex.expected_text} />
-                    </li>
-                  ))}
-                </ol>
-              </details>
-            </section>
+            <DatasetCard key={d.id} d={d} />
           ))}
         </div>
       )}
     </ViewShell>
+  );
+}
+
+function formatDate(iso: string): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? "" : d.toLocaleDateString();
+}
+
+function sourceLabel(source: string): string {
+  if (!source || source === "pasted") return "pasted";
+  return source.startsWith("file:") ? source.slice(5) : source;
+}
+
+function DatasetCard({ d }: { d: Dataset }) {
+  const queryClient = useQueryClient();
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState((d.tags ?? []).join(", "));
+  const save = useMutation({
+    mutationFn: () =>
+      updateDataset(d.id, {
+        tags: draft
+          .split(",")
+          .map((t) => t.trim())
+          .filter(Boolean),
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["datasets"] });
+      setEditing(false);
+    },
+  });
+
+  const created = formatDate(d.created_at ?? "");
+  const metaBits = [
+    `${d.examples.length} example${d.examples.length === 1 ? "" : "s"}`,
+    created && `created ${created}`,
+    sourceLabel(d.source ?? ""),
+  ].filter(Boolean);
+
+  return (
+    <section className="rounded-xl border border-(--color-panel-line) bg-(--color-panel-card) p-5">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h3 className="flex items-center gap-2 text-base font-medium text-(--color-ink)">
+          {d.name}
+          {d.is_sample ? (
+            <span className="rounded border border-(--color-panel-line) bg-(--color-panel-card) px-2 py-0.5 text-[11px] font-medium text-(--color-ink-muted)">
+              Sample
+            </span>
+          ) : null}
+        </h3>
+        <span className="text-xs text-(--color-ink-faint)">{metaBits.join(" · ")}</span>
+      </div>
+
+      {d.description && <p className="mt-1 text-sm text-(--color-ink-muted)">{d.description}</p>}
+
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <TagChips tags={d.tags ?? []} />
+        {d.check_hint ? (
+          <span className="of-tag of-tag--t5">{checkHintLabel(d.check_hint)}</span>
+        ) : null}
+        <button
+          type="button"
+          onClick={() => setEditing((v) => !v)}
+          className="text-xs text-(--color-ink-faint) hover:text-(--color-accent)"
+        >
+          {editing ? "Cancel" : "Edit tags"}
+        </button>
+      </div>
+
+      {editing && (
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <input
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            placeholder="comma-separated, e.g. Legal, Finance"
+            aria-label="Edit tags"
+            className="grow rounded-lg border border-(--color-panel-line) bg-(--color-panel-card) p-1.5 text-xs text-(--color-ink)"
+          />
+          <button
+            type="button"
+            onClick={() => save.mutate()}
+            disabled={save.isPending}
+            className="rounded-lg bg-(--color-accent-strong) px-3 py-1.5 text-xs font-medium text-(--color-accent-ink) disabled:opacity-50"
+          >
+            {save.isPending ? "Saving…" : "Save tags"}
+          </button>
+        </div>
+      )}
+
+      <details className="mt-3">
+        <summary className="cursor-pointer text-sm text-(--color-ink-muted) hover:text-(--color-ink)">
+          Examples
+        </summary>
+        <ol className="mt-3 grid gap-3">
+          {d.examples.map((ex, i) => (
+            <li key={i} className="grid gap-1 border-t border-(--color-panel-line) pt-3 text-sm">
+              <ExampleField label="Input" value={ex.input_text} />
+              <ExampleField label="Expected" value={ex.expected_text} />
+            </li>
+          ))}
+        </ol>
+      </details>
+    </section>
   );
 }
 

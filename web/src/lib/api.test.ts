@@ -76,18 +76,22 @@ describe("settings + sample-data client", () => {
 });
 
 describe("dataset metadata schemas", () => {
-  it("datasetSchema defaults tags to [] and accepts metadata", () => {
+  it("datasetSchema accepts metadata and stays loose when absent", () => {
     const d = datasetSchema.parse({
       id: "x",
       name: "n",
       description: "",
       examples: [],
+      tags: ["Legal"],
       created_at: "2026-06-22T00:00:00Z",
       source: "pasted",
       check_hint: "substring",
     });
-    expect(d.tags).toEqual([]);
+    expect(d.tags).toEqual(["Legal"]);
     expect(d.check_hint).toBe("substring");
+    // Absent metadata parses fine (loose for fixtures).
+    const bare = datasetSchema.parse({ id: "y", name: "n", description: "", examples: [] });
+    expect(bare.tags).toBeUndefined();
   });
 
   it("extractResultSchema parses an extract response", () => {
