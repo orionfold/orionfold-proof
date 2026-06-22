@@ -20,9 +20,16 @@ test("renders the receipt artifact in a sandboxed iframe with downloads", () => 
 });
 
 test("the preview iframe pins the cockpit's resolved theme", () => {
-  render(<ReceiptDetailView report={SAMPLE_REPORT} onBack={() => {}} onExplore={() => {}} />);
-  const frame = screen.getByTitle("Proof Receipt preview");
-  expect(frame.getAttribute("src")).toContain("theme=light");
+  // Pin an explicit choice so this asserts the iframe reflects the resolved theme, independent
+  // of the first-run default (which is dark).
+  localStorage.setItem("orionfold-theme", "light");
+  try {
+    render(<ReceiptDetailView report={SAMPLE_REPORT} onBack={() => {}} onExplore={() => {}} />);
+    const frame = screen.getByTitle("Proof Receipt preview");
+    expect(frame.getAttribute("src")).toContain("theme=light");
+  } finally {
+    localStorage.removeItem("orionfold-theme");
+  }
 });
 
 test("fires onExplore and onBack from the nav buttons", () => {

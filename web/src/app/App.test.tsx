@@ -125,16 +125,6 @@ test("syncs the Task name to the selected dataset until the user edits it", asyn
   expect(taskName.value).toBe("My own task");
 });
 
-test("theme switcher persists a choice and sets data-theme", async () => {
-  mockServer();
-  renderWithQuery(<App />);
-  const dark = await screen.findByRole("radio", { name: "Dark" });
-  fireEvent.click(dark);
-  expect(dark).toHaveAttribute("aria-checked", "true");
-  expect(localStorage.getItem("orionfold-theme")).toBe("dark");
-  expect(document.documentElement.dataset.theme).toBe("dark");
-});
-
 test("opens a receipt into its detail view, then explores it in the cockpit", async () => {
   mockServer();
   renderWithQuery(<App />);

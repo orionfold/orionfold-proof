@@ -17,7 +17,7 @@
       // Mirrors web/src/lib/theme.ts (key + resolution); the React hook re-attaches listeners.
       (function () {
         try {
-          var c = localStorage.getItem("orionfold-theme") || "system";
+          var c = localStorage.getItem("orionfold-theme") || "dark";
           var dark =
             c === "dark" ||
             (c === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);

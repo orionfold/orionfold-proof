@@ -27,6 +27,16 @@ test("renders the three data actions and the sandbox toggle", async () => {
   expect(screen.getByRole("switch", { name: /Sandbox/i })).toBeInTheDocument();
 });
 
+test("the appearance theme switcher persists a choice and sets data-theme", async () => {
+  localStorage.removeItem("orionfold-theme");
+  renderWithQuery(<SettingsView />);
+  const light = await screen.findByRole("radio", { name: "Light" });
+  fireEvent.click(light);
+  expect(light).toHaveAttribute("aria-checked", "true");
+  expect(localStorage.getItem("orionfold-theme")).toBe("light");
+  expect(document.documentElement.dataset.theme).toBe("light");
+});
+
 test("Clear all data needs a second confirm step", async () => {
   renderWithQuery(<SettingsView />);
   const clear = await screen.findByRole("button", { name: /Clear all data/i });

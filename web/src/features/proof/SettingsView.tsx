@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Database, Trash2 } from "lucide-react";
+import { Database, Monitor, Moon, Sun, Trash2, type LucideIcon } from "lucide-react";
 
 import {
   clearAllData,
@@ -9,6 +9,7 @@ import {
   seedSampleData,
   setSandbox,
 } from "../../lib/api";
+import { useTheme, type ThemeChoice } from "../../lib/theme";
 import { ViewShell } from "./ViewShell";
 
 // One Data Management card: a Sandbox toggle plus seed / remove-samples / clear-all. Destructive
@@ -39,9 +40,31 @@ export function SettingsView() {
   return (
     <ViewShell
       title="Settings"
-      subtitle="Manage your local data and the simulated sandbox. Everything here stays on this machine."
+      subtitle="Manage appearance, your local data, and the simulated sandbox. Everything here stays on this machine."
     >
-      <section className="grid max-w-2xl gap-6 rounded-xl border border-(--color-panel-line) bg-(--color-panel-card) p-6">
+      <div className="grid max-w-2xl gap-6">
+        {/* Appearance */}
+        <section className="grid gap-6 rounded-xl border border-(--color-panel-line) bg-(--color-panel-card) p-6">
+          <div>
+            <h3 className="text-sm font-medium text-(--color-ink)">Appearance</h3>
+            <p className="mt-1 text-sm text-(--color-ink-muted)">
+              Choose how the cockpit looks. New installs start in dark; pick System to follow your OS.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-start justify-between gap-4 border-t border-(--color-panel-line) pt-4">
+            <div>
+              <p className="text-sm text-(--color-ink)">Theme</p>
+              <p className="text-xs text-(--color-ink-faint)">
+                Applies instantly and is remembered on this machine.
+              </p>
+            </div>
+            <ThemeSwitcher />
+          </div>
+        </section>
+
+        {/* Data management */}
+        <section className="grid gap-6 rounded-xl border border-(--color-panel-line) bg-(--color-panel-card) p-6">
         <div>
           <h3 className="text-sm font-medium text-(--color-ink)">Data management</h3>
           <p className="mt-1 text-sm text-(--color-ink-muted)">
@@ -117,8 +140,52 @@ export function SettingsView() {
           onConfirm={() => clearAll.mutate()}
           done={clearAll.isSuccess ? "All data cleared." : null}
         />
-      </section>
+        </section>
+      </div>
     </ViewShell>
+  );
+}
+
+const THEMES: { value: ThemeChoice; label: string; Icon: LucideIcon }[] = [
+  { value: "system", label: "System", Icon: Monitor },
+  { value: "light", label: "Light", Icon: Sun },
+  { value: "dark", label: "Dark", Icon: Moon },
+];
+
+// A calm 3-way theme control. radiogroup semantics so it's keyboard-navigable; the active
+// segment uses the raised app surface to read as "selected" against the card it sits on.
+function ThemeSwitcher() {
+  const { choice, setChoice } = useTheme();
+  return (
+    <div
+      role="radiogroup"
+      aria-label="Theme"
+      className="flex gap-0.5 rounded-lg border border-(--color-panel-line) p-0.5"
+    >
+      {THEMES.map(({ value, label, Icon }) => {
+        const active = value === choice;
+        return (
+          <button
+            key={value}
+            type="button"
+            role="radio"
+            aria-checked={active}
+            aria-label={label}
+            title={label}
+            onClick={() => setChoice(value)}
+            className={
+              "flex items-center justify-center gap-1.5 rounded-md border px-3 py-1.5 text-xs transition-colors " +
+              (active
+                ? "border-(--color-accent)/50 bg-(--color-accent)/10 text-(--color-ink)"
+                : "border-transparent text-(--color-ink-muted) hover:text-(--color-ink)")
+            }
+          >
+            <Icon aria-hidden className="h-3.5 w-3.5 shrink-0" />
+            {label}
+          </button>
+        );
+      })}
+    </div>
   );
 }
 

@@ -13,7 +13,9 @@ export function getStoredChoice(): ThemeChoice {
   } catch {
     /* localStorage unavailable — fall through to default */
   }
-  return "system";
+  // First-run default is dark: the cockpit is designed dark-first (dark is the @theme
+  // default), so a new operator lands in the intended look until they pick otherwise.
+  return "dark";
 }
 
 export function resolveTheme(choice: ThemeChoice): ResolvedTheme {

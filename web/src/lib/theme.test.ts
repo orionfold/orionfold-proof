@@ -25,8 +25,8 @@ function mockPrefersDark(dark: boolean) {
   );
 }
 
-test("defaults to system when nothing is stored", () => {
-  expect(getStoredChoice()).toBe("system");
+test("defaults to dark when nothing is stored", () => {
+  expect(getStoredChoice()).toBe("dark");
 });
 
 test("reads a stored explicit choice", () => {
