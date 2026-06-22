@@ -34,7 +34,7 @@
     },
     {
       "id": "provider-arbitrage",
-      "title": "Same model, different providers",
+      "title": "Different providers",
       "subtitle": "One model family across providers",
       "decision_question": "Same model, different hosts — who's cheaper and faster for the same quality?",
       "selectors": [

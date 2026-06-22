@@ -17,7 +17,8 @@ shown above the whole form, including in Prompts mode.
   - "Cost vs quality for client summaries" → "Cost vs quality"; question dropped "client summaries".
   - "Local vs cloud (privacy)" → "Local vs cloud".
   - "Cheapest model that still passes" → "Cheapest that passes".
-  - "Same model, different providers" — kept (already crisp/general).
+  - "Same model, different providers" → "Different providers" (so all four card titles fit one line
+    and align; the "one family across providers" subtitle still carries the "same model" sense).
 
 ## Verification
 - `recipes.json` valid JSON; no backend or frontend test pins the real titles (the React tests use
