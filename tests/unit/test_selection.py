@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import pytest
 
+from orionfold.providers.registry import build_candidates
 from orionfold.providers.selection import selection_panel
 
 
@@ -19,15 +20,28 @@ def _by_id(panel):
     return {g.provider_id: g for g in panel.providers}
 
 
-def test_mocks_come_first_with_no_models_and_no_custom():
-    panel = selection_panel()
-    first_two = panel.providers[:2]
-    assert [g.provider_id for g in first_two] == ["mock_good", "mock_bad"]
-    for g in first_two:
-        assert g.models == []
-        assert g.supports_custom is False
-        assert g.candidate_id == g.provider_id  # the group itself is one candidate
-        assert g.available is True
+def test_sandbox_off_has_no_mock_group():
+    # Mocks are off the customer happy path now; they only appear in Sandbox.
+    panel = selection_panel(sandbox=False)
+    assert all(g.provider_id != "mock" for g in panel.providers)
+    assert all(g.provider_id not in ("mock_good", "mock_bad") for g in panel.providers)
+
+
+def test_sandbox_on_shows_one_mock_group_with_two_models():
+    panel = selection_panel(sandbox=True)
+    mock = [g for g in panel.providers if g.provider_id == "mock"]
+    assert len(mock) == 1
+    g = mock[0]
+    assert g.label == "Mock" and g.candidate_id is None and g.supports_custom is False
+    by_id = {m.candidate_id: m.display_name for m in g.models}
+    assert by_id == {"mock_good": "Good model", "mock_bad": "Bad model"}
+
+
+def test_mock_ids_stay_bare_and_resolvable():
+    # Invariant: the engine still resolves the bare ids the picker now nests under "mock".
+    cands = build_candidates(["mock_good", "mock_bad"])
+    assert [c.id for c in cands] == ["mock_good", "mock_bad"]
+    assert [c.label for c in cands] == ["Mock · good", "Mock · bad"]
 
 
 def test_catalog_providers_present_with_model_candidate_ids():

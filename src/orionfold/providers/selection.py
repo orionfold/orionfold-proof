@@ -14,6 +14,10 @@ from orionfold.catalog import CostClass, Tier, load_catalog
 from orionfold.domain.models import Privacy
 from orionfold.providers.registry import _build, available_candidates
 
+# Picker labels for the two simulated mocks when shown under the single "Mock" provider in
+# Sandbox. The engine still routes on the bare ids (mock_good / mock_bad) — these are display only.
+_MOCK_DISPLAY = {"mock_good": "Good model", "mock_bad": "Bad model"}
+
 
 class SelectionModel(BaseModel):
     candidate_id: str  # the id sent to the run, e.g. "anthropic:claude-opus-4-8"
@@ -40,29 +44,46 @@ class SelectionPanel(BaseModel):
     providers: list[SelectionGroup]
 
 
-def selection_panel() -> SelectionPanel:
-    """Build the picker panel for the current environment."""
+def selection_panel(sandbox: bool = False) -> SelectionPanel:
+    """Build the picker panel for the current environment.
+
+    The simulated Mock provider only appears when ``sandbox`` is on (opt-in). It is shown as a
+    single "Mock" provider exposing the two mocks as Good/Bad models; the candidate ids stay bare
+    (``mock_good`` / ``mock_bad``) so the engine routing is unchanged.
+    """
     registry = _build()
     available_ids = set(registry)
     catalog = load_catalog()
     catalog_ids = {p.id for p in catalog.providers}
     groups: list[SelectionGroup] = []
 
-    # Mocks first — the default keyless path. In the registry, not the catalog.
-    for cand in available_candidates():
-        if cand.provider_id in catalog_ids:
-            continue
-        groups.append(
-            SelectionGroup(
-                provider_id=cand.provider_id,
-                label=registry[cand.provider_id][0].label,
-                privacy=cand.privacy,
-                available=True,
-                supports_custom=False,
-                candidate_id=cand.id,
-                models=[],
+    # Sandbox only: one "Mock" provider grouping the keyless mocks as Good/Bad models.
+    if sandbox:
+        mocks = [c for c in available_candidates() if c.provider_id not in catalog_ids]
+        if mocks:
+            groups.append(
+                SelectionGroup(
+                    provider_id="mock",
+                    label="Mock",
+                    privacy=mocks[0].privacy,
+                    available=True,
+                    supports_custom=False,
+                    candidate_id=None,
+                    models=[
+                        SelectionModel(
+                            candidate_id=c.id,
+                            model=c.id.removeprefix("mock_"),
+                            display_name=_MOCK_DISPLAY.get(c.id, c.label),
+                            tier="economy",
+                            cost_class="free",
+                            context_window=None,
+                            latest=False,
+                            recommended=False,
+                        )
+                        for c in mocks
+                    ],
+                )
             )
-        )
 
     # Catalog providers — each model is a selectable candidate; greyed when unavailable.
     for provider in catalog.providers:
