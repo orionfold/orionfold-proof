@@ -310,6 +310,42 @@ def test_selection_endpoint_has_no_mocks_by_default(client, tmp_path, monkeypatc
     assert sample["candidate_id"] == f"anthropic:{sample['model']}"
 
 
+def test_settings_default_and_update(client):
+    assert client.get("/api/settings").json() == {"sandbox_enabled": False}
+    assert client.put("/api/settings", json={"sandbox_enabled": True}).json() == {
+        "sandbox_enabled": True
+    }
+    assert client.get("/api/settings").json() == {"sandbox_enabled": True}
+
+
+def test_selection_is_sandbox_aware(client):
+    assert all(
+        g["provider_id"] != "mock" for g in client.get("/api/selection").json()["providers"]
+    )
+    client.put("/api/settings", json={"sandbox_enabled": True})
+    mock = [
+        g for g in client.get("/api/selection").json()["providers"] if g["provider_id"] == "mock"
+    ]
+    assert len(mock) == 1 and len(mock[0]["models"]) == 2
+
+
+def test_seed_then_remove_sample_data(client):
+    assert client.post("/api/sample-data/seed").json() == {"datasets": 1, "receipts": 1}
+    ds = client.get("/api/datasets").json()
+    assert any(d["is_sample"] for d in ds)
+    assert len(client.get("/api/runs").json()) == 1
+    assert client.request("DELETE", "/api/sample-data").json() == {"datasets": 1, "receipts": 1}
+    assert not any(d["is_sample"] for d in client.get("/api/datasets").json())
+    assert client.get("/api/runs").json() == []
+
+
+def test_clear_all_data(client):
+    client.post("/api/sample-data/seed")
+    out = client.request("DELETE", "/api/data").json()
+    assert out["receipts"] == 1 and out["datasets"] >= 1
+    assert client.get("/api/datasets").json() == []
+
+
 def test_selection_endpoint_leaks_no_secrets(client, monkeypatch):
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-should-never-appear")
     monkeypatch.setenv("OPENAI_API_KEY", "sk-should-never-appear")
