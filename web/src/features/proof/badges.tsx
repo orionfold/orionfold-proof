@@ -12,16 +12,28 @@ function providerKind(providerId: string, privacy: "local" | "cloud"): ProviderK
   return providerId.startsWith("mock") ? "mock" : privacy;
 }
 
-// Provider boundary is CATEGORICAL IDENTITY, not a control — so every kind wears the same neutral
-// token surface (Orionfold rule: identity tags are neutral, non-pressable, never a pill). The
-// privacy/kind still reads at a glance because each carries a distinct icon AND label — never hue
-// alone. Cyan never appears here (status/identity ≠ accent).
+// Real-provider boundaries (Cloud / Local) are CATEGORICAL IDENTITY, not controls — so they wear
+// the neutral token surface (Orionfold rule: identity tags are neutral, non-pressable, never a
+// pill). Cloud/Local still read apart via distinct icon + label — never hue alone. Cyan (controls)
+// and green (PASS) never appear here.
+//
+// Mock is different in kind: it marks a SIMULATED candidate (no real evaluation), so per the
+// reference kit's `.badge.warn` it carries a quiet warn (caution) tint — simulated ≠ real reads at
+// a glance, distinct from the neutral real-provider tags. Warn here means "not a real run," the
+// same caution sense as a graded-miss status; it is never green (PASS) or cyan (a control). — WS-F F4
+// Neutral receipt-stub surface for the real-provider (Cloud / Local) tags. Mock overrides it
+// with its own warn-tinted border/bg below, so the base carries no border/bg of its own (avoids
+// a same-property Tailwind conflict with the mock override).
+const NEUTRAL_SURFACE = "border-(--color-panel-line) bg-(--color-panel-card)";
+
 const PROVIDER_STYLE: Record<ProviderKind, { label: string; Icon: LucideIcon; cls: string }> = {
-  // Cloud/Mock stay neutral & muted. Local is strengthened — stronger neutral ink + a lock glyph —
-  // so 'local & private' reads at a glance. No green (PASS-only) and no cyan accent (controls-only).
-  mock: { label: "Mock", Icon: FlaskConical, cls: "text-(--color-ink-muted)" },
-  local: { label: "Local", Icon: Lock, cls: "text-(--color-ink) font-semibold" },
-  cloud: { label: "Cloud", Icon: Cloud, cls: "text-(--color-ink-muted)" },
+  mock: {
+    label: "Mock",
+    Icon: FlaskConical,
+    cls: "border-(--color-warn)/40 bg-(--color-warn)/10 text-(--color-warn)",
+  },
+  local: { label: "Local", Icon: Lock, cls: `${NEUTRAL_SURFACE} text-(--color-ink) font-semibold` },
+  cloud: { label: "Cloud", Icon: Cloud, cls: `${NEUTRAL_SURFACE} text-(--color-ink-muted)` },
 };
 
 export function ProviderTag({
@@ -33,8 +45,9 @@ export function ProviderTag({
   return (
     <span
       // `rounded` (not a pill): identity tags take the receipt-stub shape so they never read as
-      // interactive. Local is strengthened via per-kind `cls`; cloud/mock stay neutral ink-muted.
-      className={`inline-flex items-center gap-1 rounded border border-(--color-panel-line) bg-(--color-panel-card) px-2 py-0.5 text-[11px] font-medium ${cls}`}
+      // interactive. Border/bg + text are all owned by the per-kind `cls` (Cloud/Local share the
+      // neutral surface; Mock carries the warn tint), so the kinds never collide on a property.
+      className={`inline-flex items-center gap-1 rounded border px-2 py-0.5 text-[11px] font-medium ${cls}`}
     >
       <Icon aria-hidden className="h-3 w-3 shrink-0" />
       {label}

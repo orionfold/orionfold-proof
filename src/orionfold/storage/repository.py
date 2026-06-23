@@ -109,12 +109,34 @@ def save_report(conn: sqlite3.Connection, report: ProofReport, *, is_sample: boo
     conn.commit()
 
 
-def insert_sample_dataset(conn: sqlite3.Connection, dataset: Dataset) -> None:
-    """Upsert a sample dataset (is_sample=1). Stable id makes re-seeding idempotent."""
+def insert_sample_dataset(
+    conn: sqlite3.Connection,
+    dataset: Dataset,
+    *,
+    created_at: str = "",
+    source: str = "",
+    check_hint: str = "",
+) -> None:
+    """Upsert a sample dataset (is_sample=1). Stable id makes re-seeding idempotent.
+
+    Writes the same display metadata columns a user-imported dataset gets (created_at /
+    source / check_hint), so the seeded card reads with the full metadata line + hint chip
+    rather than the bare "N examples" — WS-F F1. Display-only columns; never on the domain
+    Dataset, so config_hash is untouched.
+    """
     conn.execute(
-        "INSERT OR REPLACE INTO datasets (id, name, description, examples, is_sample) "
-        "VALUES (?, ?, ?, ?, 1)",
-        (dataset.id, dataset.name, dataset.description, _examples_json(dataset)),
+        "INSERT OR REPLACE INTO datasets "
+        "(id, name, description, examples, is_sample, created_at, source, check_hint) "
+        "VALUES (?, ?, ?, ?, 1, ?, ?, ?)",
+        (
+            dataset.id,
+            dataset.name,
+            dataset.description,
+            _examples_json(dataset),
+            created_at,
+            source,
+            check_hint,
+        ),
     )
     conn.commit()
 

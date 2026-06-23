@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { expect, test } from "vitest";
 
 import { Leaderboard } from "./Leaderboard";
@@ -40,13 +40,16 @@ test("no medals in the no-winner state — plain rank numbers", () => {
   expect(rankCells).toEqual(["1", "2"]);
 });
 
-test("score bar uses the traffic-light status token for the pass rate", () => {
+test("score bar uses the traffic-light status token for the pass rate, never the accent", () => {
   const { container } = render(
     <Leaderboard entries={[entry({ pass_rate: 0.2, pass_count: 1, failure_count: 4 })]} />,
   );
-  // A <0.5 pass rate paints the bar danger — a status token, never the accent.
-  expect(container.innerHTML).toContain("bg-(--color-danger)");
-  expect(container.innerHTML).not.toContain("--color-accent");
+  // A <0.5 pass rate paints the bar danger — a status token, never the accent. The accent does now
+  // appear elsewhere on the table (the sortable header controls), so scope the check to the bar fill
+  // itself: status ≠ action stays intact for the data viz.
+  const bar = container.querySelector(".h-full.rounded-full")!;
+  expect(bar.className).toContain("bg-(--color-danger)");
+  expect(bar.className).not.toContain("--color-accent");
 });
 
 test("$/quality cell renders Free / em-dash / value", () => {
@@ -62,4 +65,86 @@ test("$/quality cell renders Free / em-dash / value", () => {
   expect(screen.getByText("Free")).toBeInTheDocument();
   expect(screen.getByText("—")).toBeInTheDocument();
   expect(screen.getByText("$0.0040")).toBeInTheDocument();
+});
+
+// ── WS-F F2/F3: sortable + mono-microcap headers ───────────────────────────────────────────────
+
+function rankLabels(container: HTMLElement): string[] {
+  // The Candidate label is the second <td> of each row; return them in render order.
+  return [...container.querySelectorAll("tbody tr")].map(
+    (tr) => tr.querySelectorAll("td")[1].textContent!.replace("Recommended", "").trim(),
+  );
+}
+
+test("headers wear the reference mono micro-caps voice (F3)", () => {
+  render(<Leaderboard entries={[entry({})]} />);
+  // Every column header carries the mono / 10px / uppercase / wide-tracking treatment.
+  const passRate = screen.getByText("Pass rate").closest("th")!;
+  expect(passRate.className).toContain("font-mono");
+  expect(passRate.className).toContain("text-[10px]");
+  expect(passRate.className).toContain("uppercase");
+  expect(passRate.className).toContain("tracking-[0.06em]");
+  // The non-sortable identity/rank headers share the voice too.
+  const provider = screen.getByText("Provider").closest("th")!;
+  expect(provider.className).toContain("font-mono");
+});
+
+test("defaults to the server ranking on load — aria-sort none, no transient sort (F2)", () => {
+  const entries = [
+    entry({ candidate_id: "a", label: "alpha", recommended: true, pass_rate: 1, pass_count: 5 }),
+    entry({ candidate_id: "b", label: "bravo", pass_rate: 0.6, pass_count: 3 }),
+    entry({ candidate_id: "c", label: "charlie", pass_rate: 0.4, pass_count: 2 }),
+  ];
+  const { container } = render(<Leaderboard entries={entries} />);
+  // No column is active → all headers report aria-sort="none".
+  for (const th of container.querySelectorAll("th[aria-sort]")) {
+    expect(th.getAttribute("aria-sort")).toBe("none");
+  }
+  // Rows render in the given (ranking) order, untouched.
+  expect(rankLabels(container)).toEqual(["alpha", "bravo", "charlie"]);
+});
+
+test("clicking a header sorts the rows and sets aria-sort; clicking again flips it (F2)", () => {
+  const entries = [
+    entry({ candidate_id: "a", label: "alpha", pass_rate: 0.4, pass_count: 2 }),
+    entry({ candidate_id: "b", label: "bravo", pass_rate: 0.8, pass_count: 4 }),
+    entry({ candidate_id: "c", label: "charlie", pass_rate: 0.6, pass_count: 3 }),
+  ];
+  const { container } = render(<Leaderboard entries={entries} />);
+  const passHeaderBtn = screen.getByRole("button", { name: /Pass rate/ });
+
+  // First click → desc (highest first), aria-sort descending.
+  fireEvent.click(passHeaderBtn);
+  expect(passHeaderBtn.closest("th")!.getAttribute("aria-sort")).toBe("descending");
+  expect(rankLabels(container)).toEqual(["bravo", "charlie", "alpha"]);
+
+  // Second click → asc (lowest first).
+  fireEvent.click(passHeaderBtn);
+  expect(passHeaderBtn.closest("th")!.getAttribute("aria-sort")).toBe("ascending");
+  expect(rankLabels(container)).toEqual(["alpha", "charlie", "bravo"]);
+});
+
+test("medals are suppressed once the user sorts a column (the verdict order is left behind)", () => {
+  const entries = [
+    entry({ candidate_id: "a", label: "alpha", recommended: true, pass_rate: 1, pass_count: 5, failure_count: 0 }),
+    entry({ candidate_id: "b", label: "bravo", pass_rate: 0.6, pass_count: 3 }),
+    entry({ candidate_id: "c", label: "charlie", pass_rate: 0.4, pass_count: 2 }),
+  ];
+  const { container } = render(<Leaderboard entries={entries} />);
+  // Default ranking shows the gold medal.
+  expect(within(container).getByText("🥇")).toBeInTheDocument();
+  // Sort by est. cost → medals gone, plain rank numbers.
+  fireEvent.click(screen.getByRole("button", { name: /Est\. cost/ }));
+  expect(container.textContent).not.toContain("🥇");
+  const rankCells = [...container.querySelectorAll("tbody tr")].map(
+    (tr) => tr.querySelector("td")!.textContent,
+  );
+  expect(rankCells).toEqual(["1", "2", "3"]);
+});
+
+test("the active sort header uses the accent (it is a control, not a status)", () => {
+  render(<Leaderboard entries={[entry({}), entry({ candidate_id: "b" })]} />);
+  const btn = screen.getByRole("button", { name: /Avg score/ });
+  fireEvent.click(btn);
+  expect(btn.className).toContain("text-(--color-accent)");
 });

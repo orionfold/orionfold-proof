@@ -15,6 +15,12 @@ from orionfold.storage import repository
 SAMPLE_DATASET_ID = "sample-investment-memo"
 SAMPLE_RUN_ID = "run_sample01"
 SAMPLE_CREATED_AT = "2026-06-19T12:00:00Z"
+# Display metadata so the seeded card reads like a user-imported set (WS-F F1): a recorded
+# origin ("Bundled with Orionfold") and a check hint matching how the demo is scored. The
+# summaries are paraphrased free-form, graded by judgment (the demo defaults to the LLM
+# judge), so "eyeball" is the honest hint. Display-only — the engine never reads it.
+SAMPLE_SOURCE = "Bundled with Orionfold"
+SAMPLE_CHECK_HINT = "eyeball"
 SAMPLE_BRIEF = ProofBrief(
     task_name="Sample · investment memo summarization",
     decision_question="Which model should I trust for client memos?",
@@ -33,7 +39,13 @@ def seed_sample_data(conn: sqlite3.Connection) -> tuple[int, int]:
     """(Re)create the sample dataset + receipt. Returns (datasets, receipts) created."""
     repository.remove_sample_data(conn)  # idempotent: clear prior samples first
     dataset = _sample_dataset()
-    repository.insert_sample_dataset(conn, dataset)
+    repository.insert_sample_dataset(
+        conn,
+        dataset,
+        created_at=SAMPLE_CREATED_AT,
+        source=SAMPLE_SOURCE,
+        check_hint=SAMPLE_CHECK_HINT,
+    )
     report = run_proof(
         run_id=SAMPLE_RUN_ID,
         created_at=SAMPLE_CREATED_AT,

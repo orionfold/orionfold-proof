@@ -72,10 +72,16 @@ def test_seed_creates_flagged_sample_dataset_and_receipt():
     datasets, receipts = sample_data.seed_sample_data(conn)
     assert (datasets, receipts) == (1, 1)
     rows = repository.list_dataset_rows(conn)
-    samples = [d for d, meta in rows if meta.is_sample]
-    assert [d.id for d in samples] == [sample_data.SAMPLE_DATASET_ID]
+    samples = [(d, meta) for d, meta in rows if meta.is_sample]
+    assert [d.id for d, _ in samples] == [sample_data.SAMPLE_DATASET_ID]
     run = conn.execute("SELECT id, is_sample FROM runs").fetchone()
     assert run["id"] == sample_data.SAMPLE_RUN_ID and run["is_sample"] == 1
+    # WS-F F1: the seeded sample carries the same display metadata a user dataset gets,
+    # so its card reads with a full metadata line + hint chip (not a bare "N examples").
+    _, sample_meta = samples[0]
+    assert sample_meta.created_at == sample_data.SAMPLE_CREATED_AT
+    assert sample_meta.source == sample_data.SAMPLE_SOURCE
+    assert sample_meta.check_hint == sample_data.SAMPLE_CHECK_HINT
 
 
 def test_seed_is_idempotent():

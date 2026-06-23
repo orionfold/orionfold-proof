@@ -16,6 +16,32 @@ test("provider tag is neutral, token-driven, and not a pill (categorical identit
   expect(el.className).not.toContain("rounded-full");
 });
 
+test("mock provider tag is warn-tinted and visually distinct from the neutral real-provider tags (WS-F F4)", () => {
+  // Mock marks a SIMULATED candidate (no real evaluation) — per the reference kit's `.badge.warn`
+  // it carries a quiet warn tint so 'simulated ≠ real' reads at a glance. Never green (PASS) or
+  // cyan (a control), and never the same neutral ink as the real Cloud/Local tags.
+  const { container } = render(
+    <ProviderTag candidate={{ provider_id: "mock_good", privacy: "local" }} />,
+  );
+  const el = container.querySelector("span")!;
+  expect(el.className).toContain("text-(--color-warn)");
+  expect(el.className).not.toContain("--color-ok");
+  expect(el.className).not.toContain("accent");
+  // Distinct from the real-provider tags: Mock does NOT use their neutral ink token.
+  expect(el.className).not.toContain("text-(--color-ink-muted)");
+  // Still the neutral receipt-stub shape, not a pill.
+  expect(el.className).toContain("rounded");
+  expect(el.className).not.toContain("rounded-full");
+});
+
+test("cloud provider tag stays neutral (not warn) so the Mock tint is unambiguous", () => {
+  const { container } = render(
+    <ProviderTag candidate={{ provider_id: "openai", privacy: "cloud" }} />,
+  );
+  const el = container.querySelector("span")!;
+  expect(el.className).not.toContain("--color-warn");
+});
+
 test("local provider tag is strengthened (stronger neutral ink) without green or the accent", () => {
   // 'Local & private' is the product promise — the local tag reads more prominently than cloud,
   // but green is reserved for PASS status and cyan for controls, so neither appears here.
