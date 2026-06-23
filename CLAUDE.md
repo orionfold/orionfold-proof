@@ -82,7 +82,7 @@ Dev: `uv sync && pnpm install && uv run orionfold dev`. Target install: `uv tool
 | Need | Use | Location |
 | --- | --- | --- |
 | Always-on facts (build, layout, conventions) | CLAUDE.md (root) | this file |
-| Conventions for a subtree | CLAUDE.md (subdir) | e.g. `src/orionfold/providers/CLAUDE.md` |
+| Conventions for a subtree | Path-scoped rule (preferred; lazy-loaded) | e.g. `.claude/rules/providers.md` |
 | Cross-cutting constraint on certain files | Path-scoped rule | `.claude/rules/*.md` |
 | Procedural workflow (release, review, UX) | Skill | `.claude/skills/<name>/SKILL.md` |
 | Isolated side task returning a summary | Subagent | `.claude/agents/<name>.md` |
@@ -102,6 +102,29 @@ here is **advisory**; for guarantees use a hook or permission rule.
   a sharper prompt. Don't re-paste or re-summarize the whole opportunity doc each session.
 - Before adding deps or using framework APIs, consult `docs/tech/reference-index.md`
   (the `current-docs-check` skill).
+- **Clearing > auto-compaction.** Prefer operator-driven `/clear` + a curated
+  `HANDOFF.md` over riding auto-compaction (a hand-written handoff is higher-signal).
+  Clear on *task boundaries first* (when a unit of work completes, even at low fill);
+  as a ceiling, hand off before ~40% of the window — accuracy degrades past ~40–50%.
+- **Code in-session on Opus; delegate only reads/research/review to subagents.** Their
+  silence + summary-only return is right for reads, wrong for authoring. If a delegated
+  task is quality-sensitive, pin `model: opus` (or use a fork). Don't author production
+  code in a default subagent.
+- **Spec depth = blast radius × uncertainty.** One-liner → no plan. Single-file/clear →
+  plan mode (the plan *is* the spec). Multi-file/cross-layer/unfamiliar → write a ~1-page
+  self-contained spec, then `/clear` and implement in a fresh session. A spec is enough
+  when it names files/interfaces, fences out-of-scope, sequences a vertical slice, and
+  ends with an end-to-end check — stop there; more detail is over-engineering.
+- **Gate skill-induced ceremony (operator-approved).** The superpowers `brainstorming`,
+  `writing-plans`, and `executing-plans`/`subagent-driven-development` skills auto-trigger
+  on creative work and default to a heavy plan-file workflow. Before engaging any of them,
+  **stop and ask the operator via `AskUserQuestion`**: (a) full ceremony, (b) lightweight
+  plan mode (the plan *is* the spec), or (c) skip planning. Default to the lightest option
+  that fits the spec tier above; run the ceremony only when the operator opts in or the
+  task is genuinely multi-file/cross-layer/unfamiliar. `test-driven-development`,
+  `systematic-debugging`, and `verification-before-completion` are exempt — they're rigor,
+  not ceremony, and apply at every tier. This overrides the skills' auto-trigger
+  (CLAUDE.md instructions outrank skills).
 
 ## Safety (advisory here; enforce critical ones via hooks/permissions)
 
@@ -111,7 +134,9 @@ lockfiles, migrations, changing package-manager config, pushing, releasing, touc
 
 Never: print/log/commit secrets or API keys; write keys into receipts, UI, or
 screenshots; disable tests or hide failing checks to make a build pass; add telemetry
-without explicit operator approval.
+without explicit operator approval. The secrets rule is *enforced*, not just advised:
+`.claude/hooks/secrets-guard.py` (a PreToolUse hook) blocks any Write/Edit/commit
+carrying real key material or staging a `.env` file.
 
 ## Release gates (stop for approval at each ⏸)
 
