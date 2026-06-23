@@ -1,7 +1,7 @@
 // ScoringMethod — grouped method cards (free checks vs paid LLM judge) plus a two-step judge filter.
 // Auto (null) delegates to the backend default; the Auto card shows what that resolves to for the
 // selected dataset. Keypoint/Similarity are heuristic; LLM judge delegates scoring to a model.
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { z } from "zod";
 
@@ -9,7 +9,7 @@ import { getSelection, getSettings, rubricSchema } from "../../lib/api";
 import type { Dataset, SelectionPanel } from "../../lib/api";
 import { MethodCard } from "./MethodCard";
 import { JudgeFilter } from "./JudgeFilter";
-import { defaultJudgeCell, resolveAutoKind, thresholdFor } from "./scoring";
+import { defaultJudgeCell, prefersSampleJudge, resolveAutoKind, thresholdFor } from "./scoring";
 import { METHOD_META } from "./selectionMeta";
 import { checkHintLabel } from "./tags";
 
@@ -67,6 +67,25 @@ export function ScoringMethod({ value, onChange, dataset }: ScoringMethodProps) 
       onChange({ kind: "judge", threshold: thresholdFor("judge", thresholds), case_sensitive: false, judge_provider_id: judgeCell.providerId, judge_model: judgeCell.model });
     }
   }
+
+  // The bundled summarization demo grades free-form paraphrase, which lexical Similarity/Keypoint
+  // reads as "no winner" at any threshold. So when the sample dataset loads and a real judge has
+  // resolved, default the Configure step to the LLM judge instead of Auto — once per dataset arrival,
+  // and only while the user hasn't already chosen a method (`value === null`, i.e. still Auto). The
+  // latch (keyed on dataset id) keeps the effect from clobbering a later deliberate switch back to
+  // Auto. When no real judge exists (`judgeCell` null/undefined) `prefersSampleJudge` is false, so the
+  // demo stays on the keyless Auto path — never a silent Mock.
+  const autoDefaultedFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (autoDefaultedFor.current === dataset?.id) return;
+    if (value === null && prefersSampleJudge(dataset, judgeCell)) {
+      autoDefaultedFor.current = dataset?.id ?? null;
+      selectMethod("judge");
+    }
+    // selectMethod is stable for this purpose (re-derived each render but only invoked under the
+    // guards above); deps cover every input that flips the decision.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dataset?.id, dataset?.is_sample, value, judgeCell]);
 
   const autoKind = resolveAutoKind(dataset);
   const AUTO_LABEL: Record<typeof autoKind, string> = {

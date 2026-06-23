@@ -26,6 +26,13 @@ const kpDataset: Dataset = {
   id: "d", name: "D", description: "",
   examples: [{ input_text: "i", expected_text: "e", keypoints: ["22%"] }],
 };
+// The bundled summarization demo: keypoints present (Auto would pick Keypoint) but free-form
+// paraphrase — so with a real judge it should default to the LLM judge instead.
+const sampleDataset: Dataset = {
+  id: "sample-investment-memo", name: "Sample · investment memo summarization", description: "",
+  is_sample: true,
+  examples: [{ input_text: "i", expected_text: "e", keypoints: ["22%"] }],
+};
 
 describe("ScoringMethod", () => {
   beforeEach(() => {
@@ -114,6 +121,66 @@ describe("ScoringMethod", () => {
       );
     });
     expect(onChange).not.toHaveBeenCalledWith(expect.objectContaining({ judge_provider_id: "mock_judge" }));
+  });
+
+  it("sample dataset + real judge: auto-defaults to the LLM judge (not Auto/Keypoint)", async () => {
+    // The bundled demo grades free-form paraphrase; lexical Similarity/Keypoint reads "no winner."
+    // With a cloud key + Sandbox OFF, the Configure step should pre-select the LLM judge.
+    vi.mocked(getSelection).mockResolvedValue(cloudPanel);
+    const onChange = vi.fn();
+    render(wrap(<ScoringMethod value={null} onChange={onChange} dataset={sampleDataset} />));
+    await vi.waitFor(() => {
+      expect(onChange).toHaveBeenCalledWith(
+        expect.objectContaining({ kind: "judge", judge_provider_id: "anthropic", judge_model: "haiku" }),
+      );
+    });
+    // Never a guessed Mock, and never the keypoint fallback once a real judge resolved.
+    expect(onChange).not.toHaveBeenCalledWith(expect.objectContaining({ judge_provider_id: "mock_judge" }));
+    expect(onChange).not.toHaveBeenCalledWith(expect.objectContaining({ kind: "keypoint" }));
+  });
+
+  it("sample dataset but no real judge (Sandbox OFF, no key): stays on Auto, never auto-Mock", async () => {
+    // Default mocks: empty panel → defaultJudgeCell is null. The sample must NOT silently switch to
+    // a Mock judge; it stays Auto (which resolves to the keyless keypoint heuristic).
+    const onChange = vi.fn();
+    render(wrap(<ScoringMethod value={null} onChange={onChange} dataset={sampleDataset} />));
+    expect(await screen.findByText(/add a provider key or start Ollama/i)).toBeInTheDocument();
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("non-sample dataset: does NOT auto-default to the LLM judge", async () => {
+    vi.mocked(getSelection).mockResolvedValue(cloudPanel);
+    const onChange = vi.fn();
+    render(wrap(<ScoringMethod value={null} onChange={onChange} dataset={kpDataset} />));
+    // Let the panel + settings resolve; the auto-default effect would have fired by now if it applied.
+    await screen.findByRole("button", { name: /LLM judge/i });
+    await vi.waitFor(() => expect(vi.mocked(getSelection)).toHaveBeenCalled());
+    expect(onChange).not.toHaveBeenCalledWith(expect.objectContaining({ kind: "judge" }));
+  });
+
+  it("sample dataset: a deliberate switch back to Auto is not clobbered by the auto-default", async () => {
+    vi.mocked(getSelection).mockResolvedValue(cloudPanel);
+    const onChange = vi.fn();
+    render(wrap(<ScoringMethod value={null} onChange={onChange} dataset={sampleDataset} />));
+    // First the auto-default lands on judge.
+    await vi.waitFor(() => expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ kind: "judge" })));
+    onChange.mockClear();
+    // User deliberately picks Auto; the effect must not re-fire judge.
+    fireEvent.click(screen.getByRole("button", { name: /Auto/i }));
+    expect(onChange).toHaveBeenCalledWith(null);
+    // Give any stray effect a chance to fire, then assert judge was never re-emitted.
+    await Promise.resolve();
+    expect(onChange).not.toHaveBeenCalledWith(expect.objectContaining({ kind: "judge" }));
+  });
+
+  it("Sandbox ON + sample dataset: does NOT auto-select the Mock judge (stays on the keyless demo)", async () => {
+    vi.mocked(getSettings).mockResolvedValue({ sandbox_enabled: true, thresholds: { similarity: 0.55, keypoint: 0.8, judge: 0.8 } } as Settings);
+    const onChange = vi.fn();
+    render(wrap(<ScoringMethod value={null} onChange={onChange} dataset={sampleDataset} />));
+    const judge = await screen.findByRole("button", { name: /LLM judge/i });
+    // Settings has resolved (judge button enabled in Sandbox); the auto-default must not have fired.
+    await vi.waitFor(() => expect(judge).not.toBeDisabled());
+    expect(onChange).not.toHaveBeenCalledWith(expect.objectContaining({ kind: "judge" }));
   });
 
   it("Sandbox ON: LLM judge offers the keyless Mock judge", async () => {

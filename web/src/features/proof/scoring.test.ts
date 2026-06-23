@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { resolveAutoKind, filterJudgeModels, defaultJudgeCell, DEFAULT_THRESHOLDS, thresholdFor } from "./scoring";
+import { resolveAutoKind, filterJudgeModels, defaultJudgeCell, prefersSampleJudge, DEFAULT_THRESHOLDS, thresholdFor } from "./scoring";
+import type { JudgeCell } from "./scoring";
 import type { Dataset, SelectionPanel } from "../../lib/api";
 
 describe("DEFAULT_THRESHOLDS / thresholdFor", () => {
@@ -167,5 +168,42 @@ describe("defaultJudgeCell", () => {
 
   it("undefined panel: returns null (nothing selectable yet)", () => {
     expect(defaultJudgeCell(undefined, false)).toBeNull();
+  });
+});
+
+// The bundled summarization demo grades free-form paraphrase, which lexical Similarity/Keypoint
+// scores ~0 ("no winner") at any threshold — so the demo should default to the LLM judge when one
+// is actually available. `prefersSampleJudge` is the pure gate: only the sample dataset, only when a
+// real judge cell resolved (never undefined/null — that would mean no judge is configured).
+describe("prefersSampleJudge", () => {
+  const realCell: JudgeCell = { privacy: "cloud", tier: "economy", providerId: "anthropic", model: "haiku" };
+  function sample(is_sample: boolean | undefined): Dataset {
+    return { id: "sample-investment-memo", name: "Sample", description: "", is_sample, examples: [] };
+  }
+
+  it("prefers the judge for the sample dataset when a real judge cell resolved", () => {
+    expect(prefersSampleJudge(sample(true), realCell)).toBe(true);
+  });
+  it("does not prefer the judge for a non-sample dataset", () => {
+    expect(prefersSampleJudge(sample(false), realCell)).toBe(false);
+  });
+  it("does not prefer the judge when is_sample is absent", () => {
+    expect(prefersSampleJudge(sample(undefined), realCell)).toBe(false);
+  });
+  it("does not prefer the judge for an undefined dataset", () => {
+    expect(prefersSampleJudge(undefined, realCell)).toBe(false);
+  });
+  it("does not prefer the judge before the judge cell resolves (undefined)", () => {
+    expect(prefersSampleJudge(sample(true), undefined)).toBe(false);
+  });
+  it("does not prefer the judge when no real judge is configured (null)", () => {
+    // Sandbox OFF + no key/host → defaultJudgeCell returns null; the sample must NOT silently use Mock.
+    expect(prefersSampleJudge(sample(true), null)).toBe(false);
+  });
+  it("does not prefer the judge when the resolved cell is the Mock judge (Sandbox ON)", () => {
+    // In Sandbox the existing keyless demo already shows a clear winner; the real-judge default is
+    // strictly for real-model runs. A mock_judge cell (Sandbox ON) must leave the sample on Auto.
+    const mockCell: JudgeCell = { privacy: "local", tier: "economy", providerId: "mock_judge", model: null };
+    expect(prefersSampleJudge(sample(true), mockCell)).toBe(false);
   });
 });

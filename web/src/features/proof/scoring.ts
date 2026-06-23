@@ -138,6 +138,23 @@ export interface JudgeCell {
 // with a real model: prefer a Hosted cloud judge (any available cloud key), else a real Local judge
 // (e.g. Ollama). Returns null when NO real judge is configured and Sandbox is off — the caller then
 // disables the LLM-judge method with an "add a key / start Ollama" hint instead of silently mocking.
+// The bundled summarization demo grades free-form paraphrase — lexical Similarity/Keypoint scores it
+// ~0 ("no winner") at any threshold, which is a discouraging first proof. So when the selected dataset
+// is the bundled sample AND a *real* (non-mock) judge has resolved, the Configure step should default
+// to the LLM judge instead of Auto. Gated tightly:
+//   - only the sample dataset (`is_sample`), never a user's own set;
+//   - `judgeCell` must be a resolved cell — `undefined` means the default hasn't resolved yet, `null`
+//     means no real judge is configured (Sandbox OFF); both leave the demo on the keyless Auto path;
+//   - the cell must NOT be the keyless `mock_judge`. In Sandbox the existing keyless demo already
+//     shows a clear winner; this default is strictly for real-model runs, so a Mock cell stays Auto.
+// This mirrors the A3 "never silently Mock" rule and keeps Sandbox behavior unchanged. FE-only.
+export function prefersSampleJudge(
+  dataset: Dataset | undefined,
+  judgeCell: JudgeCell | null | undefined,
+): boolean {
+  return dataset?.is_sample === true && Boolean(judgeCell) && judgeCell!.providerId !== "mock_judge";
+}
+
 export function defaultJudgeCell(
   panel: SelectionPanel | undefined,
   sandbox: boolean,
