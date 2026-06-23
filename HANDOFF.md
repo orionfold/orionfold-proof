@@ -146,7 +146,8 @@ operator has OK'd it; Sandbox stays OFF (no mocks).**
 
 ## BACKLOG — non-blocking, deferred behind the `_IDEAS`→`_SPECS` pipeline (operator picks)
 1. **Quick-Compare promote carries the prompt** — promote pre-fills the 2 candidates but NOT the
-   ad-hoc prompt (by design). Future: seed the prompt into a one-example set.
+   ad-hoc prompt (by design). Future: seed the prompt into a one-example set. **Full diagnosis +
+   forks now in `_IDEAS/backlog.md` §B2** (durable home; this line is the volatile pointer).
 2. **Stored "Recommended on 0/5"** — some 2026-06-21 stored runs persisted `recommended:true` on a
    0-pass candidate (pre-gate). New runs correct. Optional one-off backfill.
 3. **Catalog price/source accuracy pass** — verify list prices + context windows (`current-docs-check`).
