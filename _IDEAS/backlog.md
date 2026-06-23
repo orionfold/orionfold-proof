@@ -65,6 +65,12 @@
 
 ## B3 · Brainstorm real-world demo datasets drawn from our own `~/orionfold/` projects
 
+> ✅ **SHIPPED 2026-06-23 (`af8203d`).** Synthesized 3 new bundled datasets — `support-ticket-triage`
+> (exact), `contract-field-extraction` (contains), `buyer-need-solution-match` (similarity/LLM-judge) —
+> so a fresh install spans four rubric classes. All synthetic (no real `~/orionfold/` data — operator
+> chose synthesize-only for privacy). Spec `_SPECS/2026-06-23-real-world-demo-datasets.md`; worklog
+> `docs/worklog/2026-06-23-b3-real-world-demo-datasets.md`. Detail below kept for provenance.
+
 - **Priority:** Someday / MED. Non-blocking — the bundled *Investment memo summarization (5 examples)*
   sample already carries the demo path. This is about **stronger, more credible proof material**, not
   fixing a defect.

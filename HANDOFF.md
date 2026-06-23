@@ -6,7 +6,32 @@
 > To resume: in a fresh session say **"read from handoff"** (or "continue from last
 > session"), or `/clear` and paste the prompt below.
 
-_Last updated: 2026-06-23 · **Stage 3 COMPLETE — Task 11 (WS-F DS application-consistency pass) is DONE +
+_Last updated: 2026-06-23 · **BACKLOG B3 (real-world demo datasets) is DONE + committed (`af8203d`).** The
+approved spec `_SPECS/2026-06-23-real-world-demo-datasets.md` shipped: **3 new bundled synthetic datasets**
+(`support-ticket-triage`→exact, `contract-field-extraction`→contains, `buyer-need-solution-match`→similarity
+/LLM-judge) so a fresh install spans **four rubric classes** (keypoint·exact·contains·judge). All additive —
+**no migration** (index stays 6); mock `467ddd96c9a5` untouched by construction (brand-new ids, no shared hash
+path; no new `check_hint` maps to keypoint). `sample_data.py` refactored single-seed → a `SampleSpec` list;
+`seed_sample_data` returns **`(4,4)`** and scores each seeded receipt by the same rubric a real run resolves
+(the investment-memo sample stays keypoint — its `check_hint="eyeball"` ∉ `_HINT_KIND`). `SettingsView` seed/
+remove copy pluralized to match the new count. Verified: **309 BE (+11) / 230 FE**, ruff + pyright clean on
+changed files, **13/13 Playwright** (re-embedded build). **Real-model browser pass** (Sandbox OFF, real keys,
+cost OK'd; Haiku 4.5 + GPT-5.4-nano): triage→**Exact 100%** clear winner; extraction→Auto reads "Contains text
+→ Contains", **Contains** clear winner; buyer-match→demo-judge-default auto-picked **LLM judge · claude-haiku-
+4-5**, verdict "claude-haiku-4-5 is the clear pick" (20% vs nano 0%); all 3 receipts record the right "Scored
+by:" line + **secret-free** (md/html/json: 0 matches). **Operator decisions:** (a) browser-verify all 3; (b)
+loosen buyer-match reference pitches; (c) the loosening only marginally moved pass rate (judge@0.8 is strict on
+open-ended generation — a Settings knob, out of B3 scope) → **ship the loosened data as-is** (honest, repeatable
+clear winner). Fresh-context diff-reviewer: **PASS** (confirmed mock-hash safety, no migration, metadata DB-only,
+investment-memo→keypoint preserved, empty-hint→None test, justified SettingsView pluralization). ⚠️ **Pre-existing
+pyright (9): `receipts/export.py` + `recipes/resolution.py` errors exist on the CLEAN pre-B3 tree (stash-confirmed)
+— NOT from B3; prior "pyright clean" claims were inaccurate. Worth a separate cleanup.** (worklog
+`docs/worklog/2026-06-23-b3-real-world-demo-datasets.md`.) **Next: back to deferred BACKLOG (operator picks) —
+natural next is #7 packaging·licensing·distribution (BRAINSTORM FIRST); #8 git remote+push stays LAST.** `main`
+local-only; git remote/push stay queued LAST until packaging (operator directive)._
+
+<!-- prior status (Stage 3 COMPLETE, Task 11 WS-F, 9820b5c) below — superseded -->
+<!-- _Stage 3 COMPLETE — Task 11 (WS-F DS application-consistency pass) is DONE +
 committed (`9820b5c`). The Stage-3 point queue is now EMPTY.** WS-F shipped all five DS items in one session
 (token foundation already matched — these were application-consistency fixes, NOT color drift): **F1** the
 seeded sample dataset now writes display metadata (`insert_sample_dataset` + `seed_sample_data` pass
@@ -34,7 +59,7 @@ secret-free; restored Sandbox OFF + dark after. Full-receipt HTML **byte-identic
 issues** (independently confirmed the `config_hash` double-safeguard + null-sort + accent/status split +
 ViewShell scope). (worklog `docs/worklog/2026-06-23-ws-f-ds-application-consistency.md`.) **Next: the point
 queue is EMPTY — only deferred backlog remains (packaging·licensing·distribution, BRAINSTORM first → git
-remote+push LAST).** `main` local-only; git remote/push stay queued LAST until packaging (operator directive)._
+remote+push LAST).** `main` local-only; git remote/push stay queued LAST until packaging (operator directive)._ -->
 
 <!-- prior status (Task 9.5 demo-scorer-default, 50155bb) below — superseded -->
 <!-- _Stage 3 in progress — the demo-scorer-default fix (Task 10's blocker) is
@@ -65,22 +90,26 @@ regressions/invariant violations/scope creep**. (worklog `docs/worklog/2026-06-2
 guided first-run CTA) is now UNBLOCKED — build the one-click "run the demo on real models" CTA.** `main`
 local-only; git remote/push stay queued LAST until packaging (operator directive)._ -->
 
-## ▶️ START HERE NEXT SESSION — Stage 3 point queue is EMPTY. Only deferred backlog remains.
+## ▶️ START HERE NEXT SESSION — NO queued task. Deferred BACKLOG only (operator picks).
 
-**Stage 3 is COMPLETE** — Tasks 1–10 + the demo-scorer-default fix + Task 11 (WS-F) are all checked off
-below. **There is no next point-task.** Remaining work is entirely the **deferred BACKLOG** (see the BACKLOG
-section). Per the operator pipeline, surface backlog items only when the operator picks one — and **do NOT
-surface or start git remote + push until packaging·licensing·distribution is done** (operator directive).
+**Stage 3 point queue is EMPTY and the picked backlog item (B3 demo datasets) is SHIPPED (`af8203d`).** Do
+**NOT** auto-start anything — surface a backlog item only when the operator asks. The natural next is
+**BACKLOG #7 packaging·licensing·distribution** (LICENSE + source headers, PyPI metadata: dist
+`orionfold-proof` / CLI `orionfold` / reserve `orionfold` + `orionfold-arena`; `uv tool install
+orionfold-proof` → `orionfold up`; release notes / demo script) — **BRAINSTORM/scope FIRST** (gate the
+planning ceremony via `AskUserQuestion` per CLAUDE.md). Then **BACKLOG #8 git remote + push — LAST, do NOT
+surface until packaging is done** (operator directive). `main` is local-only with all work committed; the
+build is at a clean shippable state.
 
-**If the operator wants to proceed:** the natural next item is **BACKLOG #7 — packaging · licensing ·
-distribution** (LICENSE + source headers, PyPI metadata: dist `orionfold-proof`, CLI `orionfold`, reserve
-`orionfold` + `orionfold-arena`; `uv tool install orionfold-proof` → `orionfold up`; release notes / demo
-script). **BRAINSTORM/scope FIRST** (it's multi-file/cross-cutting — gate the planning ceremony via
-`AskUserQuestion` per CLAUDE.md). After packaging, **BACKLOG #8 git remote + push** (LAST).
+**⚠️ Known pre-existing issue worth a cleanup pass (NOT from B3):** the clean tree has **9 pyright errors**
+in `src/orionfold/receipts/export.py` (3 — `str|None` return + `LeaderboardEntry|None` args) and
+`src/orionfold/recipes/resolution.py` (6 — `min()` over a `float|None` key). Stash-confirmed present before
+B3, so prior "pyright clean" handoff claims were inaccurate (`[tool.pyright]` scopes `include=["src"]`,
+basic). Likely fixable with `None`-guards / `key=lambda r: r[...] or 0.0`. Offer as a quick hygiene task.
 
-_Otherwise: the build is at a clean, shippable Stage-3 state. `main` is local-only with all work committed._
-
-_Task 10 (WS-E2 guided first-run CTA) = `5cc8ca0` (worklog
+_B3 real-world demo datasets = `af8203d` (worklog `docs/worklog/2026-06-23-b3-real-world-demo-datasets.md`;
+spec `_SPECS/2026-06-23-real-world-demo-datasets.md`). Task 11 (WS-F DS pass) = `9820b5c`.
+Task 10 (WS-E2 guided first-run CTA) = `5cc8ca0` (worklog
 `docs/worklog/2026-06-23-ws-e2-guided-first-run-cta.md`). Demo-scorer-default fix = `50155bb` (worklog
 `docs/worklog/2026-06-23-demo-judge-default.md`). Task 9 (WS-E1 add-key affordance) = `f65e686` (worklog
 `docs/worklog/2026-06-23-ws-e1-candidates-add-key-affordance.md`). Task 8 (WS-D2 cost ledger) = `055bd50`
