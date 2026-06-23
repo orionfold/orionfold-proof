@@ -6,57 +6,69 @@
 > To resume: in a fresh session say **"read from handoff"** (or "continue from last
 > session"), or `/clear` and paste the prompt below.
 
-_Last updated: 2026-06-22 · **SHIPPED: Quick-Compare → Proof Receipt (sub-project 3 of 3).** The
-sequenced **Datasets → Leaderboard → Quick-Compare** arc is now COMPLETE (all 3 done). Sub-project 3
-adds a 1-prompt × 2-candidate **"Quick ⚡"** third compare mode reusing the matrix engine + exporter:
-both candidates generate unscored (`{kind:"none"}`), a head-to-head shows objective bars
-(latency/cost/tokens) + human **pick-a-winner**, saved as a labeled **quick-check** Proof Receipt
-(`mode`+`chosen_winner`, **`RECEIPT_VERSION` 7→8**) with a promote-to-full CTA. Proof scoring,
-ranking, and `config_hash` untouched. 13 TDD commits on `main`. `main` is local-only; git remote +
-push stay queued LAST until packaging is done (operator directive)._
+_Last updated: 2026-06-22 · **E2E verification of the shipped arc + 1 bug fix.** Browser-walked all
+three shipped sub-projects (Datasets · Leaderboard · Quick-Compare) end to end — all healthy. Found &
+fixed one real bug: the **Receipts archive list** showed "No clear winner" for quick-compare receipts
+that had a recorded pick (it read `leaderboard.recommended`, which is always empty for unscored quick
+runs, instead of `run.chosen_winner`). Now reads **"Picked &lt;label&gt;"** / "Tie — no clear winner".
+Also removed the dead `pickLabel` helper (**closes old backlog #1**). 2 TDD commits on `main`
+(`b06face` fix, `aea1931` cleanup). The sequenced **Datasets → Leaderboard → Quick-Compare** arc
+remains COMPLETE. `main` is local-only; git remote + push stay queued LAST until packaging is done
+(operator directive)._
 
 ## ▶️ START HERE NEXT SESSION
-1. **Optional sanity check** (web source changed): for the EMBEDDED path (`uv run orionfold dev`,
-   `:8787`) run `bash scripts/build.sh` first; otherwise live source `pnpm --dir web dev`.
-   - ⚠️ `:8787` may be occupied by an unrelated app here — if so run the API on a free port
-     (`uv run orionfold dev --port 8790`) and the UI with
+1. **No verification debt.** This session ran the full E2E browser walk of the shipped arc; all green
+   and the one bug found is fixed (see below). No re-check needed before new work.
+   - To bring the app up: live source `pnpm --dir web dev`; EMBEDDED path (`uv run orionfold dev`,
+     `:8787`) needs `bash scripts/build.sh` first. ⚠️ `:8787` may be occupied by an unrelated app
+     here — if so run the API on a free port (`uv run orionfold dev --port 8790`) and the UI with
      `VITE_DEV_PORT=5174 VITE_API_PROXY=http://127.0.0.1:8790 pnpm --dir web dev` (Vite may land on
-     `:5175`).
-   - Quick-Compare flow: Proof Run → **Compare by → Quick ⚡** → paste a prompt (2 mock candidates
-     pre-selected in Sandbox) → Run → head-to-head with objective bars (neutral ink) → pick a winner
-     → **Save as Proof Receipt** → Receipts → open it → the HTML preview reads **QUICK CHECK**,
-     "Picked …", **Receipt schema v8**, + "Promote to a full scored run". (Already verified this
-     session — see worklog.)
-2. **Then decide the next work item** with the operator. The 3-part arc is done; remaining items are
-   the backlog below. **Brainstorm scope FIRST** for anything non-trivial (packaging especially).
+     `:5175`). Both `:5174` and `:5175` proxy to the same API; the unrelated `:8787` app returns a
+     different health shape (`{"ok":true,"token_required":true}`) — ours is `{"status":"ok",...}`.
+2. **Decide the next work item** with the operator. The 3-part arc is done; remaining items are the
+   backlog below. **Brainstorm scope FIRST** for anything non-trivial (packaging especially).
 
-## ✅ LAST SESSION — Quick-Compare → Proof Receipt (sub-project 3 of 3)
-> Evidence: `docs/worklog/2026-06-22-quick-compare.md`. Spec + plan under
-> `docs/superpowers/specs|plans/2026-06-22-quick-compare*`. 13 TDD commits on `main`.
+## ✅ LAST SESSION — E2E verification + Receipts-list quick-pick fix
+> Evidence: 2 TDD commits on `main` (`b06face` fix, `aea1931` cleanup) atop the quick-compare arc.
+> Prior arc evidence: `docs/worklog/2026-06-22-quick-compare.md`.
 
-- **Engine:** `RubricKind` gains `"none"` → `iter_matrix` skips scoring (`score`/`passed` `None`) +
-  captures `input_tokens`/`output_tokens` on `ResultRow`; `build_leaderboard` `None`-safe.
-- **Provenance:** `ProofRun.mode` (`"full"|"quick"`) + `chosen_winner` (candidate id / `"tie"` /
-  `None`). **Excluded from `config_hash`** (hash identical before/after a pick — tested).
-- **API:** `RunRequest.examples`/`mode` → ephemeral `Dataset(id="quick-compare")` (no dataset row);
-  `PATCH /api/runs/{id}/winner` records+validates the pick; `list_runs` hides un-picked quick runs.
-- **Receipt:** `RECEIPT_VERSION` **8**; quick branch (pick-based verdict, objective columns
-  latency/cost/tokens, no failure cases, "QUICK CHECK" banner + promote note) in `build_receipt` +
-  dedicated quick MD/HTML; shared `_RECEIPT_STYLE` const (full HTML byte-identical).
-- **Web:** third `Quick ⚡` mode in `RunSetup` (prompt + 2-candidate lane; dataset/scoring hidden);
-  `ProofCockpit` quick state + 2-candidate cap + run branch + Decide-branch on `mode`;
-  `QuickCompare.tsx` head-to-head (cards, neutral-ink bars, pick, save→`patchWinner`, promote);
-  pure `quickCompareFormat.ts` helpers; `patchWinner` client.
-- **Verification:** backend **271** passed; web **118** passed; `tsc` clean; `ruff` clean; e2e
-  **5/5** (incl. new quick flow asserting the saved receipt reads QUICK CHECK); browser-verified
-  head-to-head (neutral bars, pick → accent + Save enabled); quick MD/HTML/JSON are v8 + secret-free.
+- **Bug fixed (`ReceiptsView.tsx`):** the archive list derived its summary winner only from
+  `leaderboard.find(e => e.recommended)`. Quick runs are unscored (`{kind:"none"}`) → nothing is
+  recommended → every *picked* quick receipt collapsed to a misleading **"No clear winner"** (the
+  receipt *detail* was correct — it reads `chosen_winner`). The card now branches on
+  `run.mode === "quick"`, resolves `run.chosen_winner` (id / `"tie"` / `null`) against
+  `run.candidates`, and renders **"Picked &lt;label&gt;"** + `ProviderTag` (or "Tie — no clear
+  winner"). Scored-run path unchanged, gated behind `!isQuick`. TDD: 2 new `ReceiptsView` tests
+  (a quick `QUICK_REPORT` fixture), red→green, **browser-confirmed** the list now reads "Picked Mock
+  · good".
+- **Cleanup (`aea1931`):** removed the dead `pickLabel` helper + its test (was built/tested but never
+  wired — it emitted candidate *ids*, while the UI resolves *labels*). Closes old backlog #1.
+- **Verification:** web **119** passed (was 118: +2 tests, −1 removed); `tsc` clean; worktree clean;
+  backend untouched (no Python changed). E2E browser walk confirmed Datasets, Leaderboard (ranking,
+  $/quality, failure browser, recommendation gate, receipt export panel), and the full Quick-Compare
+  save→v8-receipt path are all healthy.
+
+### Arc reference — Quick-Compare → Proof Receipt (sub-project 3, shipped earlier)
+- **Engine:** `RubricKind` `"none"` → `iter_matrix` skips scoring (`score`/`passed` `None`) +
+  captures `input_tokens`/`output_tokens`; `build_leaderboard` `None`-safe.
+- **Provenance:** `ProofRun.mode` + `chosen_winner`, **excluded from `config_hash`**.
+- **API:** ephemeral `Dataset(id="quick-compare")` (no row); `PATCH /api/runs/{id}/winner`;
+  `list_runs` hides un-picked quick runs.
+- **Receipt:** `RECEIPT_VERSION` **8**; quick branch + dedicated quick MD/HTML; shared
+  `_RECEIPT_STYLE` (full HTML byte-identical).
+- **Web:** `Quick ⚡` mode in `RunSetup`; `ProofCockpit` Decide-branch on `mode`; `QuickCompare.tsx`
+  head-to-head (neutral-ink bars, pick, save→`patchWinner`, promote).
 
 ## BACKLOG — non-blocking (operator picks)
-1. **`pickLabel` cleanup** — implemented + tested in `quickCompareFormat.ts` but unused by
-   `QuickCompare.tsx` (label derived inline). Wire into receipt-confirmation copy or drop. Trivial.
-2. **Quick-Compare promote carries the prompt** — "Promote to a full scored run" currently pre-fills
-   a Models run with the same 2 candidates but NOT the ad-hoc prompt (by design; a quick prompt isn't
-   a frozen dataset). Future enhancement if operators want the prompt seeded into a one-example set.
+1. **Keyless Quick-Compare demo is degenerate** (new; UX, not a bug) — the pre-selected mock pair
+   makes a poor head-to-head: `mock_good` returns `example.expected_text` (`providers/mock.py:66`),
+   but a quick prompt has no expected answer → its output is blank ("—"), while `mock_bad` shows its
+   generic sentence. A first-timer eyeballing this would paradoxically pick "bad". Quick-Compare
+   shines with *real* providers; consider a quick-mode mock that echoes a plausible summary so the
+   keyless demo/onboarding path looks right. **Brainstorm.**
+2. **Quick-Compare promote carries the prompt** — "Promote to a full scored run" pre-fills a Models
+   run with the same 2 candidates but NOT the ad-hoc prompt (by design; a quick prompt isn't a frozen
+   dataset). Future enhancement if operators want the prompt seeded into a one-example set.
 3. **Stored "Recommended on 0/5"** (carried over) — some 2026-06-21 stored full runs persisted
    `recommended:true` on a 0-pass candidate (pre-gate). New runs correct. Optional one-off backfill.
 4. **Catalog price/source accuracy pass** — verify list prices + context windows (`current-docs-check`).
@@ -71,6 +83,8 @@ push stay queued LAST until packaging is done (operator directive)._
 9. **git remote + push** — **LAST item; do NOT surface or start until packaging (#8) is done**
    (operator directive). No remote configured; `main` holds all work unpushed.
 
+_Done since last handoff: old #1 `pickLabel` cleanup (removed as dead code, `aea1931`)._
+
 ## Key invariants to NOT regress
 - **Quick-Compare (new):** `mode`/`chosen_winner` live on `ProofRun` (JSON report blob) ONLY and are
   **EXCLUDED from `config_hash`** (a quick run's hash is identical before/after a pick). The unscored
@@ -79,6 +93,11 @@ push stay queued LAST until packaging is done (operator directive)._
   dataset row written**. `list_runs` hides quick runs with `chosen_winner is None`. Quick receipts
   use objective columns + neutral-ink bars — **never `--color-accent` (interactive) or `--color-ok`
   (PASS)** for the bars; the pick selection legitimately uses the accent (interactive).
+- **Receipts archive list (`ReceiptsView.tsx`):** the per-row summary winner is **mode-specific** —
+  full runs read `leaderboard.recommended` ("Winner … % … Scored by"); quick runs read
+  `run.chosen_winner` resolved against `run.candidates` ("Picked &lt;label&gt;" / "Tie — no clear
+  winner"). Do NOT collapse quick runs onto the `recommended` path — nothing is ever recommended in an
+  unscored run, so it would always show the wrong "No clear winner".
 - **`RECEIPT_VERSION` is now 8.** The quick receipt is the protected artifact's lightweight variant:
   always labeled "QUICK CHECK · not scored proof" + promote CTA; never claims scored proof.
   `_RECEIPT_STYLE` is shared by full + quick HTML (full output must stay byte-identical — guarded by
@@ -103,23 +122,24 @@ push stay queued LAST until packaging is done (operator directive)._
 Use the context-refresh skill to load current state from docs/ (release charter, ADR-0001/0002/0003,
 latest worklog 2026-06-22-quick-compare, and the specs/plans under docs/superpowers/).
 
-The sequenced Datasets → Leaderboard → Quick-Compare arc is COMPLETE (all 3 sub-projects shipped).
-Optionally sanity-check the Quick-Compare flow in a browser (Proof Run → Compare by → Quick ⚡ → prompt
-→ 2 mock candidates → Run → pick → Save → Receipts → receipt reads "QUICK CHECK" + schema v8), then
-decide the next backlog item with the operator. BRAINSTORM scope FIRST for anything non-trivial.
+The sequenced Datasets → Leaderboard → Quick-Compare arc is COMPLETE (all 3 sub-projects shipped) and
+was fully E2E-verified in a browser last session — no verification debt. Decide the next backlog item
+with the operator. BRAINSTORM scope FIRST for anything non-trivial.
 
 RECENT WORK (committed to main; no git remote):
-- (latest) QUICK-COMPARE → Proof Receipt (sub-project 3 of 3): 1-prompt × 2-candidate "Quick ⚡" third
-  compare mode reusing the matrix engine + exporter; unscored {kind:"none"} generation; head-to-head
-  objective bars (latency/cost/tokens, neutral ink) + human pick-a-winner; saved as a labeled
-  quick-check Proof Receipt (ProofRun.mode + chosen_winner, RECEIPT_VERSION 7→8, excluded from
-  config_hash) with a promote-to-full CTA. Verified: backend 271, web 118, tsc/ruff clean, e2e 5/5,
-  browser + receipt-quality (v8, secret-free). Evidence: docs/worklog/2026-06-22-quick-compare.md.
+- (latest) RECEIPTS-LIST QUICK-PICK FIX (b06face) + dead-pickLabel removal (aea1931): the Receipts
+  archive list showed "No clear winner" for picked quick-compare receipts (read leaderboard.recommended,
+  always empty for unscored quick runs, instead of run.chosen_winner). Now reads "Picked <label>" /
+  "Tie — no clear winner", mode-specific. TDD red→green, browser-confirmed. Web 119 pass, tsc clean.
+- QUICK-COMPARE → Proof Receipt (sub-project 3 of 3): 1-prompt × 2-candidate "Quick ⚡" mode reusing
+  the matrix engine + exporter; unscored {kind:"none"}; head-to-head objective bars + human pick;
+  saved as a quick-check Proof Receipt (ProofRun.mode + chosen_winner, RECEIPT_VERSION 8, excluded
+  from config_hash) + promote CTA. Evidence: docs/worklog/2026-06-22-quick-compare.md.
 
-BACKLOG (operator picks): pickLabel cleanup (unused); quick-promote carries the prompt; stored
-recommended-on-0/5 backfill; catalog price pass; cross-product models×prompts (BRAINSTORM); DS-skin
-polish; richer sample data; packaging·licensing·distribution (BRAINSTORM); git remote + push — LAST,
-do NOT surface until packaging is done (operator directive).
+BACKLOG (operator picks): keyless quick-compare demo is degenerate (mock_good blank — BRAINSTORM);
+quick-promote carries the prompt; stored recommended-on-0/5 backfill; catalog price pass; cross-product
+models×prompts (BRAINSTORM); DS-skin polish; richer sample data; packaging·licensing·distribution
+(BRAINSTORM); git remote + push — LAST, do NOT surface until packaging is done (operator directive).
 
 Do NOT regress invariants in HANDOFF.md (Quick-Compare mode/chosen_winner on ProofRun only + EXCLUDED
 from config_hash / {kind:"none"} → None score+passed / build_leaderboard None-safe / ephemeral
