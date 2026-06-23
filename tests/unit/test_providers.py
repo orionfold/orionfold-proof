@@ -5,7 +5,13 @@ from math import ceil
 from orionfold.data import load_dataset
 from orionfold.domain.models import Candidate, Example, ProviderResult
 from orionfold.providers.base import Provider, redact_secrets, safe_generate
-from orionfold.providers.mock import MockBadProvider, MockGoodProvider, _shape_for_prompt
+from orionfold.providers.mock import (
+    MockBadProvider,
+    MockGoodProvider,
+    _condense,
+    _shape_for_prompt,
+    _stable_int,
+)
 from orionfold.providers.registry import available_candidates, get_provider
 
 
@@ -54,6 +60,54 @@ def test_mock_bad_errors_on_at_least_one_bundled_example():
     dataset = load_dataset("investment-memo-summarization")
     results = [safe_generate(provider, ex, cand) for ex in dataset.examples]
     assert sum(1 for r in results if r.error is not None) >= 1
+
+
+# --- Quick-Compare keyless demo: empty expected_text is the "quick mode" signal. ---
+
+
+def _quick_example(text: str) -> Example:
+    """An ad-hoc quick-compare example — no expected answer (cf. ProofCockpit's payload)."""
+    return Example(input_text=text, expected_text="")
+
+
+def test_mock_good_condenses_input_when_no_expected_text():
+    provider = MockGoodProvider()
+    ex = _quick_example("Summarize this for a client memo: Q3 revenue reached $48.2M, up 22% YoY.")
+    cand = Candidate(id="mock_good", label="g", provider_id="mock_good")
+    first = provider.generate(ex, cand)
+    second = provider.generate(ex, cand)
+    assert first.output_text != ""  # never blank on the keyless quick path
+    assert "Q3 revenue reached $48.2M" in first.output_text  # on-topic: salient content kept
+    assert "Summarize" not in first.output_text  # the instruction clause is stripped
+    assert first.error is None
+    assert first == second  # deterministic
+
+
+def test_condense_strips_leading_instruction_clause():
+    out = _condense("Summarize this for a client memo: Q3 revenue reached $48.2M, up 22% YoY.")
+    assert "Summarize" not in out
+    assert out.startswith("Q3 revenue reached $48.2M")
+
+
+def test_condense_caps_long_input_to_a_word_budget():
+    words = " ".join(f"alpha{i}" for i in range(60))  # 60 words, no sentence terminator
+    out = _condense(words)
+    kept = out.replace("…", "").split()
+    assert len(kept) <= 28  # capped to a tidy takeaway length
+    assert kept == [f"alpha{i}" for i in range(len(kept))]  # trimmed at a word boundary, in order
+
+
+def test_mock_bad_never_errors_in_quick_mode():
+    provider = MockBadProvider()
+    cand = Candidate(id="mock_bad", label="b", provider_id="mock_bad")
+    # An input that DOES error in dataset mode (non-empty expected)...
+    erroring_input = next(f"memo {i}" for i in range(100) if _stable_int(f"memo {i}") % 5 == 0)
+    with_expected = Example(input_text=erroring_input, expected_text="Some expected answer.")
+    assert safe_generate(provider, with_expected, cand).error is not None
+    # ...must NOT error on the keyless quick path — the demo always shows a weak answer.
+    quick = safe_generate(provider, _quick_example(erroring_input), cand)
+    assert quick.error is None
+    assert quick.output_text != ""
 
 
 def test_safe_generate_redacts_secrets_from_error_messages():

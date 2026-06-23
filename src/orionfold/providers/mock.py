@@ -55,6 +55,40 @@ def _shape_for_prompt(base: str, system_prompt: str | None) -> str:
     return " ".join(words[:keep])
 
 
+# Quick-compare has no expected answer, so `mock_good` synthesizes a plausible "good" output
+# FROM the pasted prompt instead. This keeps the keyless head-to-head a clear good-vs-bad.
+_CONDENSE_WORD_BUDGET = 28
+
+
+def _condense(text: str) -> str:
+    """A deterministic, on-topic 'summary' of an ad-hoc prompt (no expected answer exists).
+
+    Strips a leading instruction clause ("Summarize this …: <body>") so the takeaway is the
+    substantive content, then keeps the leading sentence — capped to a tidy word budget and
+    trimmed at a word boundary — so it reads like a concise summary, not the prompt echoed back.
+    """
+    core = text.strip()
+    # Drop an instruction lead only on a colon-space with a multi-word head, so ratios/times
+    # ("3:1", "9:30") and one-word labels ("Note:") are left intact.
+    prefix, sep, rest = core.partition(": ")
+    if sep and len(prefix) <= 60 and len(prefix.split()) >= 2 and rest.strip():
+        core = rest.strip()
+    words = core.split()
+    if not words:
+        return core
+    budget = min(len(words), _CONDENSE_WORD_BUDGET)
+    kept = words[:budget]
+    truncated = budget < len(words)
+    # Prefer ending on the first complete sentence within the budget.
+    for i, word in enumerate(kept):
+        if word.endswith((".", "!", "?")):
+            kept = kept[: i + 1]
+            truncated = False
+            break
+    out = " ".join(kept)
+    return out + "…" if truncated else out
+
+
 class MockGoodProvider:
     """A strong candidate: returns the expected text with deterministic local latency."""
 
@@ -63,7 +97,10 @@ class MockGoodProvider:
     privacy: Privacy = "local"
 
     def generate(self, example: Example, candidate: Candidate) -> ProviderResult:
-        output = _shape_for_prompt(example.expected_text, candidate.system_prompt)
+        # Scored runs echo the expected answer; the keyless quick path (no expected) gets a
+        # condensed, on-topic summary of the prompt so the candidate never renders blank.
+        base = example.expected_text or _condense(example.input_text)
+        output = _shape_for_prompt(base, candidate.system_prompt)
         latency = 40 + _stable_int(example.input_text) % 40
         return ProviderResult(
             output_text=output,
@@ -84,8 +121,10 @@ class MockBadProvider:
     privacy: Privacy = "local"
 
     def generate(self, example: Example, candidate: Candidate) -> ProviderResult:
-        # Deterministically fail on a subset to exercise the error path + a failure case.
-        if _stable_int(example.input_text) % 5 == 0:
+        # Deterministically fail on a subset to exercise the error path + a failure case — but
+        # only on scored (dataset) runs. The keyless quick path (no expected answer) always
+        # returns a weak answer so the head-to-head stays a clean good-vs-bad.
+        if example.expected_text and _stable_int(example.input_text) % 5 == 0:
             raise RuntimeError("mock_bad: simulated provider failure")
 
         output = _shape_for_prompt(_GENERIC_ANSWER, candidate.system_prompt)
