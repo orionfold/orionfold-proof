@@ -18,6 +18,7 @@ import {
   type RunStartEvent,
   type RunCostSummary,
 } from "../../lib/api";
+import { effectiveDecisionQuestion, quickDecisionHeadline } from "./briefHelpers";
 import { STARTER_VARIANTS, cleanVariants, defaultPromptModel } from "./promptVariantsHelpers";
 import { type Rubric } from "./ScoringMethod";
 import { ProviderTag } from "./badges";
@@ -67,6 +68,10 @@ export function ProofCockpit({
   // user types their own, mirror it from the selected dataset — otherwise a receipt for an
   // imported set would inherit the bundled dataset's name. Editing the field locks it.
   const [taskNameTouched, setTaskNameTouched] = useState(false);
+  // The decision question headlines the receipt. Like the task name it follows the dataset until
+  // the user owns it — but with nothing to re-derive from, an untouched question CLEARS on dataset
+  // change rather than carrying a question authored for a different dataset (WS-C).
+  const [decisionQuestionTouched, setDecisionQuestionTouched] = useState(false);
   const [activeRecipeId, setActiveRecipeId] = useState<string | null>(null);
   const [openFailure, setOpenFailure] = useState<ResultRow | null>(null);
   // Live progress for the streaming run: the plan from the `start` frame + a cumulative count.
@@ -85,13 +90,17 @@ export function ProofCockpit({
   const resolvedDatasetId = datasetId || datasets.data?.[0]?.id || "";
   // Task name follows the selected dataset's name until the user overrides it.
   const selectedDataset = datasets.data?.find((d) => d.id === resolvedDatasetId);
-  const effectiveBrief: ProofBrief =
-    taskNameTouched || !selectedDataset
-      ? brief
-      : { ...brief, task_name: selectedDataset.name };
+  const effectiveBrief: ProofBrief = {
+    ...brief,
+    task_name: taskNameTouched || !selectedDataset ? brief.task_name : selectedDataset.name,
+    decision_question: effectiveDecisionQuestion(brief.decision_question, decisionQuestionTouched),
+  };
   const handleBriefChange = (next: ProofBrief) => {
     if (next.task_name !== effectiveBrief.task_name) setTaskNameTouched(true);
-    if (next.decision_question !== effectiveBrief.decision_question) setActiveRecipeId(null);
+    if (next.decision_question !== effectiveBrief.decision_question) {
+      setActiveRecipeId(null);
+      setDecisionQuestionTouched(true);
+    }
     setBrief(next);
   };
   const resolvedSelected = useMemo(() => {
@@ -132,6 +141,8 @@ export function ProofCockpit({
   const onSelectRecipe = (recipe: ResolvedRecipe) => {
     setSelected(recipe.candidate_ids);
     setBrief({ ...effectiveBrief, decision_question: recipe.decision_question });
+    // A recipe is a deliberate question choice — keep it through dataset changes (don't clear it).
+    setDecisionQuestionTouched(true);
     setActiveRecipeId(recipe.id);
   };
 
@@ -218,7 +229,12 @@ export function ProofCockpit({
                       examples: [{ input_text: quickPrompt, expected_text: "" }],
                       rubric: { kind: "none", threshold: 0, case_sensitive: false },
                       mode: "quick",
-                      brief: effectiveBrief,
+                      // Quick mode has no dataset to anchor a title — headline the receipt with the
+                      // ad-hoc prompt, never a stale question carried from Models mode (WS-C).
+                      brief: {
+                        ...effectiveBrief,
+                        decision_question: quickDecisionHeadline(quickPrompt),
+                      },
                     }
                   : {
                       dataset_id: resolvedDatasetId,
