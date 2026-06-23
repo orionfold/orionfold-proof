@@ -253,10 +253,6 @@ export async function updateDataset(
   return datasetSchema.parse(await res.json());
 }
 
-export function getCandidates(): Promise<Candidate[]> {
-  return getJson("/api/candidates", z.array(candidateSchema));
-}
-
 export function getSelection(): Promise<SelectionPanel> {
   return getJson("/api/selection", selectionPanelSchema);
 }
