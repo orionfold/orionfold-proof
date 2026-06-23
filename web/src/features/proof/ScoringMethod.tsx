@@ -2,13 +2,14 @@
 // Auto (null) delegates to the backend default; the Auto card shows what that resolves to for the
 // selected dataset. Keypoint/Similarity are heuristic; LLM judge delegates scoring to a model.
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { z } from "zod";
 
-import { rubricSchema } from "../../lib/api";
+import { getSettings, rubricSchema } from "../../lib/api";
 import type { Dataset } from "../../lib/api";
 import { MethodCard } from "./MethodCard";
 import { JudgeFilter } from "./JudgeFilter";
-import { resolveAutoKind } from "./scoring";
+import { resolveAutoKind, thresholdFor } from "./scoring";
 import { METHOD_META } from "./selectionMeta";
 
 export type Rubric = z.infer<typeof rubricSchema>;
@@ -31,13 +32,17 @@ export interface ScoringMethodProps {
 
 export function ScoringMethod({ value, onChange, dataset }: ScoringMethodProps) {
   const [method, setMethod] = useState<Method>(() => deriveMethod(value));
+  // Shared `["settings"]` cache (populated by SettingsView): the persisted per-kind threshold
+  // overrides prefill the cards. Undefined on first paint → thresholdFor falls back to the map.
+  const settings = useQuery({ queryKey: ["settings"], queryFn: getSettings });
+  const thresholds = settings.data?.thresholds;
 
   function selectMethod(m: Method) {
     setMethod(m);
     if (m === "auto") onChange(null);
-    else if (m === "keypoint") onChange({ kind: "keypoint", threshold: 0.8, case_sensitive: false });
-    else if (m === "similarity") onChange({ kind: "similarity", threshold: 0.8, case_sensitive: false });
-    else onChange({ kind: "judge", threshold: 0.8, case_sensitive: false, judge_provider_id: "mock_judge", judge_model: null });
+    else if (m === "keypoint") onChange({ kind: "keypoint", threshold: thresholdFor("keypoint", thresholds), case_sensitive: false });
+    else if (m === "similarity") onChange({ kind: "similarity", threshold: thresholdFor("similarity", thresholds), case_sensitive: false });
+    else onChange({ kind: "judge", threshold: thresholdFor("judge", thresholds), case_sensitive: false, judge_provider_id: "mock_judge", judge_model: null });
   }
 
   const autoResolved = resolveAutoKind(dataset) === "keypoint" ? "Keypoint coverage" : "Similarity";
@@ -57,12 +62,23 @@ export function ScoringMethod({ value, onChange, dataset }: ScoringMethodProps) 
         <MethodCard title={METHOD_META.judge.label} guidance={METHOD_META.judge.guidance} cost={METHOD_META.judge.cost} selected={method === "judge"} onSelect={() => selectMethod("judge")} />
       </div>
 
+      {method === "similarity" ? (
+        <p className="text-xs text-(--color-ink-faint)">
+          Passing at{" "}
+          <span className="font-medium text-(--color-ink-muted)">
+            {thresholdFor("similarity", thresholds).toFixed(2)}
+          </span>
+          . 0.80 is strict; ~0.55 is typical for a good paraphrased summary. Tune the default in
+          Settings → Default scoring thresholds.
+        </p>
+      ) : null}
+
       {method === "judge" ? (
         <JudgeFilter
           selectedProviderId={value?.kind === "judge" ? (value.judge_provider_id ?? null) : null}
           selectedModel={value?.kind === "judge" ? (value.judge_model ?? null) : null}
           onPick={(providerId, model) =>
-            onChange({ kind: "judge", threshold: 0.8, case_sensitive: false, judge_provider_id: providerId, judge_model: model })
+            onChange({ kind: "judge", threshold: thresholdFor("judge", thresholds), case_sensitive: false, judge_provider_id: providerId, judge_model: model })
           }
         />
       ) : null}

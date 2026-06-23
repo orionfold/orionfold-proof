@@ -1,6 +1,20 @@
 import { describe, it, expect } from "vitest";
-import { resolveAutoKind, filterJudgeModels } from "./scoring";
+import { resolveAutoKind, filterJudgeModels, DEFAULT_THRESHOLDS, thresholdFor } from "./scoring";
 import type { Dataset, SelectionPanel } from "../../lib/api";
+
+describe("DEFAULT_THRESHOLDS / thresholdFor", () => {
+  it("mirrors the backend map (similarity lenient, keypoint/judge strict)", () => {
+    // MUST agree with src/orionfold/scoring/rubric.py DEFAULT_THRESHOLDS (backend test freezes it).
+    expect(DEFAULT_THRESHOLDS).toEqual({ similarity: 0.55, keypoint: 0.8, judge: 0.8 });
+  });
+  it("falls back to the map when no override is set", () => {
+    expect(thresholdFor("similarity")).toBe(0.55);
+    expect(thresholdFor("keypoint", {})).toBe(0.8);
+  });
+  it("prefers a persisted override over the map", () => {
+    expect(thresholdFor("similarity", { similarity: 0.7 })).toBe(0.7);
+  });
+});
 
 function ds(keypoints: string[][]): Dataset {
   return {

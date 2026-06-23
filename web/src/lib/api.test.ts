@@ -11,6 +11,7 @@ import {
   scoredByLabel,
   seedSampleData,
   setSandbox,
+  setThresholds,
 } from "./api";
 import { SAMPLE_REPORT } from "../test/fixtures";
 
@@ -56,17 +57,39 @@ describe("scoring schemas", () => {
 });
 
 describe("settings + sample-data client", () => {
-  it("getSettings parses sandbox_enabled", async () => {
-    mockResponse({ sandbox_enabled: true });
-    expect(await getSettings()).toEqual({ sandbox_enabled: true });
+  const THRESHOLDS = { similarity: 0.55, keypoint: 0.8, judge: 0.8 };
+
+  it("getSettings parses sandbox_enabled and thresholds", async () => {
+    mockResponse({ sandbox_enabled: true, thresholds: THRESHOLDS });
+    expect(await getSettings()).toEqual({ sandbox_enabled: true, thresholds: THRESHOLDS });
   });
 
   it("setSandbox PUTs the flag", async () => {
     const spy = vi
       .spyOn(globalThis, "fetch")
-      .mockResolvedValue(new Response(JSON.stringify({ sandbox_enabled: false }), { status: 200 }));
+      .mockResolvedValue(
+        new Response(
+          JSON.stringify({ sandbox_enabled: false, thresholds: THRESHOLDS }),
+          { status: 200 },
+        ),
+      );
     await setSandbox(false);
     expect(spy).toHaveBeenCalledWith("/api/settings", expect.objectContaining({ method: "PUT" }));
+  });
+
+  it("setThresholds PUTs a thresholds-only body", async () => {
+    const next = { similarity: 0.4, keypoint: 0.8, judge: 0.8 };
+    const spy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(
+        new Response(
+          JSON.stringify({ sandbox_enabled: false, thresholds: next }),
+          { status: 200 },
+        ),
+      );
+    await setThresholds(next);
+    const body = JSON.parse((spy.mock.calls[0][1] as RequestInit).body as string);
+    expect(body).toEqual({ thresholds: next });
   });
 
   it("seedSampleData parses counts", async () => {

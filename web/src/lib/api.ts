@@ -405,7 +405,17 @@ export interface RunStreamHandlers {
 
 // --- Settings + sample data ---------------------------------------------------------------
 
-export const settingsSchema = z.object({ sandbox_enabled: z.boolean() });
+export const thresholdsSchema = z.object({
+  similarity: z.number(),
+  keypoint: z.number(),
+  judge: z.number(),
+});
+export type Thresholds = z.infer<typeof thresholdsSchema>;
+
+export const settingsSchema = z.object({
+  sandbox_enabled: z.boolean(),
+  thresholds: thresholdsSchema,
+});
 export type Settings = z.infer<typeof settingsSchema>;
 
 export const dataCountsSchema = z.object({ datasets: z.number(), receipts: z.number() });
@@ -435,6 +445,10 @@ async function mutate<T>(
 
 export function setSandbox(enabled: boolean): Promise<Settings> {
   return mutate("/api/settings", "PUT", settingsSchema, { sandbox_enabled: enabled });
+}
+
+export function setThresholds(thresholds: Thresholds): Promise<Settings> {
+  return mutate("/api/settings", "PUT", settingsSchema, { thresholds });
 }
 
 export function seedSampleData(): Promise<DataCounts> {

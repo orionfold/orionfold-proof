@@ -311,11 +311,50 @@ def test_selection_endpoint_has_no_mocks_by_default(client, tmp_path, monkeypatc
 
 
 def test_settings_default_and_update(client):
-    assert client.get("/api/settings").json() == {"sandbox_enabled": False}
-    assert client.put("/api/settings", json={"sandbox_enabled": True}).json() == {
-        "sandbox_enabled": True
-    }
-    assert client.get("/api/settings").json() == {"sandbox_enabled": True}
+    # GET returns the full resolved settings: sandbox off + the built-in per-kind threshold map.
+    initial = client.get("/api/settings").json()
+    assert initial["sandbox_enabled"] is False
+    assert initial["thresholds"] == {"similarity": 0.55, "keypoint": 0.8, "judge": 0.8}
+
+    # PUT is partial — sending only sandbox leaves thresholds untouched.
+    updated = client.put("/api/settings", json={"sandbox_enabled": True}).json()
+    assert updated["sandbox_enabled"] is True
+    assert updated["thresholds"] == initial["thresholds"]
+    assert client.get("/api/settings").json()["sandbox_enabled"] is True
+
+
+def test_settings_threshold_override_round_trips(client):
+    # PUT only thresholds → persisted and reflected; sandbox stays untouched.
+    resp = client.put(
+        "/api/settings",
+        json={"thresholds": {"similarity": 0.7, "keypoint": 0.8, "judge": 0.9}},
+    ).json()
+    assert resp["thresholds"] == {"similarity": 0.7, "keypoint": 0.8, "judge": 0.9}
+    assert resp["sandbox_enabled"] is False
+    assert client.get("/api/settings").json()["thresholds"]["similarity"] == 0.7
+
+
+def test_settings_threshold_override_drives_auto_default(client):
+    # After lowering the similarity default, an Auto similarity run prefills the override threshold.
+    client.put(
+        "/api/settings",
+        json={"thresholds": {"similarity": 0.3, "keypoint": 0.8, "judge": 0.8}},
+    )
+    # A label-style dataset (no keypoints) so Auto resolves to similarity.
+    ds = client.post(
+        "/api/datasets",
+        json={"name": "labels", "format": "csv", "text": "input,expected\ni,billing\n"},
+    ).json()
+    report = client.post(
+        "/api/runs",
+        json={
+            "dataset_id": ds["id"],
+            "candidate_ids": ["mock_good"],
+            "brief": {"task_name": "t", "decision_question": "q"},
+        },
+    ).json()
+    assert report["run"]["rubric"]["kind"] == "similarity"
+    assert report["run"]["rubric"]["threshold"] == 0.3
 
 
 def test_selection_is_sandbox_aware(client):

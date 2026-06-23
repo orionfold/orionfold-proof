@@ -38,6 +38,16 @@ describe("ScoringMethod", () => {
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ kind: "keypoint" }));
   });
 
+  it("emits the lenient similarity default (0.55) from the built-in map", () => {
+    // No settings fetch is mocked → the query stays pending and thresholdFor falls back to the map.
+    const onChange = vi.fn();
+    render(wrap(<ScoringMethod value={null} onChange={onChange} dataset={kpDataset} />));
+    fireEvent.click(screen.getByRole("button", { name: /Similarity/i }));
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: "similarity", threshold: 0.55 }),
+    );
+  });
+
   it("offers the keyless Mock judge when LLM judge is chosen", () => {
     const onChange = vi.fn();
     render(wrap(<ScoringMethod value={null} onChange={onChange} dataset={kpDataset} />));

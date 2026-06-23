@@ -10,9 +10,21 @@ from __future__ import annotations
 import re
 from difflib import SequenceMatcher
 
-from orionfold.domain.models import Dataset, Rubric
+from orionfold.domain.models import Dataset, Rubric, RubricKind
 
 _WHITESPACE = re.compile(r"\s+")
+
+# Per-kind default passing threshold (0..1). The *fallback* a run starts from when the user
+# hasn't tuned it: Similarity is lenient (0.55 is typical for good paraphrased summaries — 0.80
+# wrongly reads them as "no winner"); Keypoint/Judge stay strict (0.80). Settings sliders may
+# override these per kind; the resolved value still travels in config_hash, so a tuned threshold
+# is part of the proof's identity. Kinds without a tunable default (exact/contains/none) fall back
+# to the Rubric field default. The frontend mirrors this map in `web/.../scoring.ts`.
+DEFAULT_THRESHOLDS: dict[RubricKind, float] = {
+    "similarity": 0.55,
+    "keypoint": 0.8,
+    "judge": 0.8,
+}
 
 
 def normalize(text: str, *, case_sensitive: bool = False) -> str:
@@ -61,8 +73,24 @@ def score_keypoints(keypoints: list[str], output: str, rubric: Rubric) -> float:
     return hits / len(keypoints)
 
 
-def default_rubric_for(dataset: Dataset) -> Rubric:
-    """Pick the default rubric for a dataset: keypoint when any example carries keypoints."""
-    if any(ex.keypoints for ex in dataset.examples):
-        return Rubric(kind="keypoint")
-    return Rubric(kind="similarity")
+def threshold_for(kind: RubricKind, overrides: dict[str, float] | None = None) -> float:
+    """The default passing threshold for a scoring ``kind``.
+
+    A user override (from Settings sliders) wins; otherwise the built-in ``DEFAULT_THRESHOLDS``
+    map; otherwise the ``Rubric`` field default (0.8) for kinds with no tunable default.
+    """
+    if overrides and kind in overrides:
+        return overrides[kind]
+    if kind in DEFAULT_THRESHOLDS:
+        return DEFAULT_THRESHOLDS[kind]
+    return Rubric.model_fields["threshold"].default
+
+
+def default_rubric_for(dataset: Dataset, overrides: dict[str, float] | None = None) -> Rubric:
+    """Pick the default rubric for a dataset: keypoint when any example carries keypoints.
+
+    The resolved kind's default threshold comes from ``threshold_for`` so the Auto path honors
+    the per-kind defaults and any persisted Settings override.
+    """
+    kind: RubricKind = "keypoint" if any(ex.keypoints for ex in dataset.examples) else "similarity"
+    return Rubric(kind=kind, threshold=threshold_for(kind, overrides))

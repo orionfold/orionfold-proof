@@ -6,27 +6,33 @@
 > To resume: in a fresh session say **"read from handoff"** (or "continue from last
 > session"), or `/clear` and paste the prompt below.
 
-_Last updated: 2026-06-23 · **Stage 3 in progress — Task 1 (WS-A1) DONE + committed (`593d346`).**
-Shipped the Models-mode **Task-instruction** field: optional textarea in Configure (Models mode) that
-sets `RunRequest.system_prompt` on every selected candidate via `_resolve_candidates`. Verified
-end-to-end on REAL models — a support-triage classify run scores **0/5 without** the instruction
-(helpful prose) and **4/5 with** it (bare labels, clear winner), two distinct config_hashes; mock
-matrix `467ddd96c9a5` unchanged. 281 backend + 121 frontend tests green, build clean, browser-confirmed
-(field renders below Candidates in Models mode, hidden in Prompts mode). **Execute task 2 (A2) next
-session** — but resolve the settings-persistence open question FIRST (see below). `main` local-only;
+_Last updated: 2026-06-23 · **Stage 3 in progress — Task 2 (WS-A2) DONE + committed (`6f6e0d8`).**
+Shipped per-kind default scoring thresholds (Similarity **0.55**, Keypoint/Judge 0.8) as a built-in
+map + **persisted, user-configurable Settings sliders**. **Open question RESOLVED** (operator-confirmed):
+reused the existing generic `settings` key/value table — **no `app_settings` table, no migration**;
+extended `SettingsModel`/`settingsSchema`/`/api/settings` GET (full) + PUT (now a partial
+`SettingsUpdate`, so sandbox-only and thresholds-only writes both work). The persisted value overrides
+the map per-kind for new runs; the map stays the fallback. Verified: **291 BE (+10) / 128 FE (+7)**
+tests, build clean; mock matrix **`467ddd96c9a5` intact** (canonical mock resolves to keypoint@0.8 —
+Similarity-only change can't touch it, frozen by a new test); browser-confirmed the full loop (drag
+Similarity → 0.30 persisted to SQLite → run-setup card + calibration note read "Passing at 0.30").
+Restored default to 0.55 for clean demo state. **Execute Task 3 (A3) next session.** `main` local-only;
 git remote/push stay queued LAST until packaging (operator directive)._
 
-## ▶️ START HERE NEXT SESSION — execute task 2 (A2) from the NEXT TASKS queue
+## ▶️ START HERE NEXT SESSION — execute task 3 (A3) from the NEXT TASKS queue
 
-**Stage 3 is underway: one point-task per session.** Task 1 (A1) is checked off below. Read the
+**Stage 3 is underway: one point-task per session.** Tasks 1–2 are checked off below. Read the
 spec workstream before coding (`_SPECS/2026-06-22-trustworthy-proof-and-polish.md` — names exact
 files/interfaces, fences out-of-scope, ends with a verify). Build smallest slice → verify (tests +
 browser per CLAUDE.md) → check the box → re-handoff.
 
-**Next up: Task 2 — WS-A2 (Per-method default thresholds + Settings sliders).** ⚠ **Resolve the
-"Open question" (settings persistence surface) BEFORE coding** — Orionfold has no app-settings store
-yet; default to a new `app_settings` SQLite table + `/api/settings` GET/PUT unless one is found. See
-spec §WS-A2.
+**Next up: Task 3 — WS-A3 (Cloud LLM judge + sane Sandbox-OFF default).** Emit key-gated cloud
+providers as judge-eligible in the selection panel; with Sandbox OFF + a cloud key default Run-on →
+Hosted + a real judge (never silently Mock); disable LLM judge with a hint when no real judge exists.
+See spec §WS-A3. _No open question — go straight to coding after reading the spec workstream._
+
+_WS-A2 committed to `main` as `6f6e0d8` (worklog
+`docs/worklog/2026-06-23-ws-a2-threshold-defaults-settings-sliders.md`)._
 
 **Bring the app up** (live source, real keys in `.env.local`): API on a free port —
 `uv run orionfold dev --port 8790` (health `{"status":"ok","service":"orionfold-proof"}`); UI —
@@ -47,14 +53,17 @@ operator has OK'd it; Sandbox stays OFF (no mocks).**
   browser all green. _new test:_ `tests/unit/test_resolve_candidates.py`. _files touched:_
   `routes.py` (RunRequest + `_resolve_candidates`) · `api.ts` RunRequest · `ProofCockpit.tsx`
   (`modelInstruction` state + payload) · `RunSetup.tsx` (textarea, Models-only) + test.
-- [ ] **2 · A2 — Per-method default thresholds + Settings sliders** (HIGH). Per-kind default map
-  (Similarity ~0.55, Keypoint/Judge 0.8) **+ user-configurable sliders in Settings** that override the
-  defaults (persisted). Similarity card calibration note. _files:_ `domain/models.py:42` (map fallback) ·
-  `ScoringMethod.tsx:38-40` (UI defaults from map) · **Settings view + a persisted settings store/endpoint**
-  for the slider values · `SettingsView` component. _verify:_ bundled demo → clear winner with new
-  defaults; changing a slider in Settings changes the prefilled threshold on the next run; backend test
-  on the default map. _ref:_ spec §WS-A2 · _IDEAS issue #5. **(see Open question below — settings
-  persistence surface needs a quick scoping decision.)**
+- [x] **2 · A2 — Per-method default thresholds + Settings sliders** (HIGH) ✅ DONE 2026-06-23
+  (uncommitted). Built-in map `DEFAULT_THRESHOLDS {similarity:0.55, keypoint:0.8, judge:0.8}` in
+  `scoring/rubric.py` (mirrored in `scoring.ts`) + persisted, user-tunable Settings sliders. **Reused
+  the existing `settings` k/v table** (no migration); `default_rubric_for(ds, overrides)` resolves the
+  kind's default via map+override; both Auto run-sites pass persisted overrides. Similarity calibration
+  note on the method card. 291 BE / 128 FE tests, build, browser all green; mock `467ddd96c9a5` intact
+  (keypoint@0.8). _new tests:_ map/threshold_for/override + mock-hash-safety in `test_scoring.py`;
+  store round-trip/clamp/partial in `test_settings_and_samples.py`; GET-shape/partial-PUT/override-drives-Auto
+  in `test_proof_api.py`; FE map + slider + client tests. _files touched:_ `scoring/rubric.py` ·
+  `storage/settings.py` · `server/routes.py` (`SettingsModel`+`SettingsUpdate`, `_read_settings`) ·
+  `lib/api.ts` · `scoring.ts` · `ScoringMethod.tsx` · `SettingsView.tsx` (+`ThresholdSliders`).
 - [ ] **3 · A3 — Cloud LLM judge + sane Sandbox-OFF default** (HIGH). Emit key-gated cloud providers as
   judge-eligible in the selection panel; with Sandbox OFF + a cloud key, default Run-on→Hosted + a real
   judge (never silently Mock); disable LLM judge with a hint when no real judge exists. _files:_
@@ -88,14 +97,6 @@ operator has OK'd it; Sandbox stays OFF (no mocks).**
   headers (`Leaderboard.tsx:26-36`, ref `.tbl`); F4 distinct Mock badge (`badges.tsx:19-25`); F5
   inspector-less route layout (`ViewShell.tsx:16`). _verify:_ `browser-visual-verification` light+dark;
   full-receipt HTML byte-identical (palette test). _ref:_ §WS-F · DS #1–#5.
-
-### Open question to resolve at the start of Task 2 (A2)
-Operator added: **default thresholds should be user-configurable sliders in Settings.** Before coding
-A2, confirm the **persistence surface** — Orionfold has no app-settings store yet (Settings today holds
-provider keys + data-management + Sandbox toggle). Options: (a) a new `app_settings` SQLite table +
-`/api/settings` GET/PUT (durable, matches local-first), or (b) reuse the existing settings mechanism if
-one exists. Quick scoping check first; default to (a) if none exists. The per-method map stays the
-*fallback*; slider values *override* per kind.
 
 ## 🔭 `_IDEAS/` AT A GLANCE (full detail in `_IDEAS/`)
 - **Issues (6):** 3× HIGH — first real proof → "NO CLEAR WINNER": (#4) no per-task instruction →
@@ -172,35 +173,35 @@ clear via Settings → data management for a pristine demo state if wanted._
 - **The accent/status split (DS skin):** cyan `--color-accent` = the only interactive colour; green
   `--color-ok` = PASS/verified ONLY; semantic-token layer only; light + dark + AA; dark is `@theme`
   default; categorical value tags neutral/squared.
+- **Threshold defaults (A2):** per-kind map `DEFAULT_THRESHOLDS {similarity:0.55, keypoint:0.8,
+  judge:0.8}` lives in BOTH `scoring/rubric.py` and `web/.../scoring.ts` and **must stay in sync**
+  (a test on each side freezes the values). Settings sliders persist `threshold_<kind>` keys in the
+  existing `settings` k/v table (NO `app_settings` table, NO migration); the persisted value
+  **overrides** the map per kind, the map is the **fallback**. `default_rubric_for(ds, overrides)`
+  resolves the kind's default; the resolved threshold feeds `config_hash` (so a tuned value is part of
+  the proof, but only for runs started after the change — saved runs are frozen). **Keypoint default
+  MUST stay 0.8** — the canonical mock matrix resolves to keypoint@0.8 → `467ddd96c9a5`; changing
+  Similarity can't touch it. `PUT /api/settings` is a **partial** update (`SettingsUpdate`): a body
+  with only `sandbox_enabled` or only `thresholds` is valid and leaves the other untouched.
 - **Proof Run setup:** shared `WorkflowStep`; `compareBy` is now `"models" | "prompts" | "quick"`;
   decision recipes render only in the Models branch (recipes.json loads at backend startup — restart
   to see edits).
 
 ## Paste prompt for the next session
 ```text
-Use the context-refresh skill to load current state from docs/ (release charter, ADR-0001/0002/0003,
-latest worklog 2026-06-22-icp-e2e-visual-verification).
+Stage 3 execution, one point-task per session. The _IDEAS→_SPECS pipeline is DONE; the approved spec
+is _SPECS/2026-06-22-trustworthy-proof-and-polish.md. Tasks 1 (A1, committed 593d346) and 2 (A2,
+uncommitted) are checked off in the HANDOFF NEXT TASKS queue.
 
-PIPELINE (operator-chosen): _IDEAS/ → _SPECS/ → session point-tasks. Do stage 1 first, get sign-off,
-then proceed. The shipped Datasets→Leaderboard→Quick-Compare arc is COMPLETE and was E2E-verified on
-REAL models last session (no verification debt). NO code changed last session.
-
-STAGE 1 — REVIEW _IDEAS/ : read _IDEAS/README.md (16-finding index + "highest-leverage theme") then
-issues.md / feature-opportunities.md / design-system.md. Use AskUserQuestion to confirm scope+priority.
-Strong default: the 3 HIGH issues are ONE story (cloud ICP's first real proof → "NO CLEAR WINNER"):
-#4 no per-task instruction, #5 too-strict 0.80 Similarity default, #6 LLM-judge unavailable to
-cloud-only — spec together with feature #1 (per-task instruction UI; system_prompt plumbing ALREADY
-exists end-to-end, UI-only).
-
-STAGE 2 — WRITE _SPECS/ : create top-level _SPECS/ and author a self-contained spec for the agreed
-scope (CLAUDE.md "spec depth = blast radius × uncertainty": name files/interfaces, fence out-of-scope,
-sequence a vertical slice, end with an e2e check). Cite the _IDEAS entries + their file:line anchors.
-⏸ STOP for operator approval of the spec.
-
-STAGE 3 — WORK BREAKDOWN : decompose the approved spec into point-sized, session-by-session tasks
-(each = one focused vertical session, test + browser-verifiable). Write them as the "NEXT TASKS"
-checklist in HANDOFF.md (goal · files · verify · _SPECS/_IDEAS ref), then execute ONE task per session,
-checking off and re-handing-off each time. BRAINSTORM scope FIRST for anything non-trivial.
+▶️ EXECUTE TASK 3 — WS-A3 (Cloud LLM judge + sane Sandbox-OFF default, HIGH). Read spec §WS-A3 first
+(names exact files/interfaces, fences out-of-scope, ends with a verify): emit key-gated cloud
+providers as judge-eligible in selection_panel(); with Sandbox OFF + a cloud key, default Run-on →
+Hosted + a real judge (NEVER silently Mock); disable LLM judge with a hint when no real judge exists.
+_files:_ providers/selection.py · web/.../scoring.ts (filterJudgeModels default-pick) · JudgeFilter.tsx.
+Build smallest slice → verify (uv run pytest + pnpm test + pnpm build + browser per CLAUDE.md;
+scoring.test.ts asserts no mock/unavailable default when a real judge exists) → check the box →
+re-handoff. No open question — go straight to coding after reading the workstream. (WS-A2 is committed
+to main as 6f6e0d8.)
 
 App up (REAL keys in .env.local, Sandbox OFF, no mocks; cost OK'd): API
 `uv run orionfold dev --port 8790`; UI `VITE_DEV_PORT=5174 VITE_API_PROXY=http://127.0.0.1:8790
@@ -217,5 +218,7 @@ quick-compare dataset writes no row / list_runs hides un-picked quick / quick re
 bars never accent-or-ok / _RECEIPT_STYLE shared full HTML byte-identical; leaderboard $/quality on
 LeaderboardEntry only never a ranking key; datasets metadata DB+API-only; append-only migrations next
 index 6; mock bare-ids + config_hash 467ddd96c9a5; DS accent/status split; compareBy now
-models|prompts|quick).
+models|prompts|quick; A2 threshold map {similarity:0.55,keypoint:0.8,judge:0.8} synced BE↔FE +
+keypoint MUST stay 0.8 to keep 467ddd96c9a5, sliders persist in the existing settings table,
+PUT /api/settings is partial).
 ```

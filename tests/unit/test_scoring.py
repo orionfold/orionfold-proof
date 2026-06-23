@@ -2,11 +2,13 @@
 
 from orionfold.domain.models import Dataset, Example, Rubric
 from orionfold.scoring.rubric import (
+    DEFAULT_THRESHOLDS,
     default_rubric_for,
     normalize,
     passed,
     score,
     score_keypoints,
+    threshold_for,
 )
 
 
@@ -79,3 +81,43 @@ def test_default_rubric_keypoint_when_present():
 def test_default_rubric_similarity_when_absent():
     ds = Dataset(id="d", name="d", examples=[Example(input_text="i", expected_text="e")])
     assert default_rubric_for(ds).kind == "similarity"
+
+
+# ─── A2: per-kind default thresholds + Settings overrides ─────────────────────
+
+
+def test_default_threshold_map_values():
+    # Similarity is lenient (0.55 — paraphrased summaries score low on lexical overlap);
+    # Keypoint/Judge stay strict (0.8). Frozen because the frontend mirror must agree.
+    assert DEFAULT_THRESHOLDS == {"similarity": 0.55, "keypoint": 0.8, "judge": 0.8}
+
+
+def test_threshold_for_uses_map_then_override():
+    assert threshold_for("similarity") == 0.55
+    assert threshold_for("keypoint") == 0.8
+    # A persisted override wins over the built-in map.
+    assert threshold_for("similarity", {"similarity": 0.7}) == 0.7
+    # Kinds with no tunable default fall back to the Rubric field default (0.8).
+    assert threshold_for("exact") == Rubric.model_fields["threshold"].default
+
+
+def test_default_rubric_similarity_carries_lenient_threshold():
+    # The Auto path resolves a similarity rubric at the lenient default, not the old 0.80.
+    ds = Dataset(id="d", name="d", examples=[Example(input_text="i", expected_text="e")])
+    assert default_rubric_for(ds).threshold == 0.55
+
+
+def test_default_rubric_keypoint_threshold_unchanged_protects_mock_hash():
+    # The keypoint default MUST stay 0.8: the canonical mock matrix dataset carries keypoints, so
+    # its Auto rubric resolves to keypoint@0.8 → config_hash 467ddd96c9a5 is unaffected by A2.
+    ds = Dataset(
+        id="d", name="d",
+        examples=[Example(input_text="i", expected_text="e", keypoints=["x"])],
+    )
+    r = default_rubric_for(ds)
+    assert r.kind == "keypoint" and r.threshold == 0.8
+
+
+def test_default_rubric_override_applies_to_resolved_kind():
+    ds = Dataset(id="d", name="d", examples=[Example(input_text="i", expected_text="e")])
+    assert default_rubric_for(ds, {"similarity": 0.4}).threshold == 0.4

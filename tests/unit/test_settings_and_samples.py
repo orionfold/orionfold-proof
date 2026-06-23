@@ -20,6 +20,33 @@ def test_sandbox_defaults_false_and_round_trips():
     assert settings.get_sandbox_enabled(conn) is False
 
 
+def test_threshold_defaults_fall_back_to_builtin_map():
+    from orionfold.scoring.rubric import DEFAULT_THRESHOLDS
+
+    conn = _db()
+    got = settings.get_threshold_defaults(conn)
+    assert got == {k: DEFAULT_THRESHOLDS[k] for k in ("similarity", "keypoint", "judge")}
+
+
+def test_threshold_overrides_round_trip_and_clamp():
+    conn = _db()
+    settings.set_threshold_defaults(conn, {"similarity": 0.42, "judge": 1.5, "keypoint": -0.2})
+    got = settings.get_threshold_defaults(conn)
+    assert got["similarity"] == 0.42
+    assert got["judge"] == 1.0  # clamped high
+    assert got["keypoint"] == 0.0  # clamped low
+
+
+def test_threshold_partial_override_keeps_builtin_for_untouched():
+    from orionfold.scoring.rubric import DEFAULT_THRESHOLDS
+
+    conn = _db()
+    settings.set_threshold_defaults(conn, {"similarity": 0.6})
+    got = settings.get_threshold_defaults(conn)
+    assert got["similarity"] == 0.6
+    assert got["keypoint"] == DEFAULT_THRESHOLDS["keypoint"]  # untouched
+
+
 def test_setting_get_default_and_set():
     conn = _db()
     assert settings.get_setting(conn, "missing", "fallback") == "fallback"

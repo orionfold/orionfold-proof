@@ -9,6 +9,27 @@ export function resolveAutoKind(dataset: Dataset | undefined): "keypoint" | "sim
   return hasKeypoints ? "keypoint" : "similarity";
 }
 
+// Per-kind default passing threshold — MUST mirror the backend `DEFAULT_THRESHOLDS`
+// (src/orionfold/scoring/rubric.py). Similarity is lenient (0.55 — paraphrased summaries score low
+// on lexical overlap; 0.80 wrongly reads them as "no winner"); Keypoint/Judge stay strict (0.80).
+// A backend test freezes the same values; a frontend unit asserts this map agrees.
+export type TunableKind = "similarity" | "keypoint" | "judge";
+export const DEFAULT_THRESHOLDS: Record<TunableKind, number> = {
+  similarity: 0.55,
+  keypoint: 0.8,
+  judge: 0.8,
+};
+
+// The prefilled default threshold for a method card: a persisted Settings override wins, else the
+// built-in map. `overrides` is the `thresholds` blob from GET /api/settings (already merged on the
+// server, so any partial is fine here).
+export function thresholdFor(
+  kind: TunableKind,
+  overrides?: Partial<Record<TunableKind, number>>,
+): number {
+  return overrides?.[kind] ?? DEFAULT_THRESHOLDS[kind];
+}
+
 export type JudgeTier = "economy" | "balanced" | "frontier";
 
 export interface JudgeOption {

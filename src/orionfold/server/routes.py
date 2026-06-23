@@ -17,7 +17,7 @@ from collections.abc import Iterator
 
 from fastapi import APIRouter, File, HTTPException, Request, UploadFile
 from fastapi.responses import PlainTextResponse, Response, StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from orionfold.catalog import load_catalog
 from orionfold.catalog.models import ModelCatalog
@@ -60,7 +60,12 @@ from orionfold.storage.repository import (
     seed_datasets,
     update_dataset_meta,
 )
-from orionfold.storage.settings import get_sandbox_enabled, set_sandbox_enabled
+from orionfold.storage.settings import (
+    get_sandbox_enabled,
+    get_threshold_defaults,
+    set_sandbox_enabled,
+    set_threshold_defaults,
+)
 
 router = APIRouter(prefix="/api")
 
@@ -117,8 +122,30 @@ class CredentialStatus(BaseModel):
     available: bool
 
 
+class ThresholdDefaults(BaseModel):
+    """Per-kind default passing thresholds (0..1) the Settings sliders tune."""
+
+    similarity: float = Field(ge=0.0, le=1.0)
+    keypoint: float = Field(ge=0.0, le=1.0)
+    judge: float = Field(ge=0.0, le=1.0)
+
+
 class SettingsModel(BaseModel):
+    """The full, resolved settings the GET returns."""
+
     sandbox_enabled: bool
+    thresholds: ThresholdDefaults
+
+
+class SettingsUpdate(BaseModel):
+    """A partial settings update (PUT): only the supplied fields are written, others untouched.
+
+    Kept partial so existing callers that send only ``sandbox_enabled`` keep working and a future
+    field is additive rather than a breaking change.
+    """
+
+    sandbox_enabled: bool | None = None
+    thresholds: ThresholdDefaults | None = None
 
 
 class DataCounts(BaseModel):
@@ -309,21 +336,31 @@ def set_credential(body: CredentialRequest) -> CredentialStatus:
     return CredentialStatus(provider_id=body.provider_id, available=has_key(key_name))
 
 
+def _read_settings(conn: sqlite3.Connection) -> SettingsModel:
+    return SettingsModel(
+        sandbox_enabled=get_sandbox_enabled(conn),
+        thresholds=ThresholdDefaults(**get_threshold_defaults(conn)),
+    )
+
+
 @router.get("/settings")
 def read_settings(request: Request) -> SettingsModel:
     conn = _conn(request)
     try:
-        return SettingsModel(sandbox_enabled=get_sandbox_enabled(conn))
+        return _read_settings(conn)
     finally:
         conn.close()
 
 
 @router.put("/settings")
-def update_settings(request: Request, body: SettingsModel) -> SettingsModel:
+def update_settings(request: Request, body: SettingsUpdate) -> SettingsModel:
     conn = _conn(request)
     try:
-        set_sandbox_enabled(conn, body.sandbox_enabled)
-        return SettingsModel(sandbox_enabled=get_sandbox_enabled(conn))
+        if body.sandbox_enabled is not None:
+            set_sandbox_enabled(conn, body.sandbox_enabled)
+        if body.thresholds is not None:
+            set_threshold_defaults(conn, body.thresholds.model_dump())
+        return _read_settings(conn)
     finally:
         conn.close()
 
@@ -411,7 +448,7 @@ def create_run(request: Request, body: RunRequest) -> ProofReport:
             raise HTTPException(status_code=400, detail="Select at least one candidate")
         candidates = _resolve_candidates(body)
 
-        rubric = body.rubric or default_rubric_for(dataset)
+        rubric = body.rubric or default_rubric_for(dataset, get_threshold_defaults(conn))
         if rubric.kind == "judge":
             try:
                 build_judge(rubric)
@@ -457,12 +494,13 @@ def create_run_stream(request: Request, body: RunRequest) -> StreamingResponse:
     conn = _conn(request)
     try:
         dataset = _resolve_dataset(conn, body)
+        threshold_overrides = get_threshold_defaults(conn)
     finally:
         conn.close()
     if not body.candidate_ids:
         raise HTTPException(status_code=400, detail="Select at least one candidate")
     candidates = _resolve_candidates(body)
-    rubric = body.rubric or default_rubric_for(dataset)
+    rubric = body.rubric or default_rubric_for(dataset, threshold_overrides)
     if rubric.kind == "judge":
         try:
             build_judge(rubric)

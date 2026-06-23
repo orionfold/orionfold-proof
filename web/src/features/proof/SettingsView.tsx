@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Database, Monitor, Moon, Sun, Trash2, type LucideIcon } from "lucide-react";
 
@@ -8,6 +8,8 @@ import {
   removeSampleData,
   seedSampleData,
   setSandbox,
+  setThresholds,
+  type Thresholds,
 } from "../../lib/api";
 import { useTheme, type ThemeChoice } from "../../lib/theme";
 import { ViewShell } from "./ViewShell";
@@ -30,6 +32,10 @@ export function SettingsView() {
       qc.setQueryData(["settings"], s);
       void qc.invalidateQueries({ queryKey: ["selection"] });
     },
+  });
+  const thresholds = useMutation({
+    mutationFn: (t: Thresholds) => setThresholds(t),
+    onSuccess: (s) => qc.setQueryData(["settings"], s),
   });
   const seed = useMutation({ mutationFn: seedSampleData, onSuccess: invalidateData });
   const removeSamples = useMutation({ mutationFn: removeSampleData, onSuccess: invalidateData });
@@ -61,6 +67,23 @@ export function SettingsView() {
             </div>
             <ThemeSwitcher />
           </div>
+        </section>
+
+        {/* Default scoring thresholds */}
+        <section className="grid gap-6 rounded-xl border border-(--color-panel-line) bg-(--color-panel-card) p-6">
+          <div>
+            <h3 className="text-sm font-medium text-(--color-ink)">Default scoring thresholds</h3>
+            <p className="mt-1 text-sm text-(--color-ink-muted)">
+              The passing score each method prefills on a new run. The resolved value is recorded in
+              the receipt, so tuning here only changes the starting point — it never alters a saved
+              proof.
+            </p>
+          </div>
+          <ThresholdSliders
+            value={settings.data?.thresholds}
+            disabled={settings.isLoading || thresholds.isPending}
+            onCommit={(t) => thresholds.mutate(t)}
+          />
         </section>
 
         {/* Data management */}
@@ -143,6 +166,63 @@ export function SettingsView() {
         </section>
       </div>
     </ViewShell>
+  );
+}
+
+const THRESHOLD_ROWS: { key: keyof Thresholds; label: string; hint: string }[] = [
+  { key: "similarity", label: "Similarity", hint: "~0.55 fits good paraphrased summaries; 0.80 is strict." },
+  { key: "keypoint", label: "Keypoint", hint: "Fraction of authored key facts that must appear." },
+  { key: "judge", label: "LLM judge", hint: "Minimum judge score (0–1) to count as a pass." },
+];
+
+// Three 0–1 sliders that prefill each method's default passing threshold. Local state gives smooth
+// dragging; the value is persisted on release (commit), so we don't write on every pixel. When the
+// server value arrives or changes, it syncs back into the local draft.
+function ThresholdSliders({
+  value,
+  disabled,
+  onCommit,
+}: {
+  value: Thresholds | undefined;
+  disabled: boolean;
+  onCommit: (t: Thresholds) => void;
+}) {
+  const [draft, setDraft] = useState<Thresholds | undefined>(value);
+  useEffect(() => setDraft(value), [value]);
+
+  if (!draft) {
+    return <p className="text-xs text-(--color-ink-faint)">Loading…</p>;
+  }
+
+  const set = (key: keyof Thresholds, v: number) => setDraft({ ...draft, [key]: v });
+
+  return (
+    <div className="grid gap-5 border-t border-(--color-panel-line) pt-4">
+      {THRESHOLD_ROWS.map(({ key, label, hint }) => (
+        <div key={key} className="grid gap-1.5">
+          <div className="flex items-baseline justify-between gap-4">
+            <p className="text-sm text-(--color-ink)">{label}</p>
+            <span className="font-mono text-xs tabular-nums text-(--color-ink-muted)">
+              {draft[key].toFixed(2)}
+            </span>
+          </div>
+          <input
+            type="range"
+            min={0}
+            max={1}
+            step={0.05}
+            value={draft[key]}
+            disabled={disabled}
+            aria-label={`${label} default threshold`}
+            onChange={(e) => set(key, Number(e.target.value))}
+            onPointerUp={() => onCommit(draft)}
+            onKeyUp={() => onCommit(draft)}
+            className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-(--color-panel-line-strong) accent-(--color-accent) disabled:opacity-50"
+          />
+          <p className="text-xs text-(--color-ink-faint)">{hint}</p>
+        </div>
+      ))}
+    </div>
   );
 }
 
