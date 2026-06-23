@@ -6,45 +6,47 @@
 > To resume: in a fresh session say **"read from handoff"** (or "continue from last
 > session"), or `/clear` and paste the prompt below.
 
-_Last updated: 2026-06-23 · **Stage 3 in progress — Task 7 (Decide insight layer) DONE + committed
-(`30e5cf5`).** The WS-D1 scatter now has a **Pass rate ⇄ Avg score Y-axis toggle** (default Pass rate)
-plus a **deterministic plain-English explainer** beneath it. When the scorer is mismatched and pass
-rate collapses to 0% for everyone, flipping to Avg score rescues the ranking and the explainer names
-what happened. `buildScatterPoints(entries, metric)` gained a `ScatterMetric` param (`avg_score` reads
-`e.avg_score`); the Pareto frontier recomputes per metric; YAxis + tooltip relabel; **recommended accent
-stays tied to `entry.recommended`, NOT the metric leader** (a point can top Avg score yet carry no accent
-— that disagreement IS the insight). New pure `decideInsights.ts` `deriveDecideInsight(entries)` — 5
-ordered rules (all-errored / all-fail-but-real-scores→names avg-score leader + suggests LLM judge /
-clear-winner / tight-cluster / fallback), tones `--color-ok/warn/ink-muted` NEVER the cyan accent, NOT
-an LLM call (free + reproducible). **FE-only — no backend/migration/RECEIPT_VERSION/config_hash**; mock
-`467ddd96c9a5` untouched by construction. Verified: **298 BE (unchanged) / 178 FE (+15)**, tsc+build
-clean, **11/11 Playwright** (added toggle+explainer assertions; re-embedded build into the package
-static dir). **Real-model browser verification** (Sandbox OFF, 3 Anthropic tiers, Similarity@0.55,
-config `7f2bed41f3f4`) reproduced the headline case EXACTLY: all 3 at 0% pass, avg Opus 0.20 / Haiku
-0.05 / Sonnet 0.05; Pass-rate view = 3 flat dots no accent; Avg-score view spreads Opus above with the
-frontier drawing; explainer reads *"0% pass, but the scores still rank the field … claude-opus-4-8
-leads … try the LLM judge or lower the threshold in Settings"* and stays identical across the toggle;
-light + dark graded, secret-free. Fresh-context diff-reviewer: faithful, invariants intact, no bugs.
-**Execute Task 8 (WS-D2, run-level cost ledger) next session.** `main` local-only; git remote/push stay
-queued LAST until packaging (operator directive)._
+_Last updated: 2026-06-23 · **Stage 3 in progress — Task 8 (WS-D2, run-level cost ledger) DONE + committed
+(`055bd50`).** A **Run cost** panel now sits beneath the cost-vs-quality scatter on a populated full run:
+per-candidate tokens in/out, candidate $, judge $, **share of run spend**, and a **reconciled run total**
+that equals the verdict banner's existing "Run cost: candidate $X · judge $Y · total $Z" line **by
+construction** (both roll up the same `report.results`). New pure `costLedgerMath.ts`
+`buildCostLedger(leaderboard, results)` rolls `ResultRow`s up per `candidate_id` (Σ `estimated_cost_usd`
+→ candidate $, Σ `judge_cost_usd` → judge $, Σ tokens), share-of-total (divide-by-zero safe on a free
+run), **leaderboard order preserved** (recommended-first), privacy **carried not guessed**. New
+`CostLedger.tsx` is DS-clean — cost is neither verdict nor PASS, so **neutral ink only, NEVER
+`--color-accent`/`--color-ok`**; `tabular-nums`; judge "—" when none ran; "Free" + note on zero-cost
+runs. Mounted in the **full-run branch only** (quick branch renders QuickCompare, unaffected).
+**File-naming:** pure module is `costLedgerMath.ts` NOT `costLedger.ts` — avoids a macOS
+case-insensitive collision with `CostLedger.tsx` (mirrors `paretoFrontier.ts`/`FrontierScatter.tsx`).
+**FE-only — no backend/Pydantic/migration/config_hash**; mock `467ddd96c9a5` untouched. Verified:
+**298 BE (unchanged) / 189 FE (+11)**, tsc+build clean, **11/11 Playwright** (free mock run →
+run-cost-total reads "Free"; re-embedded build into the gitignored package static dir). **Real-model
+browser verification** (Sandbox OFF, 2 Anthropic tiers Haiku+Opus, Auto→Similarity@0.55, config
+`04ffcde784fc`): panel = Haiku $0.0066/11% · Opus $0.0518/89% · **Run total candidate $0.0584 · judge —
+· total $0.0584** — reconciles to the verdict line *"…candidate $0.0584 · judge $0.0000 · total
+$0.0584"* to the penny; shares sum 100%; light+dark graded, secret-free. Fresh-context diff-reviewer:
+CLEAN (sum-reconciliation by construction, no DS violations, FE-only, full-run-only mount, tests assert
+real invariants). **Execute Task 9 (WS-E1, Candidates inline add-key / start-host affordance) next
+session.** `main` local-only; git remote/push stay queued LAST until packaging (operator directive)._
 
-## ▶️ START HERE NEXT SESSION — execute task 8 (WS-D2 cost ledger) from the NEXT TASKS queue
+## ▶️ START HERE NEXT SESSION — execute task 9 (WS-E1 add-key affordance) from the NEXT TASKS queue
 
 **Stage 3 is underway: one point-task per session.** Tasks 1–6 are checked off below. Read the
 spec before coding. Build smallest slice → verify (tests + browser per CLAUDE.md) → check the box →
 re-handoff.
 
-**Next up: Task 8 — WS-D2 (Run-level cost ledger / spend panel, MED).** Per-provider tokens + $ and a
-run total in the Inspector or under the leaderboard. Reuse ainative
-`…/orionfold/ainative/src/lib/usage/ledger.ts` + `src/components/costs/cost-dashboard.tsx` + micro-viz
-(`src/components/charts/{sparkline,mini-bar,donut-ring}.tsx`) — **now buildable on the Recharts
-foundation laid in WS-D1** (port the micro-viz to Recharts + cockpit semantic tokens; do NOT pull a
-second charting lib — see the `charting-library-recharts` memory). Data source: `RunCostSummary` already
-on the report (`domain/models.py`); candidate/judge/total already computed by the engine. See spec
-§WS-D2. _verify:_ the panel's sums **match the verdict banner's existing "Run cost" line**. _ref:_
-§WS-D2 · feature #3.
+**Next up: Task 9 — WS-E1 (Candidates inline add-key / start-host affordance, MED).** In the Configure
+candidate catalog, list **known** providers with a quiet "Add key in Settings →" (deep-link, prefer
+over inline key entry — keeps the secrets-guard surface small) for unconfigured cloud, and a "Start
+Ollama / LM Studio" hint for local. The selection panel **already knows gated providers** (`selection.py`
+emits gated entries; `scoring.ts`/`JudgeFilter` already surface gated judge rows — reuse that pattern,
+don't rebuild it). Reuse the keyless-default + reveal-on-configure idea from Arena's
+`OpenRouterKeySettings.jsx`. _verify:_ an unconfigured provider shows the add-key affordance and explains
+its absence; Playwright smoke. _ref:_ spec §WS-E1 · feature #4.
 
-_Task 7 (Decide insight layer) committed to `main` as `30e5cf5` (worklog
+_Task 8 (WS-D2 cost ledger) committed to `main` as `055bd50` (worklog
+`docs/worklog/2026-06-23-ws-d2-run-cost-ledger.md`). Task 7 (Decide insight layer) = `30e5cf5` (worklog
 `docs/worklog/2026-06-23-decide-insight-layer.md`). WS-D1 = `0f83f9e`
 (worklog `docs/worklog/2026-06-23-ws-d1-pareto-cost-quality-scatter.md`). WS-C = `1864b35`;
 WS-B = `5307ae5`; an unrelated CLAUDE.md self-improvement pass = `1dc3eb1`. WS-A3 = `9e413d5`,
@@ -141,10 +143,21 @@ operator has OK'd it; Sandbox stays OFF (no mocks).**
   graded, secret-free. Fresh-context diff-reviewer: faithful, invariants intact, no bugs. _new files:_
   `decideInsights.ts` + `decideInsights.test.ts`. _files touched:_ `paretoFrontier.ts` (+test) ·
   `FrontierScatter.tsx` (+test) · `proof.spec.ts`. _ref:_ `_SPECS/2026-06-23-decide-insight-layer.md`.
-- [ ] **8 · D2 — Run-level cost ledger panel** (MED). Reuse ainative `lib/usage/ledger.ts` +
-  `cost-dashboard.tsx` + micro-viz (confirmed exist); per-provider tokens+$ + run total in Inspector.
-  Port micro-viz to **Recharts** (no second charting lib). _verify:_ sums match the verdict banner's
-  "Run cost" line. _ref:_ §WS-D2 · feature #3.
+- [x] **8 · D2 — Run-level cost ledger panel** (MED) ✅ DONE 2026-06-23 (`055bd50`). A **Run cost** panel
+  beneath the scatter on a populated full run: per-candidate tokens in/out · candidate $ · judge $ ·
+  **share of run spend** · a **reconciled run total**. New pure `costLedgerMath.ts`
+  `buildCostLedger(leaderboard, results)` rolls `ResultRow`s up per `candidate_id` (Σ `estimated_cost_usd`,
+  Σ `judge_cost_usd`, Σ tokens) — sums **equal `report.cost_summary` / the verdict's "Run cost" line by
+  construction** (both roll up the same rows); share divide-by-zero-safe; **leaderboard order preserved**;
+  privacy **carried not guessed**. `CostLedger.tsx` is DS-clean (**neutral ink only — NEVER
+  `--color-accent`/`--color-ok`**; `tabular-nums`; judge "—" when none; "Free" on zero-cost). Mounted
+  **full-run branch only**. ⚠️ pure module is `costLedgerMath.ts` NOT `costLedger.ts` (macOS
+  case-insensitive collision w/ `CostLedger.tsx` — mirrors `paretoFrontier`/`FrontierScatter`). **FE-only —
+  no backend/migration/config_hash**; mock `467ddd96c9a5` intact. 298 BE (unchanged) / 189 FE (+11),
+  tsc+build clean, 11/11 Playwright. Real-model (Sandbox OFF, Haiku+Opus, config `04ffcde784fc`): panel
+  total **$0.0584** reconciles to the verdict line exactly; light+dark graded, secret-free. Fresh-context
+  diff-reviewer: clean. _new files:_ `costLedgerMath.ts` + `CostLedger.tsx` (+tests). _files touched:_
+  `ProofCockpit.tsx` · `proof.spec.ts`. _ref:_ §WS-D2 · feature #3.
 - [ ] **9 · E1 — Candidates inline add-key / start-host affordance** (MED). List known providers; quiet
   "Add key in Settings →" for unconfigured cloud + "Start Ollama/LM Studio" for local. Reuse the
   selection panel's gated entries. _ref:_ §WS-E1 · feature #4.
@@ -298,25 +311,40 @@ clear via Settings → data management for a pristine demo state if wanted._
   backend/hash. NOTE: non-recommended dot tone still comes from `passRateTone(p.quality)` where `quality`
   is the *toggled* metric value — cosmetic and consistent with the displayed Y (diff-reviewer OK'd), not
   an accent violation.
+- **Run-level cost ledger (Task 8, SHIPPED `055bd50`):** pure `costLedgerMath.ts`
+  `buildCostLedger(leaderboard, results)` rolls `report.results` up per `candidate_id` — Σ
+  `estimated_cost_usd` → candidate $, Σ `judge_cost_usd` → judge $, Σ `input/output_tokens`. Because the
+  engine's `build_cost_summary` rolls up **the same rows**, the panel's per-candidate totals **sum back to
+  `report.cost_summary` (= the DecisionSummary "Run cost" line) by construction** — frozen by a test that
+  recomputes the expected sums from the raw rows. Share = `total/grandTotal` with a `grandTotal>0` guard
+  (free run → 0, never NaN). **Leaderboard order is preserved** (recommended-first), NOT result-row order.
+  `privacy` is **carried through `CandidateCost`** (from `LeaderboardEntry.privacy`) so the view's
+  `ProviderTag` never guesses it. `CostLedger.tsx` is mounted in the **full-run branch ONLY** (the quick
+  branch renders `QuickCompare`); it shows nothing on an empty leaderboard. DS: cost is neither verdict
+  nor PASS → **neutral ink tokens ONLY, NEVER `--color-accent` or `--color-ok`**; share bar is
+  `--color-ink-muted`; all `$`/token figures `tabular-nums`; judge column shows "—" when no judge ran;
+  zero-total run shows "Free" + a "No spend — local or mock providers only" note. ⚠️ **The pure module is
+  `costLedgerMath.ts`, NOT `costLedger.ts`** — a lowercase `costLedger.ts` would collide with
+  `CostLedger.tsx` on macOS's case-insensitive FS (same reason `paretoFrontier.ts`/`FrontierScatter.tsx`
+  differ by more than case). FE-only display of existing report fields — touches no backend/hash; mock
+  `467ddd96c9a5` untouched.
 
 ## Paste prompt for the next session
 ```text
 Stage 3 execution, one point-task per session. Tasks 1 (A1, 593d346), 2 (A2, f2b7e91), 3 (A3, 9e413d5),
-4 (B, 5307ae5), 5 (C, 1864b35), 6 (D1, 0f83f9e) and 7 (Decide insight layer, 30e5cf5) are checked off in
-the HANDOFF NEXT TASKS queue. WS-A + WS-B + WS-C + WS-D1 + Task 7 done.
+4 (B, 5307ae5), 5 (C, 1864b35), 6 (D1, 0f83f9e), 7 (Decide insight layer, 30e5cf5) and 8 (D2 cost ledger,
+055bd50) are checked off in the HANDOFF NEXT TASKS queue. WS-A + WS-B + WS-C + WS-D (D1+D2) + Task 7 done.
 
-▶️ EXECUTE TASK 8 — WS-D2 (Run-level cost ledger / spend panel, MED). Per-provider tokens + $ and a run
-total in the Inspector or under the leaderboard. Data source: `RunCostSummary` already on the report
-(`domain/models.py`); candidate/judge/total already computed by the engine — surface it, don't recompute.
-Reuse ainative `…/orionfold/ainative/src/lib/usage/ledger.ts` + `src/components/costs/cost-dashboard.tsx`
-+ micro-viz (`src/components/charts/{sparkline,mini-bar,donut-ring}.tsx`) — port the micro-viz to
-RECHARTS + cockpit semantic tokens (do NOT pull a second charting lib — see the charting-library-recharts
-memory; Recharts ^3.9.0 is already installed from WS-D1). DS: accent only on interactive; value tags
-neutral/squared; $ in tabular-nums. _verify:_ the panel's sums MUST match the verdict banner's existing
-"Run cost" line (the DecisionSummary already prints "Run cost: candidate $X · judge $Y · total $Z" — the
-2026-06-23 3-tier real run showed candidate $0.0827 · judge $0.0000 · total $0.0827). Build smallest
-slice → verify (uv run pytest + pnpm test + pnpm build + browser per CLAUDE.md, real keys/Sandbox OFF) →
-check the box → re-handoff. _ref:_ _SPECS/2026-06-22-trustworthy-proof-and-polish.md §WS-D2 · feature #3.
+▶️ EXECUTE TASK 9 — WS-E1 (Candidates inline add-key / start-host affordance, MED). In the Configure
+candidate catalog, list KNOWN providers with a quiet "Add key in Settings →" deep-link (prefer over inline
+key entry — keeps the secrets-guard surface small) for unconfigured cloud, and a "Start Ollama / LM Studio"
+hint for local. The selection panel ALREADY emits gated providers (`selection.py`; `scoring.ts`/`JudgeFilter`
+already surface gated judge rows) — reuse that pattern, don't rebuild gating. Reuse the keyless-default +
+reveal-on-configure idea from Arena `arena-app/src/components/arena/OpenRouterKeySettings.jsx`. DS: accent
+only on interactive; identity tags neutral/squared. _verify:_ an unconfigured provider shows the add-key
+affordance + explains its absence; Playwright smoke on the empty/unconfigured state. Build smallest slice →
+verify (uv run pytest + pnpm test + pnpm build + browser per CLAUDE.md, real keys/Sandbox OFF) → check the
+box → re-handoff. _ref:_ _SPECS/2026-06-22-trustworthy-proof-and-polish.md §WS-E1 · feature #4.
 
 App up (REAL keys in .env.local, Sandbox OFF, no mocks; cost OK'd): API
 `uv run orionfold dev --port 8790`; UI `VITE_DEV_PORT=5174 VITE_API_PROXY=http://127.0.0.1:8790
@@ -350,5 +378,10 @@ display touching no backend/hash; Task 7 Decide insight layer = Pass-rate⇄Avg-
 Pass rate), buildScatterPoints(entries,metric) reads e.avg_score on "avg_score" + recomputes frontier,
 RECOMMENDED ACCENT TIED TO entry.recommended NEVER the metric leader, decideInsights.ts
 deriveDecideInsight = deterministic 5-rule explainer NEVER an LLM call, metric-agnostic so its text
-doesn't change on toggle, tones ok/warn/ink-muted NEVER the cyan accent, FE-only).
+doesn't change on toggle, tones ok/warn/ink-muted NEVER the cyan accent, FE-only; Task 8 cost ledger =
+pure costLedgerMath.ts buildCostLedger(leaderboard,results) rolls report.results up per candidate_id so
+per-candidate totals SUM BACK TO report.cost_summary / the verdict "Run cost" line BY CONSTRUCTION,
+share has grandTotal>0 guard (free→0 not NaN), leaderboard order preserved + privacy carried not guessed,
+CostLedger.tsx mounted FULL-RUN branch only, neutral ink ONLY never --color-accent/--color-ok, module is
+costLedgerMath.ts NOT costLedger.ts (macOS case collision w/ CostLedger.tsx), FE-only no backend/hash).
 ```
