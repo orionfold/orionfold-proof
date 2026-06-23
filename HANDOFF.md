@@ -6,7 +6,38 @@
 > To resume: in a fresh session say **"read from handoff"** (or "continue from last
 > session"), or `/clear` and paste the prompt below.
 
-_Last updated: 2026-06-23 · **Stage 3 in progress — the demo-scorer-default fix (Task 10's blocker) is
+_Last updated: 2026-06-23 · **Stage 3 in progress — Task 10 (WS-E2 Guided first-run CTA) is DONE +
+committed (`5cc8ca0`).** The empty Proof Run state now offers a one-click **"Run the demo proof on real
+models"** CTA: it seeds the bundled `is_sample` sample (if absent), selects it, preselects **2 cheap cloud
+candidates**, lets `ScoringMethod` auto-apply the LLM judge (the `50155bb` default), and **auto-runs** the
+proof → a clear-winner receipt in ~30s, no setup form. **FE-only, 5 files.** New pure
+`cheapCloudCandidates(panel)` in `scoring.ts` (cheapest **available cloud** first: cost_class
+`free<$<$$<$$$`, then recommended→latest; first 2 distinct ids). In `ProofCockpit.tsx`: a
+`canRunDemo = cheapCloud.length===2` gate (**CTA shown only when ≥2 cheap cloud exist** — the "real models"
+promise stays honest; operator decision), a seed mutation, `startGuidedDemo()` (preselect + arm; **does NOT
+reset the rubric** — that would strand it null since the judge latch is once-per-dataset), an arm effect that
+holds the sample selected through the seed→refetch race, and an **auto-run effect** firing **only once
+`rubric.kind==="judge"`** (backend keypoint fallback **unreachable**) — one-shot via `setDemoArmed(false)`
+before mutate, and **disarms (no spin)** if the user pre-picked a non-judge method. `EmptyResults` gained the
+accent CTA (`--color-accent-strong`, `animate-breathe`). **Operator decisions (AskUserQuestion):** (a) CTA =
+**preselect + auto-run when ready** (the judge default resolves async in `ScoringMethod`'s effect, so the run
+can't fire same-tick); (b) **no-key fallback = hide the CTA**. No backend/migration/`config_hash` change —
+mock `467ddd96c9a5` intact by construction. Verified: **212 FE (+8) / 298 BE (unchanged)**, tsc exit 0 +
+build clean, **13/13 Playwright** (+1 CTA smoke: presence matches the live `/api/selection` cloud count —
+never clicks a paid run; re-embedded build into the gitignored static dir). **Real-browser, REAL models**
+(Sandbox OFF; Anthropic+OpenAI keys; cost OK'd): empty state → CTA rendered → **one click** → task name
+"Sample · investment memo summarization", **LLM judge auto-selected** (Claude Haiku 4.5 · Anthropic), 2
+cheapest cloud (Haiku 4.5 + GPT-5.4 nano) preselected, **run auto-fired** → persisted `run_593bbe577f05`
+(`dataset_id:sample-investment-memo`, `rubric.kind:judge`) → **clear winner: RECOMMENDED gpt-5.4-nano,
+80% (4/5), avg 0.73, total $0.0130**; receipt "Scored by: LLM judge · claude-haiku-4-5"; all 3 exports
+**secret-free**. Fresh-context diff-reviewer: **PASS** (faithful, no invariant violations / double-fire /
+race / loop); hardened the one liveness edge it flagged (armed-forever spinner → now disarms, +covering
+test). (worklog `docs/worklog/2026-06-23-ws-e2-guided-first-run-cta.md`.) **Next: Task 11 (WS-F DS
+application-consistency pass, LOW) — the LAST open queue item.** `main` local-only; git remote/push stay
+queued LAST until packaging (operator directive)._
+
+<!-- prior status (Task 9.5 demo-scorer-default, 50155bb) below — superseded -->
+<!-- _Stage 3 in progress — the demo-scorer-default fix (Task 10's blocker) is
 DONE + committed (`50155bb`).** The bundled **"Sample · investment memo summarization"** demo (the
 seeded `is_sample` dataset) now **defaults its run's scoring method to the LLM judge** instead of
 Auto/Keypoint. Lexical Similarity/Keypoint scores free-form paraphrase ~0 ("NO CLEAR WINNER") at any
@@ -32,32 +63,30 @@ ON + sample → stays Auto (no mock-judge auto-select). Fresh-context diff-revie
 regressions/invariant violations/scope creep**. (worklog `docs/worklog/2026-06-23-demo-judge-default.md`;
 `_IDEAS/issues.md` "REAL-RUN: flagship … NO CLEAR WINNER" marked ✅ RESOLVED.) **Next: Task 10 (WS-E2
 guided first-run CTA) is now UNBLOCKED — build the one-click "run the demo on real models" CTA.** `main`
-local-only; git remote/push stay queued LAST until packaging (operator directive)._
+local-only; git remote/push stay queued LAST until packaging (operator directive)._ -->
 
-## ▶️ START HERE NEXT SESSION — Task 10 (WS-E2 Guided first-run CTA) is now UNBLOCKED — BUILD IT
+## ▶️ START HERE NEXT SESSION — Task 11 (WS-F DS application-consistency pass) is the LAST queue item — BUILD IT (may split)
 
-**Stage 3 is underway: one point-task per session.** Tasks 1–9 + the demo-scorer-default fix are checked
+**Stage 3 is underway: one point-task per session.** Tasks 1–10 + the demo-scorer-default fix are checked
 off below. Read the spec workstream before coding. Build smallest slice → verify (tests + browser per
 CLAUDE.md) → check the box → re-handoff.
 
-**Next is Task 10 — WS-E2 (Guided first-run CTA, MED).** The blocker is cleared: the bundled demo now
-produces a **clear winner** on real models (the LLM-judge default shipped in `50155bb`). Build a one-click
-**"Run the demo proof on real models"** CTA on the **empty** Proof Run state → a clear-winner receipt in
-~30s. Target the **seeded sample dataset** (`sample-investment-memo`, `is_sample:true` — the same one that
-now auto-selects the LLM judge) + 2 cheap cloud candidates. Reuse the existing stepper/run path; the CTA
-should drive the same `ScoringMethod`/state so the judge default applies (OR seed the sample first if the
-DB is empty — the seed endpoint is `POST /api/sample-data/seed`). ⚠️ If the CTA builds a `RunRequest`
-**directly** (bypassing `ScoringMethod`), it must explicitly set the judge rubric — `rubric:null` would
-fall back to the backend `default_rubric_for` = **keypoint** (the FE judge default lives in the component,
-NOT the backend, per the operator's chosen layer). Simplest: have the CTA preselect the sample + cheap
-candidates and let the existing component-driven default kick in. _ref:_
-`_SPECS/2026-06-22-trustworthy-proof-and-polish.md` §WS-E2 · feature #5.
+**Next is Task 11 — WS-F (DS application-consistency pass, LOW; may split).** This closes gaps between the
+live UI and the reference component kit (`/Users/manavsehgal/orionfold-design-system/mocks/design-reference/
+2026-06-20/{candidate-1,components}.html`). The token *foundation* already matches (`#14c8c0` cyan, Geist) —
+these are **application-consistency** fixes, not color drift. Five items (may split across sessions):
+**F1** seed sample dataset metadata (`repository.py:112-119` / `sample_data.py:25-29`); **F2/F3** leaderboard
+sortable + mono-microcap headers (`Leaderboard.tsx:26-36`, ref `.tbl`); **F4** distinct Mock badge
+(`badges.tsx:19-25`); **F5** inspector-less route layout (`ViewShell.tsx:16`). _verify:_
+`browser-visual-verification` light+dark; **full-receipt HTML byte-identical** (the palette-count test in
+`test_receipts.py` guards `_RECEIPT_STYLE`). _ref:_ `_SPECS/2026-06-22-trustworthy-proof-and-polish.md`
+§WS-F · DS #1–#5.
 
-_Alternatively, the unblocked **Task 11 — WS-F (DS application-consistency pass, LOW)** remains available
-(F1 seed sample metadata; F2/F3 sortable + mono-microcap leaderboard headers; F4 distinct Mock badge; F5
-inspector-less route layout; may split)._
+_After Task 11 the point queue is **empty** — remaining work is all deferred backlog (packaging·licensing·
+distribution → then git remote+push LAST, per operator directive)._
 
-_Demo-scorer-default fix committed to `main` as `50155bb` (worklog
+_Task 10 (WS-E2 guided first-run CTA) = `5cc8ca0` (worklog
+`docs/worklog/2026-06-23-ws-e2-guided-first-run-cta.md`). Demo-scorer-default fix = `50155bb` (worklog
 `docs/worklog/2026-06-23-demo-judge-default.md`). Task 9 (WS-E1 add-key affordance) = `f65e686` (worklog
 `docs/worklog/2026-06-23-ws-e1-candidates-add-key-affordance.md`). Task 8 (WS-D2 cost ledger) = `055bd50`
 (worklog `docs/worklog/2026-06-23-ws-d2-run-cost-ledger.md`). Task 7 (Decide insight layer) = `30e5cf5`
@@ -201,13 +230,24 @@ operator has OK'd it; Sandbox stays OFF (no mocks).**
   Fresh-context diff-reviewer: faithful. _files:_ `scoring.ts`(+test) · `ScoringMethod.tsx`(+test). _ref:_
   `_IDEAS/issues.md` "REAL-RUN: flagship … NO CLEAR WINNER" (✅ RESOLVED) · worklog
   `docs/worklog/2026-06-23-demo-judge-default.md`.
-- [ ] **10 · E2 — Guided first-run CTA** (MED; **now UNBLOCKED** — the scorer-default fix shipped in
-  `50155bb`). One-click "Run the demo proof on real models" on the empty Proof Run state → clear-winner
-  receipt in ~30s. Target the **seeded sample dataset** (`sample-investment-memo`, which now auto-selects
-  the LLM judge) + 2 cheap cloud candidates. ⚠️ If the CTA builds a `RunRequest` directly, set the judge
-  rubric explicitly — `rubric:null` falls back to the backend `default_rubric_for` = keypoint (the FE judge
-  default lives in `ScoringMethod`, not the backend). Simplest: preselect sample + cheap candidates and let
-  the component default apply. _ref:_ §WS-E2 · feature #5.
+- [x] **10 · E2 — Guided first-run CTA** (MED) ✅ DONE 2026-06-23 (`5cc8ca0`). One-click "Run the demo
+  proof on real models" on the **empty** Proof Run state: seeds the bundled `is_sample` sample (if absent),
+  selects it, preselects **2 cheap cloud candidates**, lets `ScoringMethod` auto-apply the LLM judge
+  (`50155bb` default), and **auto-runs** → clear-winner receipt in ~30s. **FE-only:** new pure
+  `cheapCloudCandidates(panel)` in `scoring.ts` (cheapest available cloud first; 2 distinct ids);
+  `ProofCockpit.tsx` gains `canRunDemo = cheapCloud.length===2` (**CTA shown only when ≥2 cheap cloud** —
+  honest promise; operator decision), a seed mutation, `startGuidedDemo()` (preselect + arm, **no rubric
+  reset** — the judge latch is once-per-dataset), an arm effect (holds sample selected through seed→refetch),
+  and an **auto-run effect firing only once `rubric.kind==="judge"`** (backend keypoint fallback unreachable;
+  one-shot; disarms-no-spin if a non-judge method was pre-picked). **Operator decisions (AskUserQuestion):**
+  CTA = preselect + auto-run when ready (judge default is async); no-key fallback = hide the CTA. No
+  backend/migration/`config_hash` change; mock `467ddd96c9a5` intact. **212 FE (+8) / 298 BE (unchanged)**,
+  tsc exit 0 + build clean, **13/13 Playwright** (+1 CTA smoke). Real-browser, REAL models (Sandbox OFF):
+  one click → sample + LLM judge (Claude Haiku 4.5) + 2 cheap cloud → **clear winner RECOMMENDED gpt-5.4-nano,
+  80% (4/5), avg 0.73, total $0.0130** (`run_593bbe577f05`, `rubric.kind:judge`); receipt "Scored by: LLM
+  judge", 3 exports secret-free. Fresh-context diff-reviewer: PASS (hardened one liveness edge). _new files:_
+  none. _files touched:_ `scoring.ts`(+test) · `ProofCockpit.tsx`(+test) · `proof.spec.ts`. _ref:_ §WS-E2 ·
+  feature #5. (worklog `docs/worklog/2026-06-23-ws-e2-guided-first-run-cta.md`)
 - [ ] **11 · F1–F5 — DS application-consistency pass** (LOW; may split). F1 seed sample dataset
   metadata (`repository.py:112-119`/`sample_data.py:25-29`); F2/F3 leaderboard sortable + mono-microcaps
   headers (`Leaderboard.tsx:26-36`, ref `.tbl`); F4 distinct Mock badge (`badges.tsx:19-25`); F5
@@ -399,28 +439,45 @@ clear via Settings → data management for a pristine demo state if wanted._
   (incl. a future CTA that bypasses the component) gets keypoint, NOT judge. The catalog
   `investment-memo-summarization` (`is_sample:false`) is unaffected (stays Auto→Keypoint — frozen by the
   Sandbox e2e). FE-only display/selection logic — touches no backend/hash; mock `467ddd96c9a5` untouched.
+- **Guided first-run CTA (Task 10, SHIPPED `5cc8ca0`):** the empty-state "Run the demo proof on real
+  models" CTA **does NOT build a `RunRequest` directly** — it drives `ScoringMethod`'s state so the demo
+  judge default (above) applies, then auto-runs. Pure `cheapCloudCandidates(panel, count=2)` in `scoring.ts`
+  scans **available cloud** providers cheapest-first (cost_class `free<$<$$<$$$`, then recommended→latest;
+  first N distinct candidate ids); **cloud-only** (Local/Mock are the Sandbox path). `ProofCockpit.tsx`:
+  the CTA shows **only when `cheapCloud.length === 2`** (operator decision — the "real models" promise must
+  be deliverable; keyless/Sandbox-only users keep the existing empty-state copy). `startGuidedDemo()`
+  preselects sample + cheap cloud and arms — **it must NOT reset `rubric`** (the once-per-dataset judge
+  latch is already spent on the sample's arrival; clearing the rubric would strand it null forever). The
+  **auto-run effect fires `runMutation.mutate` only once `rubric.kind === "judge"`**, passing that exact
+  non-null judge rubric — so the backend `default_rubric_for` = keypoint fallback is **unreachable** (this
+  is the WS-E2-specific guard against the demo-judge-default warning). One-shot via `setDemoArmed(false)`
+  before mutate (the `!demoArmed` early-return blocks any re-fire). It **disarms (no infinite spin)** if the
+  rubric is non-null-non-judge (user pre-picked another method → judge can't arrive); safety holds — it
+  never fires with the wrong rubric. Sample detected by `is_sample` (`datasets.data.find(d => d.is_sample)`),
+  never a hardcoded id. The CTA button is interactive → legitimately `--color-accent-strong` (no `--color-ok`
+  misuse). FE-only — touches no backend/hash; mock `467ddd96c9a5` untouched. The e2e CTA smoke asserts
+  presence **matches** the live `/api/selection` cloud count (passes with or without keys) and **never
+  clicks** a paid run — the click path is covered by unit tests + the live-browser run.
 
 ## Paste prompt for the next session
 ```text
 Stage 3 execution, one point-task per session. Tasks 1 (A1, 593d346), 2 (A2, f2b7e91), 3 (A3, 9e413d5),
 4 (B, 5307ae5), 5 (C, 1864b35), 6 (D1, 0f83f9e), 7 (Decide insight layer, 30e5cf5), 8 (D2 cost ledger,
-055bd50), 9 (E1 add-key affordance, f65e686) AND the demo-scorer-default fix (Task 10's blocker, 50155bb)
-are checked off in the HANDOFF NEXT TASKS queue. WS-A + WS-B + WS-C + WS-D (D1+D2) + WS-E1 + Task 7 done.
+055bd50), 9 (E1 add-key affordance, f65e686), the demo-scorer-default fix (50155bb) AND 10 (E2 guided
+first-run CTA, 5cc8ca0) are checked off in the HANDOFF NEXT TASKS queue. WS-A + WS-B + WS-C + WS-D (D1+D2)
++ WS-E (E1+E2) + Task 7 done.
 
-▶️ NEXT IS TASK 10 — WS-E2 (Guided first-run CTA, MED) — now UNBLOCKED. The blocker is cleared: the
-bundled `is_sample` summarization demo now defaults to the LLM judge (50155bb) and yields a CLEAR WINNER on
-real models (verified: RECOMMENDED claude-haiku-4-5, 60% pass, "Scored by: LLM judge"). BUILD the one-click
-"Run the demo proof on real models" CTA on the EMPTY Proof Run state → clear-winner receipt in ~30s. Target
-the seeded sample dataset (sample-investment-memo, is_sample:true — the one that now auto-selects the LLM
-judge) + 2 cheap cloud candidates; reuse the stepper/run path. ⚠️ The judge default is FRONTEND-only (lives
-in ScoringMethod, NOT the backend): if the CTA builds a RunRequest directly with rubric:null it falls back
-to the backend default_rubric_for = keypoint, so either drive the component's state OR set the judge rubric
-explicitly. Simplest: preselect sample + cheap candidates and let the component default apply. (If the DB
-is empty, seed first: POST /api/sample-data/seed.) Alternatively the unblocked Task 11 — WS-F (DS pass, LOW)
-is available (F1 sample metadata; F2/F3 sortable + mono-microcap leaderboard headers; F4 distinct Mock
-badge; F5 inspector-less layout; may split). Build smallest slice → verify (uv run pytest + pnpm test +
-pnpm build + browser per CLAUDE.md, real keys/Sandbox OFF) → check the box → re-handoff. _ref:_
-_SPECS/2026-06-22-trustworthy-proof-and-polish.md §WS-E2/§WS-F · features #5, DS #1–#5.
+▶️ NEXT IS TASK 11 — WS-F (DS application-consistency pass, LOW; may split) — the LAST open queue item.
+Closes gaps vs the reference component kit (token foundation already matches — these are application-
+consistency fixes, NOT color drift). Five items, may split across sessions: F1 seed sample dataset metadata
+(repository.py:112-119 / sample_data.py:25-29); F2/F3 leaderboard sortable + mono-microcap headers
+(Leaderboard.tsx:26-36, ref .tbl); F4 distinct Mock badge (badges.tsx:19-25); F5 inspector-less route
+layout (ViewShell.tsx:16). VERIFY: browser-visual-verification light+dark; full-receipt HTML BYTE-IDENTICAL
+(the palette-count test in test_receipts.py guards _RECEIPT_STYLE — do not regress). After Task 11 the point
+queue is EMPTY → only deferred backlog remains (packaging·licensing·distribution → git remote+push LAST).
+Build smallest slice → verify (uv run pytest + pnpm test + pnpm build + browser per CLAUDE.md, real
+keys/Sandbox OFF) → check the box → re-handoff. _ref:_
+_SPECS/2026-06-22-trustworthy-proof-and-polish.md §WS-F · DS #1–#5.
 
 App up (REAL keys in .env.local, Sandbox OFF, no mocks; cost OK'd): API
 `uv run orionfold dev --port 8790`; UI `VITE_DEV_PORT=5174 VITE_API_PROXY=http://127.0.0.1:8790
@@ -476,5 +533,16 @@ selectMethod("judge") once per sample arrival ONLY while value===null (never clo
 Auto), routed through the existing if(judgeCell) commit gate (A3) so it can only emit a real judge,
 FRONTEND-ONLY (operator's layer) — backend default_rubric_for unchanged still resolves sample→keypoint so
 a rubric:null RunRequest gets keypoint NOT judge, catalog investment-memo-summarization is_sample:false
-unaffected, FE-only no backend/hash mock 467ddd96c9a5 untouched).
+unaffected, FE-only no backend/hash mock 467ddd96c9a5 untouched); Task 10 WS-E2 guided first-run CTA
+(5cc8ca0) = empty-state "Run the demo proof on real models" DRIVES ScoringMethod's state (does NOT build a
+RunRequest directly) so the demo judge default applies then auto-runs; pure cheapCloudCandidates(panel,2)
+in scoring.ts scans AVAILABLE CLOUD cheapest-first (free<$<$$<$$$ then recommended→latest, 2 distinct ids,
+cloud-only); CTA shown ONLY when cheapCloud.length===2 (honest "real models" promise; keyless/Sandbox-only
+keep existing empty-state copy); startGuidedDemo() preselects+arms and must NOT reset rubric (judge latch is
+once-per-dataset — clearing strands it null); auto-run effect fires mutate ONLY once rubric.kind==="judge"
+passing that non-null judge rubric so backend keypoint fallback is UNREACHABLE, one-shot via
+setDemoArmed(false) before mutate, DISARMS-no-spin if rubric non-null-non-judge (user pre-picked another
+method); sample detected by is_sample never a hardcoded id; CTA button interactive → legit
+--color-accent-strong no --color-ok misuse; e2e smoke asserts presence MATCHES live /api/selection cloud
+count + NEVER clicks a paid run; FE-only no backend/hash mock 467ddd96c9a5 untouched.
 ```
