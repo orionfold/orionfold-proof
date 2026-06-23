@@ -6,35 +6,35 @@
 > To resume: in a fresh session say **"read from handoff"** (or "continue from last
 > session"), or `/clear` and paste the prompt below.
 
-_Last updated: 2026-06-23 · **Stage 3 in progress — Task 10 (WS-E2 Guided first-run CTA) is DONE +
-committed (`5cc8ca0`).** The empty Proof Run state now offers a one-click **"Run the demo proof on real
-models"** CTA: it seeds the bundled `is_sample` sample (if absent), selects it, preselects **2 cheap cloud
-candidates**, lets `ScoringMethod` auto-apply the LLM judge (the `50155bb` default), and **auto-runs** the
-proof → a clear-winner receipt in ~30s, no setup form. **FE-only, 5 files.** New pure
-`cheapCloudCandidates(panel)` in `scoring.ts` (cheapest **available cloud** first: cost_class
-`free<$<$$<$$$`, then recommended→latest; first 2 distinct ids). In `ProofCockpit.tsx`: a
-`canRunDemo = cheapCloud.length===2` gate (**CTA shown only when ≥2 cheap cloud exist** — the "real models"
-promise stays honest; operator decision), a seed mutation, `startGuidedDemo()` (preselect + arm; **does NOT
-reset the rubric** — that would strand it null since the judge latch is once-per-dataset), an arm effect that
-holds the sample selected through the seed→refetch race, and an **auto-run effect** firing **only once
-`rubric.kind==="judge"`** (backend keypoint fallback **unreachable**) — one-shot via `setDemoArmed(false)`
-before mutate, and **disarms (no spin)** if the user pre-picked a non-judge method. `EmptyResults` gained the
-accent CTA (`--color-accent-strong`, `animate-breathe`). **Operator decisions (AskUserQuestion):** (a) CTA =
-**preselect + auto-run when ready** (the judge default resolves async in `ScoringMethod`'s effect, so the run
-can't fire same-tick); (b) **no-key fallback = hide the CTA**. No backend/migration/`config_hash` change —
-mock `467ddd96c9a5` intact by construction. Verified: **212 FE (+8) / 298 BE (unchanged)**, tsc exit 0 +
-build clean, **13/13 Playwright** (+1 CTA smoke: presence matches the live `/api/selection` cloud count —
-never clicks a paid run; re-embedded build into the gitignored static dir). **Real-browser, REAL models**
-(Sandbox OFF; Anthropic+OpenAI keys; cost OK'd): empty state → CTA rendered → **one click** → task name
-"Sample · investment memo summarization", **LLM judge auto-selected** (Claude Haiku 4.5 · Anthropic), 2
-cheapest cloud (Haiku 4.5 + GPT-5.4 nano) preselected, **run auto-fired** → persisted `run_593bbe577f05`
-(`dataset_id:sample-investment-memo`, `rubric.kind:judge`) → **clear winner: RECOMMENDED gpt-5.4-nano,
-80% (4/5), avg 0.73, total $0.0130**; receipt "Scored by: LLM judge · claude-haiku-4-5"; all 3 exports
-**secret-free**. Fresh-context diff-reviewer: **PASS** (faithful, no invariant violations / double-fire /
-race / loop); hardened the one liveness edge it flagged (armed-forever spinner → now disarms, +covering
-test). (worklog `docs/worklog/2026-06-23-ws-e2-guided-first-run-cta.md`.) **Next: Task 11 (WS-F DS
-application-consistency pass, LOW) — the LAST open queue item.** `main` local-only; git remote/push stay
-queued LAST until packaging (operator directive)._
+_Last updated: 2026-06-23 · **Stage 3 COMPLETE — Task 11 (WS-F DS application-consistency pass) is DONE +
+committed (`9820b5c`). The Stage-3 point queue is now EMPTY.** WS-F shipped all five DS items in one session
+(token foundation already matched — these were application-consistency fixes, NOT color drift): **F1** the
+seeded sample dataset now writes display metadata (`insert_sample_dataset` + `seed_sample_data` pass
+`created_at`=`2026-06-19T12:00:00Z` / `source`="Bundled with Orionfold" / `check_hint`="eyeball") so its card
+reads `5 examples · created … · Bundled with Orionfold` + an "Eyeball / judgment" chip, matching user sets —
+**no migration** (cols exist at index 5; display-only, engine never reads `check_hint`); **F2/F3** the
+`Leaderboard.tsx` headers are now mono micro-caps (reference `.tbl` voice) **and sortable** (client-side,
+`aria-sort`, cyan accent + `↕/↑/↓` arrow on the active column) — the server ranking is the **default on load**
+(`column:null`, podium medals meaningful) and **medals are suppressed once sorted** (explore mode), the
+recommended highlight stays tied to `entry.recommended` not index; pure sort logic in new
+`leaderboardSort.ts` (null `$/quality` always sinks, stable w/ server-order tiebreak); **F4** the Mock
+`ProviderTag` is now **warn-tinted** (`border/bg/text --color-warn`, reference `.badge.warn`) so simulated ≠
+real reads at a glance — Cloud/Local unchanged neutral, base span no longer hardcodes border/bg (per-kind
+`cls` owns it, no Tailwind conflict); **F5** `ViewShell` width-caps inspector-less routes (`max-w-5xl`,
+left-anchored) so they don't read full-bleed vs the cockpit's main+22rem grid (widen-main-only — operator
+decision; `ProofCockpit` doesn't use `ViewShell` so the cockpit is untouched). **FE + a backend seed fix; no
+migration/`config_hash` change** — mock `467ddd96c9a5` intact (double-safeguard: `"eyeball"` not in
+`_HINT_KIND`, AND `seed_sample_data` doesn't pass `check_hint=` to scoring). Verified: **230 FE (+18) / 298 BE
+(unchanged)**, tsc exit 0 + build clean, ruff+pyright clean, **13/13 Playwright** (re-embedded build into the
+gitignored static dir). **Real-browser light + dark** (`browser-visual-verification`): F1 sample card metadata
++ chip (after a re-seed of the stale pre-fix row); F2 click reorders + accent + `aria-sort` + medals→ranks; F3
+mono micro-caps both themes; F4 amber Mock badge distinct from neutral Cloud, AA both themes; F5 balanced;
+secret-free; restored Sandbox OFF + dark after. Full-receipt HTML **byte-identical** (palette guard green;
+`receipts/export.py` untouched). Fresh-context diff-reviewer: **PASS — ship-ready, no correctness/invariant
+issues** (independently confirmed the `config_hash` double-safeguard + null-sort + accent/status split +
+ViewShell scope). (worklog `docs/worklog/2026-06-23-ws-f-ds-application-consistency.md`.) **Next: the point
+queue is EMPTY — only deferred backlog remains (packaging·licensing·distribution, BRAINSTORM first → git
+remote+push LAST).** `main` local-only; git remote/push stay queued LAST until packaging (operator directive)._
 
 <!-- prior status (Task 9.5 demo-scorer-default, 50155bb) below — superseded -->
 <!-- _Stage 3 in progress — the demo-scorer-default fix (Task 10's blocker) is
@@ -65,25 +65,20 @@ regressions/invariant violations/scope creep**. (worklog `docs/worklog/2026-06-2
 guided first-run CTA) is now UNBLOCKED — build the one-click "run the demo on real models" CTA.** `main`
 local-only; git remote/push stay queued LAST until packaging (operator directive)._ -->
 
-## ▶️ START HERE NEXT SESSION — Task 11 (WS-F DS application-consistency pass) is the LAST queue item — BUILD IT (may split)
+## ▶️ START HERE NEXT SESSION — Stage 3 point queue is EMPTY. Only deferred backlog remains.
 
-**Stage 3 is underway: one point-task per session.** Tasks 1–10 + the demo-scorer-default fix are checked
-off below. Read the spec workstream before coding. Build smallest slice → verify (tests + browser per
-CLAUDE.md) → check the box → re-handoff.
+**Stage 3 is COMPLETE** — Tasks 1–10 + the demo-scorer-default fix + Task 11 (WS-F) are all checked off
+below. **There is no next point-task.** Remaining work is entirely the **deferred BACKLOG** (see the BACKLOG
+section). Per the operator pipeline, surface backlog items only when the operator picks one — and **do NOT
+surface or start git remote + push until packaging·licensing·distribution is done** (operator directive).
 
-**Next is Task 11 — WS-F (DS application-consistency pass, LOW; may split).** This closes gaps between the
-live UI and the reference component kit (`/Users/manavsehgal/orionfold-design-system/mocks/design-reference/
-2026-06-20/{candidate-1,components}.html`). The token *foundation* already matches (`#14c8c0` cyan, Geist) —
-these are **application-consistency** fixes, not color drift. Five items (may split across sessions):
-**F1** seed sample dataset metadata (`repository.py:112-119` / `sample_data.py:25-29`); **F2/F3** leaderboard
-sortable + mono-microcap headers (`Leaderboard.tsx:26-36`, ref `.tbl`); **F4** distinct Mock badge
-(`badges.tsx:19-25`); **F5** inspector-less route layout (`ViewShell.tsx:16`). _verify:_
-`browser-visual-verification` light+dark; **full-receipt HTML byte-identical** (the palette-count test in
-`test_receipts.py` guards `_RECEIPT_STYLE`). _ref:_ `_SPECS/2026-06-22-trustworthy-proof-and-polish.md`
-§WS-F · DS #1–#5.
+**If the operator wants to proceed:** the natural next item is **BACKLOG #7 — packaging · licensing ·
+distribution** (LICENSE + source headers, PyPI metadata: dist `orionfold-proof`, CLI `orionfold`, reserve
+`orionfold` + `orionfold-arena`; `uv tool install orionfold-proof` → `orionfold up`; release notes / demo
+script). **BRAINSTORM/scope FIRST** (it's multi-file/cross-cutting — gate the planning ceremony via
+`AskUserQuestion` per CLAUDE.md). After packaging, **BACKLOG #8 git remote + push** (LAST).
 
-_After Task 11 the point queue is **empty** — remaining work is all deferred backlog (packaging·licensing·
-distribution → then git remote+push LAST, per operator directive)._
+_Otherwise: the build is at a clean, shippable Stage-3 state. `main` is local-only with all work committed._
 
 _Task 10 (WS-E2 guided first-run CTA) = `5cc8ca0` (worklog
 `docs/worklog/2026-06-23-ws-e2-guided-first-run-cta.md`). Demo-scorer-default fix = `50155bb` (worklog
@@ -248,11 +243,24 @@ operator has OK'd it; Sandbox stays OFF (no mocks).**
   judge", 3 exports secret-free. Fresh-context diff-reviewer: PASS (hardened one liveness edge). _new files:_
   none. _files touched:_ `scoring.ts`(+test) · `ProofCockpit.tsx`(+test) · `proof.spec.ts`. _ref:_ §WS-E2 ·
   feature #5. (worklog `docs/worklog/2026-06-23-ws-e2-guided-first-run-cta.md`)
-- [ ] **11 · F1–F5 — DS application-consistency pass** (LOW; may split). F1 seed sample dataset
-  metadata (`repository.py:112-119`/`sample_data.py:25-29`); F2/F3 leaderboard sortable + mono-microcaps
-  headers (`Leaderboard.tsx:26-36`, ref `.tbl`); F4 distinct Mock badge (`badges.tsx:19-25`); F5
-  inspector-less route layout (`ViewShell.tsx:16`). _verify:_ `browser-visual-verification` light+dark;
-  full-receipt HTML byte-identical (palette test). _ref:_ §WS-F · DS #1–#5.
+- [x] **11 · F1–F5 — DS application-consistency pass** (LOW) ✅ DONE 2026-06-23 (`9820b5c`). All five in
+  one session. **F1** `insert_sample_dataset`+`seed_sample_data` write the sample's display metadata
+  (`created_at`/`source`="Bundled with Orionfold"/`check_hint`="eyeball") — card now matches user sets; **no
+  migration** (cols at index 5; display-only). **F2/F3** `Leaderboard.tsx` mono micro-caps headers + sortable
+  (client-side, `aria-sort`, accent+arrow on active col); server ranking = default-on-load (medals
+  meaningful), medals suppressed once sorted; pure `leaderboardSort.ts` (null `$/quality` sinks, stable). **F4**
+  Mock `ProviderTag` warn-tinted (`--color-warn`, ref `.badge.warn`); Cloud/Local unchanged; base span no
+  longer hardcodes border/bg. **F5** `ViewShell` `max-w-5xl` left-anchored (inspector-less only; cockpit
+  doesn't use ViewShell). FE + backend seed fix; no migration/`config_hash` change — mock `467ddd96c9a5`
+  intact (`"eyeball"`∉`_HINT_KIND` AND seed doesn't pass `check_hint=` to scoring). 230 FE (+18) / 298 BE,
+  tsc 0 + build + ruff/pyright clean, 13/13 Playwright; real-browser light+dark graded, secret-free; receipt
+  HTML byte-identical. Fresh-context diff-reviewer: PASS (ship-ready). _new files:_ `leaderboardSort.ts`(+test).
+  _files touched:_ `sample_data.py` · `repository.py` · `Leaderboard.tsx`(+test) · `badges.tsx`(+test) ·
+  `ViewShell.tsx` · `test_settings_and_samples.py`. _ref:_ §WS-F · DS #1–#5. (worklog
+  `docs/worklog/2026-06-23-ws-f-ds-application-consistency.md`)
+
+_**Stage 3 point queue is now EMPTY** — every HIGH/MED/LOW task above is shipped. Only deferred BACKLOG
+remains (below); operator picks. git remote+push stays queued LAST behind packaging (operator directive)._
 
 ## 🔭 `_IDEAS/` AT A GLANCE (full detail in `_IDEAS/`)
 - **Issues (6):** 3× HIGH — first real proof → "NO CLEAR WINNER": (#4) no per-task instruction →
@@ -461,23 +469,19 @@ clear via Settings → data management for a pristine demo state if wanted._
 
 ## Paste prompt for the next session
 ```text
-Stage 3 execution, one point-task per session. Tasks 1 (A1, 593d346), 2 (A2, f2b7e91), 3 (A3, 9e413d5),
+Stage 3 is COMPLETE — the point queue is EMPTY. Tasks 1 (A1, 593d346), 2 (A2, f2b7e91), 3 (A3, 9e413d5),
 4 (B, 5307ae5), 5 (C, 1864b35), 6 (D1, 0f83f9e), 7 (Decide insight layer, 30e5cf5), 8 (D2 cost ledger,
-055bd50), 9 (E1 add-key affordance, f65e686), the demo-scorer-default fix (50155bb) AND 10 (E2 guided
-first-run CTA, 5cc8ca0) are checked off in the HANDOFF NEXT TASKS queue. WS-A + WS-B + WS-C + WS-D (D1+D2)
-+ WS-E (E1+E2) + Task 7 done.
+055bd50), 9 (E1 add-key affordance, f65e686), the demo-scorer-default fix (50155bb), 10 (E2 guided
+first-run CTA, 5cc8ca0) AND 11 (WS-F DS application-consistency pass, 9820b5c) are ALL checked off. WS-A
++ WS-B + WS-C + WS-D + WS-E + WS-F + Task 7 done. There is NO next point-task.
 
-▶️ NEXT IS TASK 11 — WS-F (DS application-consistency pass, LOW; may split) — the LAST open queue item.
-Closes gaps vs the reference component kit (token foundation already matches — these are application-
-consistency fixes, NOT color drift). Five items, may split across sessions: F1 seed sample dataset metadata
-(repository.py:112-119 / sample_data.py:25-29); F2/F3 leaderboard sortable + mono-microcap headers
-(Leaderboard.tsx:26-36, ref .tbl); F4 distinct Mock badge (badges.tsx:19-25); F5 inspector-less route
-layout (ViewShell.tsx:16). VERIFY: browser-visual-verification light+dark; full-receipt HTML BYTE-IDENTICAL
-(the palette-count test in test_receipts.py guards _RECEIPT_STYLE — do not regress). After Task 11 the point
-queue is EMPTY → only deferred backlog remains (packaging·licensing·distribution → git remote+push LAST).
-Build smallest slice → verify (uv run pytest + pnpm test + pnpm build + browser per CLAUDE.md, real
-keys/Sandbox OFF) → check the box → re-handoff. _ref:_
-_SPECS/2026-06-22-trustworthy-proof-and-polish.md §WS-F · DS #1–#5.
+▶️ ONLY DEFERRED BACKLOG REMAINS (operator picks). Do NOT auto-start anything — surface a backlog item only
+when the operator asks. The natural next is BACKLOG #7 packaging·licensing·distribution (LICENSE + source
+headers, PyPI metadata: dist orionfold-proof / CLI orionfold / reserve orionfold + orionfold-arena;
+uv tool install orionfold-proof → orionfold up; release notes / demo script) — BRAINSTORM/scope FIRST (gate
+the planning ceremony via AskUserQuestion per CLAUDE.md). Then BACKLOG #8 git remote + push — LAST, do NOT
+surface until packaging is done (operator directive). main is local-only with all work committed; the build
+is at a clean shippable Stage-3 state.
 
 App up (REAL keys in .env.local, Sandbox OFF, no mocks; cost OK'd): API
 `uv run orionfold dev --port 8790`; UI `VITE_DEV_PORT=5174 VITE_API_PROXY=http://127.0.0.1:8790
