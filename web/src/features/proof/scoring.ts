@@ -2,9 +2,22 @@
 import type { Dataset, SelectionPanel, Privacy } from "../../lib/api";
 import { CLOUD_KEY_NAMES } from "./selectionMeta";
 
-// Mirrors the backend `default_rubric_for`: keypoint when the dataset authored any keypoints,
-// else similarity. Used to show what "Auto" resolves to for the selected dataset.
-export function resolveAutoKind(dataset: Dataset | undefined): "keypoint" | "similarity" {
+export type AutoKind = "keypoint" | "similarity" | "exact" | "contains";
+
+// Maps a dataset's display **check hint** to a scoring kind — mirrors the backend `_HINT_KIND`
+// (src/orionfold/scoring/rubric.py). exact/numeric → exact equality; substring → contains; "" and
+// eyeball stay on the keyless heuristic (Auto must not require a configured judge).
+const HINT_KIND: Record<string, AutoKind> = {
+  exact: "exact",
+  numeric: "exact",
+  substring: "contains",
+};
+
+// Mirrors the backend `default_rubric_for`: an explicit `check_hint` wins; otherwise keypoint when
+// the dataset authored any keypoints, else similarity. Used to show what "Auto" resolves to.
+export function resolveAutoKind(dataset: Dataset | undefined): AutoKind {
+  const hinted = HINT_KIND[(dataset?.check_hint ?? "").trim()];
+  if (hinted) return hinted;
   const hasKeypoints = Boolean(dataset?.examples.some((e) => (e.keypoints?.length ?? 0) > 0));
   return hasKeypoints ? "keypoint" : "similarity";
 }

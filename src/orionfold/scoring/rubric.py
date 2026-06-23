@@ -86,11 +86,34 @@ def threshold_for(kind: RubricKind, overrides: dict[str, float] | None = None) -
     return Rubric.model_fields["threshold"].default
 
 
-def default_rubric_for(dataset: Dataset, overrides: dict[str, float] | None = None) -> Rubric:
-    """Pick the default rubric for a dataset: keypoint when any example carries keypoints.
+# A dataset's display **check hint** (DB/API metadata) maps to a scoring kind, so an "Exact match"
+# label set grades by equality instead of partial similarity (B / _IDEAS issue #3). The hint vocab
+# (``web/.../tags.ts``) is {"" | substring | numeric | exact | eyeball}. ``numeric`` is normalized
+# equality in v0 (a tolerance check is out of scope); ``eyeball`` stays on the keyless heuristic so
+# Auto never requires a configured judge. A hint is a stronger signal than the keypoint heuristic, so
+# it wins when present; absence (the mock matrix has none) preserves the keypoint default → 467ddd96c9a5.
+_HINT_KIND: dict[str, RubricKind] = {
+    "exact": "exact",
+    "numeric": "exact",
+    "substring": "contains",
+}
 
-    The resolved kind's default threshold comes from ``threshold_for`` so the Auto path honors
-    the per-kind defaults and any persisted Settings override.
+
+def default_rubric_for(
+    dataset: Dataset,
+    overrides: dict[str, float] | None = None,
+    *,
+    check_hint: str | None = None,
+) -> Rubric:
+    """Pick the default rubric for a dataset.
+
+    Resolution order: an explicit dataset ``check_hint`` wins (exact/numeric → ``exact``,
+    substring → ``contains``); otherwise keypoint when any example carries keypoints, else
+    similarity. The resolved kind's default threshold comes from ``threshold_for`` so the Auto
+    path honors the per-kind defaults and any persisted Settings override.
     """
-    kind: RubricKind = "keypoint" if any(ex.keypoints for ex in dataset.examples) else "similarity"
+    hinted = _HINT_KIND.get((check_hint or "").strip())
+    kind: RubricKind = hinted or (
+        "keypoint" if any(ex.keypoints for ex in dataset.examples) else "similarity"
+    )
     return Rubric(kind=kind, threshold=threshold_for(kind, overrides))

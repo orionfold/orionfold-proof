@@ -448,7 +448,10 @@ def create_run(request: Request, body: RunRequest) -> ProofReport:
             raise HTTPException(status_code=400, detail="Select at least one candidate")
         candidates = _resolve_candidates(body)
 
-        rubric = body.rubric or default_rubric_for(dataset, get_threshold_defaults(conn))
+        _meta = get_dataset_meta(conn, dataset.id)
+        rubric = body.rubric or default_rubric_for(
+            dataset, get_threshold_defaults(conn), check_hint=_meta.check_hint if _meta else None
+        )
         if rubric.kind == "judge":
             try:
                 build_judge(rubric)
@@ -495,12 +498,15 @@ def create_run_stream(request: Request, body: RunRequest) -> StreamingResponse:
     try:
         dataset = _resolve_dataset(conn, body)
         threshold_overrides = get_threshold_defaults(conn)
+        meta = get_dataset_meta(conn, dataset.id)
     finally:
         conn.close()
     if not body.candidate_ids:
         raise HTTPException(status_code=400, detail="Select at least one candidate")
     candidates = _resolve_candidates(body)
-    rubric = body.rubric or default_rubric_for(dataset, threshold_overrides)
+    rubric = body.rubric or default_rubric_for(
+        dataset, threshold_overrides, check_hint=meta.check_hint if meta else None
+    )
     if rubric.kind == "judge":
         try:
             build_judge(rubric)

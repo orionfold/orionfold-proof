@@ -10,6 +10,7 @@ export const CLOUD_KEY_NAMES: Record<string, string> = {
 // Per-method copy for the grouped scoring cards. `group` drives the free-vs-paid section.
 export const METHOD_META = {
   auto: { label: "Auto", group: "free", cost: "Free", guidance: "We pick the right free check for your dataset." },
+  exact: { label: "Exact", group: "free", cost: "Free", guidance: "Passes only on an exact match (whitespace/case-normalized). Best for labels and IDs." },
   keypoint: { label: "Keypoint", group: "free", cost: "Free", guidance: "Checks your authored key facts appear in the answer." },
   similarity: { label: "Similarity", group: "free", cost: "Free", guidance: "Scores by semantic closeness to the expected answer." },
   judge: { label: "LLM judge", group: "paid", cost: "$ per run · slower", guidance: "A model grades each answer against the expected one." },

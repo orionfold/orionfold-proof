@@ -11,13 +11,15 @@ import { MethodCard } from "./MethodCard";
 import { JudgeFilter } from "./JudgeFilter";
 import { defaultJudgeCell, resolveAutoKind, thresholdFor } from "./scoring";
 import { METHOD_META } from "./selectionMeta";
+import { checkHintLabel } from "./tags";
 
 export type Rubric = z.infer<typeof rubricSchema>;
 
-type Method = "auto" | "keypoint" | "similarity" | "judge";
+type Method = "auto" | "exact" | "keypoint" | "similarity" | "judge";
 
 function deriveMethod(value: Rubric | null): Method {
   if (value === null) return "auto";
+  if (value.kind === "exact") return "exact";
   if (value.kind === "keypoint") return "keypoint";
   if (value.kind === "similarity") return "similarity";
   if (value.kind === "judge") return "judge";
@@ -56,6 +58,7 @@ export function ScoringMethod({ value, onChange, dataset }: ScoringMethodProps) 
 
   function selectMethod(m: Method) {
     if (m === "auto") { setMethod(m); onChange(null); }
+    else if (m === "exact") { setMethod(m); onChange({ kind: "exact", threshold: 1, case_sensitive: false }); }
     else if (m === "keypoint") { setMethod(m); onChange({ kind: "keypoint", threshold: thresholdFor("keypoint", thresholds), case_sensitive: false }); }
     else if (m === "similarity") { setMethod(m); onChange({ kind: "similarity", threshold: thresholdFor("similarity", thresholds), case_sensitive: false }); }
     else if (judgeCell) {
@@ -65,8 +68,17 @@ export function ScoringMethod({ value, onChange, dataset }: ScoringMethodProps) 
     }
   }
 
-  const autoResolved = resolveAutoKind(dataset) === "keypoint" ? "Keypoint coverage" : "Similarity";
-  const autoGuidance = `Picks the best free check — here, ${autoResolved}.`;
+  const autoKind = resolveAutoKind(dataset);
+  const AUTO_LABEL: Record<typeof autoKind, string> = {
+    keypoint: "Keypoint coverage",
+    similarity: "Similarity",
+    exact: "Exact match",
+    contains: "Contains",
+  };
+  const autoGuidance = `Picks the best free check — here, ${AUTO_LABEL[autoKind]}.`;
+  // When the dataset's check hint drove the resolution, name it so the link is visible.
+  const hintLabel = checkHintLabel(dataset?.check_hint);
+  const hintDroveAuto = hintLabel && (autoKind === "exact" || autoKind === "contains");
 
   return (
     <fieldset className="grid gap-3 text-sm">
@@ -75,8 +87,9 @@ export function ScoringMethod({ value, onChange, dataset }: ScoringMethodProps) 
       <p className="text-xs text-(--color-ink-faint)">
         The first three are free, instant, and repeatable. The LLM judge costs money and adds latency.
       </p>
-      <div className="grid items-stretch gap-2 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid items-stretch gap-2 sm:grid-cols-2 lg:grid-cols-5">
         <MethodCard title="Auto" guidance={autoGuidance} cost="Free" selected={method === "auto"} onSelect={() => selectMethod("auto")} />
+        <MethodCard title={METHOD_META.exact.label} guidance={METHOD_META.exact.guidance} cost={METHOD_META.exact.cost} selected={method === "exact"} onSelect={() => selectMethod("exact")} />
         <MethodCard title={METHOD_META.keypoint.label} guidance={METHOD_META.keypoint.guidance} cost={METHOD_META.keypoint.cost} selected={method === "keypoint"} onSelect={() => selectMethod("keypoint")} />
         <MethodCard title={METHOD_META.similarity.label} guidance={METHOD_META.similarity.guidance} cost={METHOD_META.similarity.cost} selected={method === "similarity"} onSelect={() => selectMethod("similarity")} />
         <MethodCard
@@ -88,6 +101,14 @@ export function ScoringMethod({ value, onChange, dataset }: ScoringMethodProps) 
           onSelect={() => selectMethod("judge")}
         />
       </div>
+
+      {method === "auto" && hintDroveAuto ? (
+        <p className="text-xs text-(--color-ink-faint)">
+          From your dataset hint:{" "}
+          <span className="font-medium text-(--color-ink-muted)">{hintLabel}</span> →{" "}
+          <span className="font-medium text-(--color-ink-muted)">{AUTO_LABEL[autoKind]}</span>.
+        </p>
+      ) : null}
 
       {method === "similarity" ? (
         <p className="text-xs text-(--color-ink-faint)">

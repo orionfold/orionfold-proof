@@ -121,3 +121,54 @@ def test_default_rubric_keypoint_threshold_unchanged_protects_mock_hash():
 def test_default_rubric_override_applies_to_resolved_kind():
     ds = Dataset(id="d", name="d", examples=[Example(input_text="i", expected_text="e")])
     assert default_rubric_for(ds, {"similarity": 0.4}).threshold == 0.4
+
+
+# ─── B: check-hint → scoring-method mapping ───────────────────────────────────
+
+
+def test_check_hint_exact_resolves_exact():
+    # An "exact" hint grades labels by normalized equality, not partial similarity.
+    ds = Dataset(id="d", name="d", examples=[Example(input_text="i", expected_text="e")])
+    assert default_rubric_for(ds, check_hint="exact").kind == "exact"
+
+
+def test_check_hint_numeric_resolves_exact():
+    # Numeric match is normalized equality in v0 (no tolerance check — out of scope).
+    ds = Dataset(id="d", name="d", examples=[Example(input_text="i", expected_text="42")])
+    assert default_rubric_for(ds, check_hint="numeric").kind == "exact"
+
+
+def test_check_hint_substring_resolves_contains():
+    ds = Dataset(id="d", name="d", examples=[Example(input_text="i", expected_text="e")])
+    assert default_rubric_for(ds, check_hint="substring").kind == "contains"
+
+
+def test_check_hint_eyeball_falls_back_to_heuristic():
+    # Eyeball stays on the keyless heuristic — Auto must not require a configured judge.
+    ds = Dataset(id="d", name="d", examples=[Example(input_text="i", expected_text="e")])
+    assert default_rubric_for(ds, check_hint="eyeball").kind == "similarity"
+
+
+def test_check_hint_empty_uses_heuristic():
+    ds = Dataset(id="d", name="d", examples=[Example(input_text="i", expected_text="e")])
+    assert default_rubric_for(ds, check_hint="").kind == "similarity"
+    assert default_rubric_for(ds, check_hint=None).kind == "similarity"
+
+
+def test_check_hint_wins_over_keypoint_heuristic():
+    # An explicit hint is a stronger signal than the keypoint heuristic.
+    ds = Dataset(
+        id="d", name="d",
+        examples=[Example(input_text="i", expected_text="e", keypoints=["x"])],
+    )
+    assert default_rubric_for(ds, check_hint="exact").kind == "exact"
+
+
+def test_check_hint_absent_preserves_mock_keypoint_hash():
+    # The mock matrix dataset carries no hint, so Auto still resolves keypoint@0.8 → 467ddd96c9a5.
+    ds = Dataset(
+        id="d", name="d",
+        examples=[Example(input_text="i", expected_text="e", keypoints=["x"])],
+    )
+    r = default_rubric_for(ds)
+    assert r.kind == "keypoint" and r.threshold == 0.8

@@ -16,11 +16,12 @@ describe("DEFAULT_THRESHOLDS / thresholdFor", () => {
   });
 });
 
-function ds(keypoints: string[][]): Dataset {
+function ds(keypoints: string[][], check_hint?: string): Dataset {
   return {
     id: "d",
     name: "D",
     description: "",
+    check_hint,
     examples: keypoints.map((kp) => ({ input_text: "i", expected_text: "e", keypoints: kp })),
   };
 }
@@ -34,6 +35,23 @@ describe("resolveAutoKind", () => {
   });
   it("returns similarity for an undefined dataset", () => {
     expect(resolveAutoKind(undefined)).toBe("similarity");
+  });
+  // B: check-hint → scoring kind (mirrors backend _HINT_KIND).
+  it("maps an exact hint to exact", () => {
+    expect(resolveAutoKind(ds([[], []], "exact"))).toBe("exact");
+  });
+  it("maps a numeric hint to exact (normalized equality)", () => {
+    expect(resolveAutoKind(ds([[], []], "numeric"))).toBe("exact");
+  });
+  it("maps a substring hint to contains", () => {
+    expect(resolveAutoKind(ds([[], []], "substring"))).toBe("contains");
+  });
+  it("leaves eyeball and empty hints on the heuristic", () => {
+    expect(resolveAutoKind(ds([[], []], "eyeball"))).toBe("similarity");
+    expect(resolveAutoKind(ds([[], []], ""))).toBe("similarity");
+  });
+  it("lets an explicit hint win over the keypoint heuristic", () => {
+    expect(resolveAutoKind(ds([["x"]], "exact"))).toBe("exact");
   });
 });
 
