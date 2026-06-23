@@ -6,38 +6,39 @@
 > To resume: in a fresh session say **"read from handoff"** (or "continue from last
 > session"), or `/clear` and paste the prompt below.
 
-_Last updated: 2026-06-23 · **Stage 3 in progress — Task 4 (WS-B) DONE + committed (`5307ae5`).**
-A dataset's display **check-hint** now drives the Auto-resolved scoring method, and **Exact** equality
-is a selectable scoring card. Backend `_HINT_KIND` maps exact/numeric→`exact`, substring→`contains`;
-`default_rubric_for(..., check_hint=)` lets an explicit hint win over the keypoint heuristic
-(eyeball/empty stay on the keyless heuristic so Auto never needs a configured judge). Both Auto
-run-sites in `routes.py` pass the hint via the existing `get_dataset_meta` — **no new check logic, no
-migration** (`kind="exact"`/`"contains"` already in v0). Frontend `resolveAutoKind` mirrors the map;
-5-col method grid adds the Exact card; the Auto card surfaces *"From your dataset hint: Exact match →
-Exact match."* **This task was recovered after a Claude Code crash left the WS-B edits uncommitted** —
-inspected diff vs `7d1eeba`, confirmed completeness + all deps existed, verified, committed (no
-rewrites). Verified: **298 BE / 141 FE** tests (+7 BE/+5 FE), tsc + build clean; mock `config_hash
-467ddd96c9a5` unchanged. Browser (real keys, Sandbox OFF): exact-hint triage dataset + A1 classify
-instruction → Auto resolved **Exact** → both candidates **100% (5/5), zero failures, clear winner**
-(🥇 Gemini 3.1 Flash-Lite); receipt "Scored by: Exact match", secret-free. **Execute Task 5 (WS-C)
-next session.** `main` local-only; git remote/push stay queued LAST until packaging (operator directive)._
+_Last updated: 2026-06-23 · **Stage 3 in progress — Task 5 (WS-C) DONE + committed (`1864b35`).**
+The Proof Brief's **decision question** (which headlines the receipt) can no longer silently contradict
+what's under test, on either surface. **Config:** new `decisionQuestionTouched` (symmetric to
+`taskNameTouched`) — an *untouched* question **clears** on dataset change (no dataset→question mapping
+to re-derive, so clearing → placeholder is the honest default); a typed/recipe-selected question is
+touched and survives. `onSelectRecipe` marks touched. **Quick:** saved Quick receipt headline now
+**derives from the Quick prompt** (`quickDecisionHeadline()` — whitespace-collapsed, trimmed, 120-cap;
+blank → empty → QuickCompare falls back to task_name), never the stale Models-mode question. Pure logic
+in new `briefHelpers.ts`. **FE-only — no backend, no migration, no RECEIPT_VERSION bump**
+(`decision_question` is content, never in `config_hash`; mock `467ddd96c9a5` untouched by construction).
+Verified: **298 BE / 150 FE** (+9 FE), tsc + build clean. Browser (real keys, Sandbox OFF): fresh
+dataset → empty question; recipe question survives dataset switch; Quick run (Haiku 4.5 vs Gemini
+3.1 Flash-Lite) → QuickCompare headline + persisted `brief` + **exported MD `**Decision:**` line** all
+= the Quick prompt; receipt secret-free. Fresh-context `diff-reviewer` confirmed faithful + no regressions.
+**Execute Task 6 (WS-D1) next session.** `main` local-only; git remote/push stay queued LAST until
+packaging (operator directive)._
 
-## ▶️ START HERE NEXT SESSION — execute task 5 (WS-C) from the NEXT TASKS queue
+## ▶️ START HERE NEXT SESSION — execute task 6 (WS-D1) from the NEXT TASKS queue
 
-**Stage 3 is underway: one point-task per session.** Tasks 1–4 are checked off below. Read the
+**Stage 3 is underway: one point-task per session.** Tasks 1–5 are checked off below. Read the
 spec workstream before coding (`_SPECS/2026-06-22-trustworthy-proof-and-polish.md` — names exact
 files/interfaces, fences out-of-scope, ends with a verify). Build smallest slice → verify (tests +
 browser per CLAUDE.md) → check the box → re-handoff.
 
-**Next up: Task 5 — WS-C (Decision-question integrity at config + Quick, MED).** Clear-unless-touched
-decision question on dataset change (add `decisionQuestionTouched` symmetric to `taskNameTouched`); on
-entering Quick mode clear the carried question + derive the Quick receipt headline from the Quick
-prompt. See spec §WS-C. _files:_ `ProofCockpit.tsx:84-93/243-246` · `QuickCompare.tsx:33`. _verify:_
-dataset switch → no stale headline; saved Quick receipt headline matches its prompt (check exported MD).
-_No open question per spec — read §WS-C, then code._
+**Next up: Task 6 — WS-D1 (Pareto cost-vs-quality scatter, MED).** Reuse Arena `FrontierScatter.jsx`
+(confirmed exists at `…/ainative-business.github.io/arena-app/src/components/arena/FrontierScatter.jsx`)
+beneath the leaderboard; accent **only** on the recommended point. See spec §WS-D1. _verify:_ Vitest on
+`paretoFrontier()` + Playwright mount on a populated run. _ref:_ §WS-D1 · feature #2. _Recharts is
+already a frontend dep (see CLAUDE.md stack) — confirm before reusing the Arena component as-is (it may
+be plain SVG/JSX); port to TS + the cockpit's semantic tokens._
 
-_WS-B committed to `main` as `5307ae5` (worklog `docs/worklog/2026-06-23-ws-b-check-hint-scoring-mapping.md`);
-an unrelated CLAUDE.md self-improvement pass committed separately as `1dc3eb1`. WS-A3 = `9e413d5`,
+_WS-C committed to `main` as `1864b35` (worklog `docs/worklog/2026-06-23-ws-c-decision-question-integrity.md`).
+WS-B = `5307ae5`; an unrelated CLAUDE.md self-improvement pass = `1dc3eb1`. WS-A3 = `9e413d5`,
 WS-A2 = `f2b7e91`, WS-A1 = `593d346`._
 
 **Bring the app up** (live source, real keys in `.env.local`): API on a free port —
@@ -92,11 +93,17 @@ operator has OK'd it; Sandbox stays OFF (no mocks).**
   Auto→Exact → both 100% (5/5), zero failures, clear winner; receipt "Scored by: Exact match",
   secret-free. _files touched:_ `scoring/rubric.py` · `routes.py` · `scoring.ts` · `selectionMeta.ts` ·
   `ScoringMethod.tsx` + BE/FE tests. _ref:_ §WS-B · issue #3.
-- [ ] **5 · C — Decision-question integrity (config + Quick)** (MED). Clear-unless-touched decision
-  question on dataset change (add `decisionQuestionTouched` symmetric to `taskNameTouched`); on entering
-  Quick mode clear the carried question + derive the Quick receipt headline from the Quick prompt.
-  _files:_ `ProofCockpit.tsx:84-93/243-246` · `QuickCompare.tsx:33`. _verify:_ dataset switch → no stale
-  headline; saved Quick receipt headline matches its prompt (check exported MD). _ref:_ §WS-C · issues #1/#2.
+- [x] **5 · C — Decision-question integrity (config + Quick)** (MED) ✅ DONE 2026-06-23 (`1864b35`).
+  New `decisionQuestionTouched` (symmetric to `taskNameTouched`): untouched question **clears** on
+  dataset change (no dataset→question mapping → placeholder); typed/recipe-selected survives;
+  `onSelectRecipe` marks touched. Quick payload derives headline from the prompt via pure
+  `quickDecisionHeadline()` (blank → falls back to task_name). **FE-only — no backend/migration/version
+  bump**; `decision_question` never in `config_hash` so mock `467ddd96c9a5` intact by construction.
+  298 BE / 150 FE (+9), build clean. Browser (real, Sandbox OFF): fresh dataset → empty question;
+  recipe question survives switch; Quick run → QuickCompare + persisted brief + exported MD Decision
+  line all = the prompt; secret-free. diff-reviewer confirmed faithful. _new files:_ `briefHelpers.ts`
+  + `briefHelpers.test.ts`. _files touched:_ `ProofCockpit.tsx` · `ProofCockpit.test.tsx`. _ref:_
+  §WS-C · issues #1/#2.
 - [ ] **6 · D1 — Pareto cost-vs-quality scatter** (MED). Reuse Arena `FrontierScatter.jsx` (confirmed
   exists) beneath the leaderboard; accent only on the recommended point. _verify:_ Vitest on
   `paretoFrontier()` + Playwright mount on a populated run. _ref:_ §WS-D1 · feature #2.
@@ -211,22 +218,34 @@ clear via Settings → data management for a pristine demo state if wanted._
 - **Proof Run setup:** shared `WorkflowStep`; `compareBy` is now `"models" | "prompts" | "quick"`;
   decision recipes render only in the Models branch (recipes.json loads at backend startup — restart
   to see edits).
+- **Decision-question integrity (WS-C):** pure logic in `web/.../briefHelpers.ts`. The decision
+  question follows the dataset until **touched**, but unlike the task name it has no dataset→question
+  mapping — so `effectiveDecisionQuestion(q, touched)` returns `""` when untouched (clears to the
+  placeholder on dataset change; never carries a question from another dataset). `decisionQuestionTouched`
+  is set on user-typing AND on `onSelectRecipe` (a recipe is a deliberate choice that must survive a
+  later dataset switch). `DEFAULT_BRIEF.decision_question` is now effectively dead on first paint (always
+  suppressed until touched) — harmless, do not "fix" by initializing touched=true. **Quick mode** has no
+  dataset to anchor a title: the Quick run payload overrides `brief.decision_question` with
+  `quickDecisionHeadline(quickPrompt)` (whitespace-collapsed, trimmed, 120-cap+ellipsis; blank → `""` so
+  `QuickCompare.tsx:33` falls back to `task_name`) — NEVER the carried Models-mode question. `decision_question`
+  is a **content** field: never in `config_hash`, so this can't touch mock `467ddd96c9a5`. The verdict/quick
+  headline reads `report.run.brief` (the frozen run-time brief), so it always reflects what was sent.
 
 ## Paste prompt for the next session
 ```text
 Stage 3 execution, one point-task per session. The _IDEAS→_SPECS pipeline is DONE; the approved spec
 is _SPECS/2026-06-22-trustworthy-proof-and-polish.md. Tasks 1 (A1, 593d346), 2 (A2, f2b7e91), 3
-(A3, 9e413d5) and 4 (B, 5307ae5) are checked off in the HANDOFF NEXT TASKS queue. WS-A + WS-B done.
+(A3, 9e413d5), 4 (B, 5307ae5) and 5 (C, 1864b35) are checked off in the HANDOFF NEXT TASKS queue.
+WS-A + WS-B + WS-C done.
 
-▶️ EXECUTE TASK 5 — WS-C (Decision-question integrity at config + Quick, MED). Read spec §WS-C first
-(names exact files/interfaces, fences out-of-scope, ends with a verify): clear-unless-touched decision
-question on dataset change (add `decisionQuestionTouched` symmetric to `taskNameTouched`); on entering
-Quick mode clear the carried question + derive the Quick receipt headline from the Quick prompt. _files:_
-ProofCockpit.tsx:84-93/243-246 · QuickCompare.tsx:33. _verify:_ dataset switch → no stale headline;
-enter Quick mode → no stale question; saved Quick receipt headline matches its prompt (check exported MD
-Decision/Task lines); FE unit on the clear/derive logic. Build smallest slice → verify (uv run pytest +
-pnpm test + pnpm build + browser per CLAUDE.md) → check the box → re-handoff. No open question — go
-straight to coding after reading the workstream.
+▶️ EXECUTE TASK 6 — WS-D1 (Pareto cost-vs-quality scatter, MED). Read spec §WS-D1 first (names exact
+files/interfaces, fences out-of-scope, ends with a verify): reuse Arena FrontierScatter.jsx (at
+…/ainative-business.github.io/arena-app/src/components/arena/FrontierScatter.jsx) beneath the
+leaderboard; accent ONLY the recommended point; port to TS + the cockpit's semantic tokens (Recharts is
+already a FE dep — confirm whether the Arena component is plain SVG/JSX or charted before reusing).
+_verify:_ Vitest on paretoFrontier() + Playwright mount on a populated run. Build smallest slice →
+verify (uv run pytest + pnpm test + pnpm build + browser per CLAUDE.md) → check the box → re-handoff.
+_ref:_ §WS-D1 · feature #2.
 
 App up (REAL keys in .env.local, Sandbox OFF, no mocks; cost OK'd): API
 `uv run orionfold dev --port 8790`; UI `VITE_DEV_PORT=5174 VITE_API_PROXY=http://127.0.0.1:8790
@@ -248,5 +267,9 @@ keypoint MUST stay 0.8 to keep 467ddd96c9a5, sliders persist in the existing set
 PUT /api/settings is partial; A3 judge default = pure defaultJudgeCell(panel,sandbox) — Sandbox ON →
 keyless mock_judge, Sandbox OFF → real judge never silently Mock, no-judge+Sandbox-OFF → null/disabled,
 judge commits ONLY once judgeCell is a real cell, filterJudgeModels still pins mock_judge as the
-Local+Cheapest picker default).
+Local+Cheapest picker default; WS-C decision-question = pure briefHelpers.ts —
+effectiveDecisionQuestion(q,touched) returns "" when untouched (clears on dataset change, no
+re-derive), decisionQuestionTouched set on typing AND onSelectRecipe, Quick payload overrides
+brief.decision_question with quickDecisionHeadline(prompt) (blank → falls back to task_name),
+decision_question is content NEVER in config_hash so mock 467ddd96c9a5 untouched).
 ```
