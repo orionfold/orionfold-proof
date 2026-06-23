@@ -6,40 +6,46 @@
 > To resume: in a fresh session say **"read from handoff"** (or "continue from last
 > session"), or `/clear` and paste the prompt below.
 
-_Last updated: 2026-06-23 · **Stage 3 in progress — Task 5 (WS-C) DONE + committed (`1864b35`).**
-The Proof Brief's **decision question** (which headlines the receipt) can no longer silently contradict
-what's under test, on either surface. **Config:** new `decisionQuestionTouched` (symmetric to
-`taskNameTouched`) — an *untouched* question **clears** on dataset change (no dataset→question mapping
-to re-derive, so clearing → placeholder is the honest default); a typed/recipe-selected question is
-touched and survives. `onSelectRecipe` marks touched. **Quick:** saved Quick receipt headline now
-**derives from the Quick prompt** (`quickDecisionHeadline()` — whitespace-collapsed, trimmed, 120-cap;
-blank → empty → QuickCompare falls back to task_name), never the stale Models-mode question. Pure logic
-in new `briefHelpers.ts`. **FE-only — no backend, no migration, no RECEIPT_VERSION bump**
-(`decision_question` is content, never in `config_hash`; mock `467ddd96c9a5` untouched by construction).
-Verified: **298 BE / 150 FE** (+9 FE), tsc + build clean. Browser (real keys, Sandbox OFF): fresh
-dataset → empty question; recipe question survives dataset switch; Quick run (Haiku 4.5 vs Gemini
-3.1 Flash-Lite) → QuickCompare headline + persisted `brief` + **exported MD `**Decision:**` line** all
-= the Quick prompt; receipt secret-free. Fresh-context `diff-reviewer` confirmed faithful + no regressions.
-**Execute Task 6 (WS-D1) next session.** `main` local-only; git remote/push stay queued LAST until
-packaging (operator directive)._
+_Last updated: 2026-06-23 · **Stage 3 in progress — Task 6 (WS-D1) DONE + committed (`0f83f9e`).**
+A cost(x, lower better) × pass-rate(y) **scatter** now sits beneath the leaderboard in the Decide step:
+the Pareto frontier connects the non-dominated candidates, and the **recommended candidate is the only
+accent**. **Standardized cockpit viz on Recharts** (operator-approved — it was in CLAUDE.md's stack but
+NEVER installed; only chart-UI before was the leaderboard's CSS-div bars). `recharts ^3.9.0` added,
+React 19 needed no `react-is` override. **Reused only the `paretoFrontier()` kernel** from Arena's
+`FrontierScatter.jsx`, NOT the component (it's preact+uPlot, GGUF-specific, and its skyline assumes
+*higher-x-better*); **reoriented** for lower-cost-better (optimal iff no other has cost ≤ AND quality ≥,
+one strict). New pure `paretoFrontier.ts` (+`buildScatterPoints`); `FrontierScatter.tsx` uses the
+Recharts v3 `shape` prop (NOT deprecated `<Cell>`), recommended = only `--color-accent`, others
+status-toned, all `var(--color-x)` → auto-theming, calm empty-state <2 candidates. **FE-only — no
+backend/migration/RECEIPT_VERSION/config_hash**; mock `467ddd96c9a5` untouched by construction. Also
+fixed **two pre-existing WS-C e2e breakages** in `proof.spec.ts` (last session didn't re-run e2e):
+proof-loop types the decision question after dataset-select (untouched clears on change); quick-compare
+matches the receipt by the prompt-derived headline — both faithful to WS-C's contract, verified by
+diff-reviewer. Verified: **298 BE / 163 FE** (+13), tsc+build clean, **11/11 Playwright**, real-browser
+light+dark graded (recommended = only accent, no secrets), fresh-context diff-reviewer faithful + FE-only
+(removed an inert ZAxis per its note). **Execute Task 7 (WS-D2) next session.** `main` local-only;
+git remote/push stay queued LAST until packaging (operator directive)._
 
-## ▶️ START HERE NEXT SESSION — execute task 6 (WS-D1) from the NEXT TASKS queue
+## ▶️ START HERE NEXT SESSION — execute task 7 (WS-D2) from the NEXT TASKS queue
 
-**Stage 3 is underway: one point-task per session.** Tasks 1–5 are checked off below. Read the
+**Stage 3 is underway: one point-task per session.** Tasks 1–6 are checked off below. Read the
 spec workstream before coding (`_SPECS/2026-06-22-trustworthy-proof-and-polish.md` — names exact
 files/interfaces, fences out-of-scope, ends with a verify). Build smallest slice → verify (tests +
 browser per CLAUDE.md) → check the box → re-handoff.
 
-**Next up: Task 6 — WS-D1 (Pareto cost-vs-quality scatter, MED).** Reuse Arena `FrontierScatter.jsx`
-(confirmed exists at `…/ainative-business.github.io/arena-app/src/components/arena/FrontierScatter.jsx`)
-beneath the leaderboard; accent **only** on the recommended point. See spec §WS-D1. _verify:_ Vitest on
-`paretoFrontier()` + Playwright mount on a populated run. _ref:_ §WS-D1 · feature #2. _Recharts is
-already a frontend dep (see CLAUDE.md stack) — confirm before reusing the Arena component as-is (it may
-be plain SVG/JSX); port to TS + the cockpit's semantic tokens._
+**Next up: Task 7 — WS-D2 (Run-level cost ledger / spend panel, MED).** Per-provider tokens + $ and a
+run total in the Inspector or under the leaderboard. Reuse ainative
+`…/orionfold/ainative/src/lib/usage/ledger.ts` + `src/components/costs/cost-dashboard.tsx` + micro-viz
+(`src/components/charts/{sparkline,mini-bar,donut-ring}.tsx`) — **now buildable on the Recharts
+foundation laid in WS-D1** (port the micro-viz to Recharts + cockpit semantic tokens; do NOT pull a
+second charting lib — see the `charting-library-recharts` memory). Data source: `RunCostSummary` already
+on the report (`domain/models.py`); candidate/judge/total already computed by the engine. See spec
+§WS-D2. _verify:_ the panel's sums **match the verdict banner's existing "Run cost" line**. _ref:_
+§WS-D2 · feature #3.
 
-_WS-C committed to `main` as `1864b35` (worklog `docs/worklog/2026-06-23-ws-c-decision-question-integrity.md`).
-WS-B = `5307ae5`; an unrelated CLAUDE.md self-improvement pass = `1dc3eb1`. WS-A3 = `9e413d5`,
-WS-A2 = `f2b7e91`, WS-A1 = `593d346`._
+_WS-D1 committed to `main` as `0f83f9e` (worklog `docs/worklog/2026-06-23-ws-d1-pareto-cost-quality-scatter.md`).
+WS-C = `1864b35`; WS-B = `5307ae5`; an unrelated CLAUDE.md self-improvement pass = `1dc3eb1`.
+WS-A3 = `9e413d5`, WS-A2 = `f2b7e91`, WS-A1 = `593d346`._
 
 **Bring the app up** (live source, real keys in `.env.local`): API on a free port —
 `uv run orionfold dev --port 8790` (health `{"status":"ok","service":"orionfold-proof"}`); UI —
@@ -104,9 +110,17 @@ operator has OK'd it; Sandbox stays OFF (no mocks).**
   line all = the prompt; secret-free. diff-reviewer confirmed faithful. _new files:_ `briefHelpers.ts`
   + `briefHelpers.test.ts`. _files touched:_ `ProofCockpit.tsx` · `ProofCockpit.test.tsx`. _ref:_
   §WS-C · issues #1/#2.
-- [ ] **6 · D1 — Pareto cost-vs-quality scatter** (MED). Reuse Arena `FrontierScatter.jsx` (confirmed
-  exists) beneath the leaderboard; accent only on the recommended point. _verify:_ Vitest on
-  `paretoFrontier()` + Playwright mount on a populated run. _ref:_ §WS-D1 · feature #2.
+- [x] **6 · D1 — Pareto cost-vs-quality scatter** (MED) ✅ DONE 2026-06-23 (`0f83f9e`). Cost(x, lower
+  better) × pass-rate(y) scatter beneath the leaderboard; Pareto frontier connects non-dominated
+  candidates; **recommended = only accent**. Standardized cockpit viz on **Recharts** (was in stack,
+  never installed; `recharts ^3.9.0`, no `react-is` override). Reused ONLY the `paretoFrontier()` kernel
+  from Arena (preact+uPlot, NOT reusable), **reoriented** lower-cost-better. New pure `paretoFrontier.ts`
+  (+`buildScatterPoints`); `FrontierScatter.tsx` uses v3 `shape` prop (not `<Cell>`), all `var(--color-x)`.
+  **FE-only — no backend/migration/version/config_hash**; mock `467ddd96c9a5` intact. Also fixed 2
+  pre-existing WS-C e2e breakages in `proof.spec.ts`. 298 BE / 163 FE (+13), tsc+build clean, 11/11
+  Playwright, real-browser light+dark graded, diff-reviewer faithful. _new files:_ `paretoFrontier.ts`
+  + `FrontierScatter.tsx` + tests. _files touched:_ `ProofCockpit.tsx` · `proof.spec.ts` · `package.json`.
+  _ref:_ §WS-D1 · feature #2.
 - [ ] **7 · D2 — Run-level cost ledger panel** (MED). Reuse ainative `lib/usage/ledger.ts` +
   `cost-dashboard.tsx` + micro-viz (confirmed exist); per-provider tokens+$ + run total in Inspector.
   _verify:_ sums match the verdict banner's "Run cost" line. _ref:_ §WS-D2 · feature #3.
@@ -231,22 +245,34 @@ clear via Settings → data management for a pristine demo state if wanted._
   `QuickCompare.tsx:33` falls back to `task_name`) — NEVER the carried Models-mode question. `decision_question`
   is a **content** field: never in `config_hash`, so this can't touch mock `467ddd96c9a5`. The verdict/quick
   headline reads `report.run.brief` (the frozen run-time brief), so it always reflects what was sent.
+- **Cost-vs-quality scatter (WS-D1):** charting is **Recharts** — do NOT add a second charting lib (see
+  the `charting-library-recharts` memory). Frontier math is pure `web/.../paretoFrontier.ts`,
+  **reoriented for lower-cost-is-better** (a point is Pareto-optimal iff no other has cost ≤ AND
+  quality ≥, one strict) — this is the OPPOSITE of Arena's higher-x-better skyline, so don't "simplify"
+  it back. `buildScatterPoints` maps `pass_rate`→quality, `total_estimated_cost_usd`→cost.
+  `FrontierScatter.tsx` colors dots via the Recharts **v3 `shape` prop** (NOT `<Cell>` — deprecated,
+  removed in v4); **recommended = ONLY `--color-accent`**, every other dot uses status tokens
+  (ok/warn/danger via `passRateTone`); ALL colors are `var(--color-x)` strings (auto light/dark theming,
+  never hardcoded hex). Renders the calm empty-state when <2 scored candidates. FE-only display of
+  existing `LeaderboardEntry` data — touches no backend/hash.
 
 ## Paste prompt for the next session
 ```text
 Stage 3 execution, one point-task per session. The _IDEAS→_SPECS pipeline is DONE; the approved spec
 is _SPECS/2026-06-22-trustworthy-proof-and-polish.md. Tasks 1 (A1, 593d346), 2 (A2, f2b7e91), 3
-(A3, 9e413d5), 4 (B, 5307ae5) and 5 (C, 1864b35) are checked off in the HANDOFF NEXT TASKS queue.
-WS-A + WS-B + WS-C done.
+(A3, 9e413d5), 4 (B, 5307ae5), 5 (C, 1864b35) and 6 (D1, 0f83f9e) are checked off in the HANDOFF NEXT
+TASKS queue. WS-A + WS-B + WS-C + WS-D1 done.
 
-▶️ EXECUTE TASK 6 — WS-D1 (Pareto cost-vs-quality scatter, MED). Read spec §WS-D1 first (names exact
-files/interfaces, fences out-of-scope, ends with a verify): reuse Arena FrontierScatter.jsx (at
-…/ainative-business.github.io/arena-app/src/components/arena/FrontierScatter.jsx) beneath the
-leaderboard; accent ONLY the recommended point; port to TS + the cockpit's semantic tokens (Recharts is
-already a FE dep — confirm whether the Arena component is plain SVG/JSX or charted before reusing).
-_verify:_ Vitest on paretoFrontier() + Playwright mount on a populated run. Build smallest slice →
-verify (uv run pytest + pnpm test + pnpm build + browser per CLAUDE.md) → check the box → re-handoff.
-_ref:_ §WS-D1 · feature #2.
+▶️ EXECUTE TASK 7 — WS-D2 (Run-level cost ledger / spend panel, MED). Read spec §WS-D2 first (names
+exact files/interfaces, fences out-of-scope, ends with a verify): per-provider tokens + $ and a run
+total in the Inspector or under the leaderboard. Reuse ainative
+…/orionfold/ainative/src/lib/usage/ledger.ts + src/components/costs/cost-dashboard.tsx + micro-viz
+src/components/charts/{sparkline,mini-bar,donut-ring}.tsx — port the micro-viz to RECHARTS (the WS-D1
+charting foundation) + the cockpit's semantic tokens. Do NOT add a second charting lib (see the
+charting-library-recharts memory). Data source: RunCostSummary already on the report (domain/models.py);
+candidate/judge/total already computed by the engine. _verify:_ the panel's sums MATCH the verdict
+banner's existing "Run cost" line + Playwright. Build smallest slice → verify (uv run pytest + pnpm test
++ pnpm build + browser per CLAUDE.md) → check the box → re-handoff. _ref:_ §WS-D2 · feature #3.
 
 App up (REAL keys in .env.local, Sandbox OFF, no mocks; cost OK'd): API
 `uv run orionfold dev --port 8790`; UI `VITE_DEV_PORT=5174 VITE_API_PROXY=http://127.0.0.1:8790
@@ -272,5 +298,9 @@ Local+Cheapest picker default; WS-C decision-question = pure briefHelpers.ts —
 effectiveDecisionQuestion(q,touched) returns "" when untouched (clears on dataset change, no
 re-derive), decisionQuestionTouched set on typing AND onSelectRecipe, Quick payload overrides
 brief.decision_question with quickDecisionHeadline(prompt) (blank → falls back to task_name),
-decision_question is content NEVER in config_hash so mock 467ddd96c9a5 untouched).
+decision_question is content NEVER in config_hash so mock 467ddd96c9a5 untouched; WS-D1 scatter =
+Recharts ONLY (no second charting lib), pure paretoFrontier.ts reoriented LOWER-cost-better (opposite
+of Arena's higher-x skyline — don't simplify back), FrontierScatter dots via v3 shape prop not <Cell>,
+recommended = ONLY --color-accent / others status-toned, all var(--color-x) never hardcoded hex, FE-only
+display touching no backend/hash).
 ```
