@@ -23,17 +23,37 @@ proof-loop types the decision question after dataset-select (untouched clears on
 matches the receipt by the prompt-derived headline — both faithful to WS-C's contract, verified by
 diff-reviewer. Verified: **298 BE / 163 FE** (+13), tsc+build clean, **11/11 Playwright**, real-browser
 light+dark graded (recommended = only accent, no secrets), fresh-context diff-reviewer faithful + FE-only
-(removed an inert ZAxis per its note). **Execute Task 7 (WS-D2) next session.** `main` local-only;
-git remote/push stay queued LAST until packaging (operator directive)._
+(removed an inert ZAxis per its note). **A real-model run during the demo produced fresh evidence** for
+the flagship "no winner" issue (3 Anthropic tiers, still 0% pass under the shipped 0.55 Similarity
+default, scores 0.06/0.06/0.15 — Opus 2.5× the others; the scatter faithfully showed 3 failing dots,
+no accent). Logged to `_IDEAS/issues.md` + `feature-opportunities.md` (`docs(ideas):…` commit) — the
+fix is **scorer choice (LLM judge), not threshold**, and WS-E2 must block on it. **That run also
+motivated a NEW approved task: a Decide-step insight layer** (`_SPECS/2026-06-23-decide-insight-layer.md`)
+— a Pass-rate⇄Avg-score Y-toggle on the scatter + a deterministic plain-English explainer, so a
+mismatched-scorer run STILL yields insight (avg-score ranks the candidates even when pass rate is flat).
+**Execute Task 7 (NEW insight layer) next session, ahead of WS-D2.** `main` local-only; git remote/push
+stay queued LAST until packaging (operator directive)._
 
-## ▶️ START HERE NEXT SESSION — execute task 7 (WS-D2) from the NEXT TASKS queue
+## ▶️ START HERE NEXT SESSION — execute task 7 (Decide insight layer) from the NEXT TASKS queue
 
 **Stage 3 is underway: one point-task per session.** Tasks 1–6 are checked off below. Read the
-spec workstream before coding (`_SPECS/2026-06-22-trustworthy-proof-and-polish.md` — names exact
-files/interfaces, fences out-of-scope, ends with a verify). Build smallest slice → verify (tests +
-browser per CLAUDE.md) → check the box → re-handoff.
+spec before coding. Build smallest slice → verify (tests + browser per CLAUDE.md) → check the box →
+re-handoff.
 
-**Next up: Task 7 — WS-D2 (Run-level cost ledger / spend panel, MED).** Per-provider tokens + $ and a
+**Next up: Task 7 — Decide-step insight layer (score toggle + explainer, MED, FE-only).** Read
+`_SPECS/2026-06-23-decide-insight-layer.md` first (self-contained: names files/interfaces, fences
+out-of-scope, ends with a verify). Add a **Pass rate ⇄ Avg score** Y-axis toggle to the WS-D1
+`FrontierScatter.tsx` (default stays Pass rate; `buildScatterPoints(entries, metric)` + frontier
+recomputes per metric; recommended accent stays tied to `entry.recommended`, NOT the metric leader),
+plus a new pure `decideInsights.ts` → `deriveDecideInsight(entries)` deterministic plain-English
+explainer rendered beneath the chart (rule-based, NOT an LLM call — free + reproducible; status/ink
+tones, never the accent). FE-only — no backend/migration/version/hash. _verify:_ Vitest on
+`decideInsights` rule branches + `buildScatterPoints(…,"avg_score")` + toggle/explainer in
+`FrontierScatter.test.tsx` + Playwright toggle-to-Avg-score + browser re-run the 3-tier case
+(Avg-score spreads Opus above; explainer reads the "0% pass but scores 0.06–0.15 … try LLM judge" line).
+_ref:_ `_SPECS/2026-06-23-decide-insight-layer.md`; motivated by the WS-D1 real-run + `_IDEAS` issue #5.
+
+**Then: Task 8 — WS-D2 (Run-level cost ledger / spend panel, MED).** Per-provider tokens + $ and a
 run total in the Inspector or under the leaderboard. Reuse ainative
 `…/orionfold/ainative/src/lib/usage/ledger.ts` + `src/components/costs/cost-dashboard.tsx` + micro-viz
 (`src/components/charts/{sparkline,mini-bar,donut-ring}.tsx`) — **now buildable on the Recharts
@@ -121,15 +141,30 @@ operator has OK'd it; Sandbox stays OFF (no mocks).**
   Playwright, real-browser light+dark graded, diff-reviewer faithful. _new files:_ `paretoFrontier.ts`
   + `FrontierScatter.tsx` + tests. _files touched:_ `ProofCockpit.tsx` · `proof.spec.ts` · `package.json`.
   _ref:_ §WS-D1 · feature #2.
-- [ ] **7 · D2 — Run-level cost ledger panel** (MED). Reuse ainative `lib/usage/ledger.ts` +
+- [ ] **7 · Decide insight layer — score toggle + plain-English explainer** (MED, FE-only; NEW, ahead
+  of D2). Pass-rate ⇄ Avg-score Y-toggle on the WS-D1 `FrontierScatter.tsx` (default Pass rate;
+  `buildScatterPoints(entries, metric)` + frontier recomputes per metric; recommended accent stays tied
+  to `entry.recommended`, not the metric leader) + new pure `decideInsights.ts`
+  `deriveDecideInsight(entries)` — deterministic, rule-based plain-English insight rendered beneath the
+  chart (NOT an LLM call — free + reproducible; status/ink tones never the accent). So a mismatched-scorer
+  run STILL yields insight (avg-score ranks candidates when pass rate is flat — exactly the 2026-06-23
+  3-tier case). FE-only — no backend/migration/version/hash. _verify:_ Vitest on `decideInsights` branches
+  + `buildScatterPoints(…,"avg_score")` + toggle/explainer tests + Playwright toggle + browser re-run the
+  3-tier case. _ref:_ `_SPECS/2026-06-23-decide-insight-layer.md`; motivated by WS-D1 real-run + issue #5.
+- [ ] **8 · D2 — Run-level cost ledger panel** (MED). Reuse ainative `lib/usage/ledger.ts` +
   `cost-dashboard.tsx` + micro-viz (confirmed exist); per-provider tokens+$ + run total in Inspector.
-  _verify:_ sums match the verdict banner's "Run cost" line. _ref:_ §WS-D2 · feature #3.
-- [ ] **8 · E1 — Candidates inline add-key / start-host affordance** (MED). List known providers; quiet
+  Port micro-viz to **Recharts** (no second charting lib). _verify:_ sums match the verdict banner's
+  "Run cost" line. _ref:_ §WS-D2 · feature #3.
+- [ ] **9 · E1 — Candidates inline add-key / start-host affordance** (MED). List known providers; quiet
   "Add key in Settings →" for unconfigured cloud + "Start Ollama/LM Studio" for local. Reuse the
   selection panel's gated entries. _ref:_ §WS-E1 · feature #4.
-- [ ] **9 · E2 — Guided first-run CTA** (MED, depends on A2). One-click "Run the demo proof on real
-  models" on the empty state → clear-winner receipt in ~30s. _ref:_ §WS-E2 · feature #5.
-- [ ] **10 · F1–F5 — DS application-consistency pass** (LOW; may split). F1 seed sample dataset
+- [ ] **10 · E2 — Guided first-run CTA** (MED; **BLOCKED on the scorer-default fix**, not just A2). One-click
+  "Run the demo proof on real models" on the empty state → clear-winner receipt in ~30s. ⚠️ Real-run
+  evidence (2026-06-23): the bundled summarization demo STILL reads "no winner" under the shipped 0.55
+  Similarity default — a CTA landing users on 3 failing dots is worse than the blank form. **Fix the demo
+  scorer default (→ LLM judge) FIRST** (see `_IDEAS/issues.md` "REAL-RUN: flagship … NO CLEAR WINNER").
+  _ref:_ §WS-E2 · feature #5.
+- [ ] **11 · F1–F5 — DS application-consistency pass** (LOW; may split). F1 seed sample dataset
   metadata (`repository.py:112-119`/`sample_data.py:25-29`); F2/F3 leaderboard sortable + mono-microcaps
   headers (`Leaderboard.tsx:26-36`, ref `.tbl`); F4 distinct Mock badge (`badges.tsx:19-25`); F5
   inspector-less route layout (`ViewShell.tsx:16`). _verify:_ `browser-visual-verification` light+dark;
@@ -255,24 +290,38 @@ clear via Settings → data management for a pristine demo state if wanted._
   (ok/warn/danger via `passRateTone`); ALL colors are `var(--color-x)` strings (auto light/dark theming,
   never hardcoded hex). Renders the calm empty-state when <2 scored candidates. FE-only display of
   existing `LeaderboardEntry` data — touches no backend/hash.
+- **Decide insight layer (Task 7, planned — `_SPECS/2026-06-23-decide-insight-layer.md`):** when built,
+  the scatter Y-toggle must keep **recommended accent tied to `entry.recommended`**, never to whichever
+  point leads the *current* metric (a point can top Avg-score yet not be recommended — that disagreement
+  is the insight). The explainer is **deterministic rule-based** (`decideInsights.ts`), NEVER an LLM call
+  (free + reproducible — the receipt repeatability promise); explainer tones use status/ink tokens, never
+  the cyan accent. Default first paint stays Pass rate (WS-D1 behavior). FE-only.
 
 ## Paste prompt for the next session
 ```text
-Stage 3 execution, one point-task per session. The _IDEAS→_SPECS pipeline is DONE; the approved spec
-is _SPECS/2026-06-22-trustworthy-proof-and-polish.md. Tasks 1 (A1, 593d346), 2 (A2, f2b7e91), 3
-(A3, 9e413d5), 4 (B, 5307ae5), 5 (C, 1864b35) and 6 (D1, 0f83f9e) are checked off in the HANDOFF NEXT
-TASKS queue. WS-A + WS-B + WS-C + WS-D1 done.
+Stage 3 execution, one point-task per session. Tasks 1 (A1, 593d346), 2 (A2, f2b7e91), 3 (A3, 9e413d5),
+4 (B, 5307ae5), 5 (C, 1864b35) and 6 (D1, 0f83f9e) are checked off in the HANDOFF NEXT TASKS queue.
+WS-A + WS-B + WS-C + WS-D1 done.
 
-▶️ EXECUTE TASK 7 — WS-D2 (Run-level cost ledger / spend panel, MED). Read spec §WS-D2 first (names
-exact files/interfaces, fences out-of-scope, ends with a verify): per-provider tokens + $ and a run
-total in the Inspector or under the leaderboard. Reuse ainative
-…/orionfold/ainative/src/lib/usage/ledger.ts + src/components/costs/cost-dashboard.tsx + micro-viz
-src/components/charts/{sparkline,mini-bar,donut-ring}.tsx — port the micro-viz to RECHARTS (the WS-D1
-charting foundation) + the cockpit's semantic tokens. Do NOT add a second charting lib (see the
-charting-library-recharts memory). Data source: RunCostSummary already on the report (domain/models.py);
-candidate/judge/total already computed by the engine. _verify:_ the panel's sums MATCH the verdict
-banner's existing "Run cost" line + Playwright. Build smallest slice → verify (uv run pytest + pnpm test
-+ pnpm build + browser per CLAUDE.md) → check the box → re-handoff. _ref:_ §WS-D2 · feature #3.
+▶️ EXECUTE TASK 7 — Decide insight layer (score toggle + plain-English explainer, MED, FE-only; NEW,
+ahead of WS-D2). Read _SPECS/2026-06-23-decide-insight-layer.md first (self-contained: names
+files/interfaces, fences out-of-scope, ends with a verify). Motivated by the WS-D1 real-run: 3 Anthropic
+tiers on the flagship summarization set returned 0% pass for all (scorer mismatch), yet avg-score
+(0.06/0.06/0.15) STILL ranked them — Opus 2.5×. Add a Pass-rate ⇄ Avg-score Y-axis toggle to
+FrontierScatter.tsx (default Pass rate; buildScatterPoints(entries, metric) + frontier recomputes per
+metric; RECOMMENDED ACCENT STAYS TIED TO entry.recommended, not the metric leader) + a new pure
+decideInsights.ts deriveDecideInsight(entries) deterministic rule-based explainer beneath the chart
+(NOT an LLM call — free + reproducible; status/ink tones, never the accent). FE-only — no
+backend/migration/version/hash; Recharts only (no second charting lib). _verify:_ Vitest on
+decideInsights branches + buildScatterPoints(…,"avg_score") + toggle/explainer in FrontierScatter.test +
+Playwright toggle-to-Avg-score + browser re-run the 3-tier case (Avg-score spreads Opus above; explainer
+reads "0% pass but scores 0.06–0.15 … try LLM judge"). Build smallest slice → verify (uv run pytest +
+pnpm test + pnpm build + browser per CLAUDE.md) → check the box → re-handoff. _ref:_
+_SPECS/2026-06-23-decide-insight-layer.md.
+
+THEN Task 8 — WS-D2 (run-level cost ledger, MED): per-provider tokens+$ + run total, reuse ainative
+ledger.ts + cost-dashboard.tsx + micro-viz ported to RECHARTS; sums must match the verdict banner's
+"Run cost" line. _ref:_ §WS-D2 · feature #3.
 
 App up (REAL keys in .env.local, Sandbox OFF, no mocks; cost OK'd): API
 `uv run orionfold dev --port 8790`; UI `VITE_DEV_PORT=5174 VITE_API_PROXY=http://127.0.0.1:8790
