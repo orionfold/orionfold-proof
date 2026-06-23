@@ -6,37 +6,39 @@
 > To resume: in a fresh session say **"read from handoff"** (or "continue from last
 > session"), or `/clear` and paste the prompt below.
 
-_Last updated: 2026-06-23 · **Stage 3 in progress — Task 3 (WS-A3) DONE + committed (`9e413d5`).**
-Shipped the sane Sandbox-OFF LLM-judge default: with Sandbox OFF + a real judge available, the
-LLM-judge method defaults to a **real** judge (Hosted cloud, else Local Ollama) instead of silently
-selecting the keyless Mock judge; with no real judge + Sandbox OFF the judge card is **disabled** with
-an "add a provider key or start Ollama" hint. **Frontend-only — no backend/migration** (selection_panel()
-already emits key-gated cloud providers; the defect was the default selection + missing disabled state).
-New pure `defaultJudgeCell(panel, sandbox)` in `scoring.ts` drives both card + JudgeFilter axes. **Diff
-review caught + fixed a stale-Mock bug**: clicking judge before `["selection"]` resolved used to emit
-`mock_judge` which then diverged from the real dropdown and graded silently with Mock — now the judge
-method commits **only once `judgeCell` resolves to a real cell** (`judgeReady = settings loaded &&
-(sandbox || panel loaded)`). Verified: **291 BE / 136 FE (+8)** tests, tsc + build clean; browser (real
-keys, Sandbox OFF) — judge opened on **Claude Haiku 4.5 · Anthropic** (real cloud, not Mock), e2e run
-graded with the real judge → **clear winner** (Gemini 3.1 Flash-Lite, 3/5, "Scored by LLM judge ·
-claude-haiku-4-5", total $0.0131). **Execute Task 4 (WS-B) next session.** `main` local-only; git
-remote/push stay queued LAST until packaging (operator directive)._
+_Last updated: 2026-06-23 · **Stage 3 in progress — Task 4 (WS-B) DONE + committed (`5307ae5`).**
+A dataset's display **check-hint** now drives the Auto-resolved scoring method, and **Exact** equality
+is a selectable scoring card. Backend `_HINT_KIND` maps exact/numeric→`exact`, substring→`contains`;
+`default_rubric_for(..., check_hint=)` lets an explicit hint win over the keypoint heuristic
+(eyeball/empty stay on the keyless heuristic so Auto never needs a configured judge). Both Auto
+run-sites in `routes.py` pass the hint via the existing `get_dataset_meta` — **no new check logic, no
+migration** (`kind="exact"`/`"contains"` already in v0). Frontend `resolveAutoKind` mirrors the map;
+5-col method grid adds the Exact card; the Auto card surfaces *"From your dataset hint: Exact match →
+Exact match."* **This task was recovered after a Claude Code crash left the WS-B edits uncommitted** —
+inspected diff vs `7d1eeba`, confirmed completeness + all deps existed, verified, committed (no
+rewrites). Verified: **298 BE / 141 FE** tests (+7 BE/+5 FE), tsc + build clean; mock `config_hash
+467ddd96c9a5` unchanged. Browser (real keys, Sandbox OFF): exact-hint triage dataset + A1 classify
+instruction → Auto resolved **Exact** → both candidates **100% (5/5), zero failures, clear winner**
+(🥇 Gemini 3.1 Flash-Lite); receipt "Scored by: Exact match", secret-free. **Execute Task 5 (WS-C)
+next session.** `main` local-only; git remote/push stay queued LAST until packaging (operator directive)._
 
-## ▶️ START HERE NEXT SESSION — execute task 4 (WS-B) from the NEXT TASKS queue
+## ▶️ START HERE NEXT SESSION — execute task 5 (WS-C) from the NEXT TASKS queue
 
-**Stage 3 is underway: one point-task per session.** Tasks 1–3 are checked off below. Read the
+**Stage 3 is underway: one point-task per session.** Tasks 1–4 are checked off below. Read the
 spec workstream before coding (`_SPECS/2026-06-22-trustworthy-proof-and-polish.md` — names exact
 files/interfaces, fences out-of-scope, ends with a verify). Build smallest slice → verify (tests +
 browser per CLAUDE.md) → check the box → re-handoff.
 
-**Next up: Task 4 — WS-B (check-hint → scoring-method mapping + selectable Exact card, MED).** Auto
-consults `check_hint` (exact→Exact, substring→Contains, numeric→exact-number, eyeball→judge); add a
-selectable "Exact" card; surface the resolution in the Auto card. See spec §WS-B. _files:_
-`scoring/rubric.py:64-68` `default_rubric_for` · `scoring.ts:4-8` `resolveAutoKind` · `ScoringMethod.tsx`
-(Exact card + Auto copy). _No open question per spec — read §WS-B, then code._
+**Next up: Task 5 — WS-C (Decision-question integrity at config + Quick, MED).** Clear-unless-touched
+decision question on dataset change (add `decisionQuestionTouched` symmetric to `taskNameTouched`); on
+entering Quick mode clear the carried question + derive the Quick receipt headline from the Quick
+prompt. See spec §WS-C. _files:_ `ProofCockpit.tsx:84-93/243-246` · `QuickCompare.tsx:33`. _verify:_
+dataset switch → no stale headline; saved Quick receipt headline matches its prompt (check exported MD).
+_No open question per spec — read §WS-C, then code._
 
-_WS-A3 committed to `main` as `9e413d5` (worklog
-`docs/worklog/2026-06-23-ws-a3-cloud-judge-sane-default.md`). WS-A2 = `6f6e0d8`, WS-A1 = `593d346`._
+_WS-B committed to `main` as `5307ae5` (worklog `docs/worklog/2026-06-23-ws-b-check-hint-scoring-mapping.md`);
+an unrelated CLAUDE.md self-improvement pass committed separately as `1dc3eb1`. WS-A3 = `9e413d5`,
+WS-A2 = `f2b7e91`, WS-A1 = `593d346`._
 
 **Bring the app up** (live source, real keys in `.env.local`): API on a free port —
 `uv run orionfold dev --port 8790` (health `{"status":"ok","service":"orionfold-proof"}`); UI —
@@ -79,12 +81,17 @@ operator has OK'd it; Sandbox stays OFF (no mocks).**
   build, browser (real keys, Sandbox OFF → Claude Haiku 4.5 judge, e2e clear winner) all green. _files
   touched:_ `scoring.ts` (`defaultJudgeCell`) · `ScoringMethod.tsx` · `JudgeFilter.tsx` · `MethodCard.tsx`
   + tests.
-- [ ] **4 · B — check-hint → scoring-method mapping + selectable Exact card** (MED). Auto consults
-  `check_hint` (exact→Exact, substring→Contains, numeric→exact-number, eyeball→judge); add a selectable
-  "Exact" card; surface the resolution in the Auto card. _files:_ `scoring/rubric.py:64-68`
-  `default_rubric_for` · `scoring.ts:4-8` `resolveAutoKind` · `ScoringMethod.tsx` (Exact card + Auto
-  copy). _verify:_ Exact-hint dataset → Auto resolves Exact (visible); label run scores clean pass/fail;
-  re-verify the A1 triage proof now scores correctly; mock `config_hash` unchanged. _ref:_ §WS-B · issue #3.
+- [x] **4 · B — check-hint → scoring-method mapping + selectable Exact card** (MED) ✅ DONE 2026-06-23
+  (`5307ae5`; recovered after a CC crash left the edits uncommitted). Backend `_HINT_KIND`
+  (exact/numeric→`exact`, substring→`contains`) + `default_rubric_for(..., check_hint=)` — hint wins
+  over the keypoint heuristic; eyeball/empty stay on the keyless heuristic. Both Auto run-sites pass the
+  hint via existing `get_dataset_meta` — **no new check logic, no migration** (kinds already in v0).
+  Frontend `resolveAutoKind` mirrors the map; 5-col grid + selectable **Exact** card; Auto card surfaces
+  *"From your dataset hint: Exact match → Exact match."* 298 BE / 141 FE tests (+7/+5), build clean, mock
+  `467ddd96c9a5` unchanged. Browser (real, Sandbox OFF): triage exact-hint + classify instruction →
+  Auto→Exact → both 100% (5/5), zero failures, clear winner; receipt "Scored by: Exact match",
+  secret-free. _files touched:_ `scoring/rubric.py` · `routes.py` · `scoring.ts` · `selectionMeta.ts` ·
+  `ScoringMethod.tsx` + BE/FE tests. _ref:_ §WS-B · issue #3.
 - [ ] **5 · C — Decision-question integrity (config + Quick)** (MED). Clear-unless-touched decision
   question on dataset change (add `decisionQuestionTouched` symmetric to `taskNameTouched`); on entering
   Quick mode clear the carried question + derive the Quick receipt headline from the Quick prompt.
@@ -208,18 +215,18 @@ clear via Settings → data management for a pristine demo state if wanted._
 ## Paste prompt for the next session
 ```text
 Stage 3 execution, one point-task per session. The _IDEAS→_SPECS pipeline is DONE; the approved spec
-is _SPECS/2026-06-22-trustworthy-proof-and-polish.md. Tasks 1 (A1, 593d346), 2 (A2, 6f6e0d8) and 3
-(A3, 9e413d5) are checked off in the HANDOFF NEXT TASKS queue. WS-A (the demo-critical thread) is done.
+is _SPECS/2026-06-22-trustworthy-proof-and-polish.md. Tasks 1 (A1, 593d346), 2 (A2, f2b7e91), 3
+(A3, 9e413d5) and 4 (B, 5307ae5) are checked off in the HANDOFF NEXT TASKS queue. WS-A + WS-B done.
 
-▶️ EXECUTE TASK 4 — WS-B (check-hint → scoring-method mapping + selectable Exact card, MED). Read spec
-§WS-B first (names exact files/interfaces, fences out-of-scope, ends with a verify): Auto consults the
-dataset `check_hint` (exact→Exact, substring→Contains, numeric→exact-number, eyeball→judge); add a
-selectable "Exact" card; surface the resolution in the Auto card. _files:_ scoring/rubric.py:64-68
-`default_rubric_for` · web/.../scoring.ts:4-8 `resolveAutoKind` · ScoringMethod.tsx (Exact card + Auto
-copy). _verify:_ Exact-hint dataset → Auto resolves Exact (visible); label run scores clean pass/fail;
-re-verify the A1 triage proof now scores correctly; mock `config_hash` 467ddd96c9a5 unchanged. Build
-smallest slice → verify (uv run pytest + pnpm test + pnpm build + browser per CLAUDE.md) → check the box
-→ re-handoff. No open question — go straight to coding after reading the workstream.
+▶️ EXECUTE TASK 5 — WS-C (Decision-question integrity at config + Quick, MED). Read spec §WS-C first
+(names exact files/interfaces, fences out-of-scope, ends with a verify): clear-unless-touched decision
+question on dataset change (add `decisionQuestionTouched` symmetric to `taskNameTouched`); on entering
+Quick mode clear the carried question + derive the Quick receipt headline from the Quick prompt. _files:_
+ProofCockpit.tsx:84-93/243-246 · QuickCompare.tsx:33. _verify:_ dataset switch → no stale headline;
+enter Quick mode → no stale question; saved Quick receipt headline matches its prompt (check exported MD
+Decision/Task lines); FE unit on the clear/derive logic. Build smallest slice → verify (uv run pytest +
+pnpm test + pnpm build + browser per CLAUDE.md) → check the box → re-handoff. No open question — go
+straight to coding after reading the workstream.
 
 App up (REAL keys in .env.local, Sandbox OFF, no mocks; cost OK'd): API
 `uv run orionfold dev --port 8790`; UI `VITE_DEV_PORT=5174 VITE_API_PROXY=http://127.0.0.1:8790
