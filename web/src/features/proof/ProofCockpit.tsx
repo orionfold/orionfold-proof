@@ -22,6 +22,7 @@ import { effectiveDecisionQuestion, quickDecisionHeadline } from "./briefHelpers
 import { STARTER_VARIANTS, cleanVariants, defaultPromptModel } from "./promptVariantsHelpers";
 import { type Rubric } from "./ScoringMethod";
 import { ProviderTag } from "./badges";
+import { CostLedger } from "./CostLedger";
 import { FailureCases } from "./FailureCases";
 import { FrontierScatter } from "./FrontierScatter";
 import { Inspector } from "./Inspector";
@@ -281,6 +282,7 @@ export function ProofCockpit({
               />
               <Leaderboard entries={report.leaderboard} />
               <FrontierScatter entries={report.leaderboard} />
+              <CostLedger report={report} />
               <FailureCases report={report} selected={openFailure} onSelect={setOpenFailure} />
             </div>
           )

@@ -55,6 +55,13 @@ test("proof loop: run → leaderboard → failure case → receipts", async ({ p
   await expect(explainer).toBeVisible();
   await expect(explainer).toHaveAttribute("data-tone", "ok");
 
+  // Run-level cost ledger (WS-D2) mounts beneath the scatter on a populated run.
+  // A keyless mock run is free, so the run total reconciles to "Free" — the same
+  // zero the verdict banner's "Run cost … total $0.0000" line reports.
+  const costLedger = page.getByRole("region", { name: "Run cost" });
+  await expect(costLedger).toBeVisible();
+  await expect(costLedger.getByTestId("run-cost-total")).toHaveText("Free");
+
   // Finding 2 — keypoint default: the demo dataset has keypoints, so the keyless
   // run defaults to keypoint coverage scoring. The DecisionSummary must say so.
   await expect(page.getByText(/Scored by/i)).toContainText(/Keypoint coverage/i);
