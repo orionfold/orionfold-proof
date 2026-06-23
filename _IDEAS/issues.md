@@ -138,6 +138,13 @@
   - **Ties to:** issue #1 (the same Auto→Similarity taxonomy/heuristic mismatch); _IDEAS feature
     "guided first-run CTA" (WS-E2, Task 9) — a one-click demo CTA is pointless if the demo it runs
     reads "no winner." **Sequence E2 AFTER fixing this scorer default.**
+  - **✅ RESOLVED 2026-06-23 (`50155bb`).** The bundled `is_sample` summarization demo now
+    **defaults to the LLM judge** (FE-only): new pure `prefersSampleJudge(dataset, judgeCell)` in
+    `web/.../scoring.ts` + a latched effect in `ScoringMethod.tsx` auto-select the judge for the
+    sample when a *real* (non-mock) judge resolved (reuses A3 `defaultJudgeCell`; Sandbox keeps its
+    keyless demo; keyless user stays on Auto, never silent Mock). Real-model verified: the same
+    dataset that read "NO CLEAR WINNER" at 0.06–0.15 now yields a **clear winner** (RECOMMENDED
+    claude-haiku-4-5, 60% pass, avg 0.71, "Scored by: LLM judge"). **This unblocks WS-E2 / Task 10.**
 
 ## LLM-judge is unavailable to a cloud-only user (judge picker excludes cloud providers; defaults to Mock)
 - **Severity / Effort:** high / med
