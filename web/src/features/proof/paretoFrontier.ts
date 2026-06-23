@@ -9,11 +9,16 @@
 
 import type { LeaderboardEntry } from "../../lib/api";
 
+// Which leaderboard field drives the Y axis. Pass rate is the headline metric
+// (and what "recommended" is gated on); avg score rescues the ranking when the
+// scorer is mismatched and pass rate collapses to 0 for everyone.
+export type ScatterMetric = "pass_rate" | "avg_score";
+
 export interface ScatterPoint {
   candidateId: string;
   label: string;
   cost: number; // x — total estimated $, lower is better
-  quality: number; // y — pass rate 0–1, higher is better
+  quality: number; // y — selected metric 0–1, higher is better
   recommended: boolean;
   onFrontier: boolean;
 }
@@ -69,16 +74,22 @@ export function paretoFrontier(pts: ReadonlyArray<{ cost: number; quality: numbe
   return onFrontier;
 }
 
-// Map leaderboard rows to plottable points. Quality is pass rate (the
-// leaderboard's headline metric and what "recommended" is gated on); cost is the
-// total estimated spend. Entries that never produced output (all errored) still
-// plot at quality 0 so the failure is visible, not hidden.
-export function buildScatterPoints(entries: ReadonlyArray<LeaderboardEntry>): ScatterPoint[] {
+// Map leaderboard rows to plottable points. Quality reads the selected metric —
+// pass rate by default (the leaderboard's headline and what "recommended" is
+// gated on), or avg score when the caller flips the Y axis. Both are already
+// 0–1, so the frontier math and the [0,1] domain stay valid. Cost is the total
+// estimated spend. The frontier recomputes per metric (a different Y can change
+// who dominates), but `recommended` always passes through from the leaderboard —
+// it is a run-level verdict, never re-derived from the current view.
+export function buildScatterPoints(
+  entries: ReadonlyArray<LeaderboardEntry>,
+  metric: ScatterMetric = "pass_rate",
+): ScatterPoint[] {
   const base = entries.map((e) => ({
     candidateId: e.candidate_id,
     label: e.label,
     cost: e.total_estimated_cost_usd,
-    quality: e.pass_rate,
+    quality: metric === "avg_score" ? e.avg_score : e.pass_rate,
     recommended: e.recommended,
   }));
   const frontier = paretoFrontier(base);

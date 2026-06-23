@@ -141,16 +141,23 @@ operator has OK'd it; Sandbox stays OFF (no mocks).**
   Playwright, real-browser light+dark graded, diff-reviewer faithful. _new files:_ `paretoFrontier.ts`
   + `FrontierScatter.tsx` + tests. _files touched:_ `ProofCockpit.tsx` · `proof.spec.ts` · `package.json`.
   _ref:_ §WS-D1 · feature #2.
-- [ ] **7 · Decide insight layer — score toggle + plain-English explainer** (MED, FE-only; NEW, ahead
-  of D2). Pass-rate ⇄ Avg-score Y-toggle on the WS-D1 `FrontierScatter.tsx` (default Pass rate;
-  `buildScatterPoints(entries, metric)` + frontier recomputes per metric; recommended accent stays tied
-  to `entry.recommended`, not the metric leader) + new pure `decideInsights.ts`
-  `deriveDecideInsight(entries)` — deterministic, rule-based plain-English insight rendered beneath the
-  chart (NOT an LLM call — free + reproducible; status/ink tones never the accent). So a mismatched-scorer
-  run STILL yields insight (avg-score ranks candidates when pass rate is flat — exactly the 2026-06-23
-  3-tier case). FE-only — no backend/migration/version/hash. _verify:_ Vitest on `decideInsights` branches
-  + `buildScatterPoints(…,"avg_score")` + toggle/explainer tests + Playwright toggle + browser re-run the
-  3-tier case. _ref:_ `_SPECS/2026-06-23-decide-insight-layer.md`; motivated by WS-D1 real-run + issue #5.
+- [x] **7 · Decide insight layer — score toggle + plain-English explainer** (MED, FE-only) ✅ DONE
+  2026-06-23. Pass-rate ⇄ Avg-score Y-toggle on `FrontierScatter.tsx` (default Pass rate;
+  `buildScatterPoints(entries, metric)` gained a `ScatterMetric` param — `avg_score` reads `e.avg_score`;
+  frontier recomputes per metric; YAxis + tooltip relabel per metric; **recommended accent stays tied to
+  `entry.recommended`, NOT the metric leader**) + new pure `decideInsights.ts` `deriveDecideInsight(entries)`
+  — deterministic 5-rule explainer beneath the chart (NOT an LLM call; `--color-ok/warn/ink-muted` tones,
+  never the accent). FE-only — no backend/migration/version/hash; mock `467ddd96c9a5` untouched by
+  construction (no scoring/hash path). **178 FE (+15) / 298 BE (unchanged), tsc + build clean, 11/11
+  Playwright** (added toggle+explainer assertions; re-embedded build into the package static dir).
+  **Real-model browser verification** (Sandbox OFF, 3 Anthropic tiers, Similarity@0.55, config
+  `7f2bed41f3f4`): reproduced the headline case — all 3 at 0% pass, avg Opus 0.20 / Haiku 0.05 / Sonnet
+  0.05; Pass-rate view = 3 flat dots no accent, Avg-score view spreads Opus above with the frontier
+  drawing; explainer reads *"0% pass, but the scores still rank the field … claude-opus-4-8 leads … try
+  the LLM judge or lower the threshold in Settings"* and stays identical across the toggle; light + dark
+  graded, secret-free. Fresh-context diff-reviewer: faithful, invariants intact, no bugs. _new files:_
+  `decideInsights.ts` + `decideInsights.test.ts`. _files touched:_ `paretoFrontier.ts` (+test) ·
+  `FrontierScatter.tsx` (+test) · `proof.spec.ts`. _ref:_ `_SPECS/2026-06-23-decide-insight-layer.md`.
 - [ ] **8 · D2 — Run-level cost ledger panel** (MED). Reuse ainative `lib/usage/ledger.ts` +
   `cost-dashboard.tsx` + micro-viz (confirmed exist); per-provider tokens+$ + run total in Inspector.
   Port micro-viz to **Recharts** (no second charting lib). _verify:_ sums match the verdict banner's

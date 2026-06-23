@@ -41,6 +41,20 @@ test("proof loop: run → leaderboard → failure case → receipts", async ({ p
   await expect(scatter).toBeVisible();
   await expect(scatter.getByTestId("frontier-scatter").locator("svg.recharts-surface")).toBeVisible();
 
+  // Decide insight layer (Task 7): default Y is Pass rate; the toggle flips it to Avg score.
+  const passToggle = scatter.getByRole("button", { name: "Pass rate" });
+  const avgToggle = scatter.getByRole("button", { name: "Avg score" });
+  await expect(passToggle).toHaveAttribute("aria-pressed", "true");
+  await avgToggle.click();
+  await expect(avgToggle).toHaveAttribute("aria-pressed", "true");
+  // Chart stays mounted under the new metric and the axis re-labels to "Avg score".
+  await expect(scatter.getByTestId("frontier-scatter").locator("svg.recharts-surface")).toBeVisible();
+  await expect(scatter.locator("svg.recharts-surface").getByText("Avg score")).toBeVisible();
+  // The deterministic explainer renders beneath the chart (clear-winner run → ok tone).
+  const explainer = scatter.getByTestId("decide-explainer");
+  await expect(explainer).toBeVisible();
+  await expect(explainer).toHaveAttribute("data-tone", "ok");
+
   // Finding 2 — keypoint default: the demo dataset has keypoints, so the keyless
   // run defaults to keypoint coverage scoring. The DecisionSummary must say so.
   await expect(page.getByText(/Scored by/i)).toContainText(/Keypoint coverage/i);

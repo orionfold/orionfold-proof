@@ -121,4 +121,31 @@ describe("buildScatterPoints", () => {
     ]);
     expect(pts[0].quality).toBe(0);
   });
+
+  it('metric "avg_score" reads avg_score for quality and recomputes the frontier', () => {
+    // Pass-rate flat at 0 for all (scorer mismatch) — only avg score separates them.
+    // On avg_score, the cheaper-and-higher-score point dominates the dearer-lower one.
+    const pts = buildScatterPoints(
+      [
+        entry({ candidate_id: "a", total_estimated_cost_usd: 1.0, pass_rate: 0, avg_score: 0.06 }),
+        entry({ candidate_id: "b", total_estimated_cost_usd: 0.5, pass_rate: 0, avg_score: 0.15, recommended: true }),
+      ],
+      "avg_score",
+    );
+    const a = pts.find((p) => p.candidateId === "a")!;
+    const b = pts.find((p) => p.candidateId === "b")!;
+    expect(a.quality).toBe(0.06); // reads avg_score, not pass_rate
+    expect(b.quality).toBe(0.15);
+    expect(b.onFrontier).toBe(true); // cheaper AND higher avg score
+    expect(a.onFrontier).toBe(false);
+    // recommended passes through from the leaderboard, not re-derived from the metric.
+    expect(b.recommended).toBe(true);
+  });
+
+  it("default metric stays pass_rate (WS-D1 behaviour) when omitted", () => {
+    const pts = buildScatterPoints([
+      entry({ candidate_id: "a", pass_rate: 0.6, avg_score: 0.9 }),
+    ]);
+    expect(pts[0].quality).toBe(0.6); // pass_rate, not avg_score
+  });
 });
