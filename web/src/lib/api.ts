@@ -343,6 +343,8 @@ export interface RunRequest {
   prompt_variants?: PromptVariant[];
   examples?: QuickExample[];
   mode?: "full" | "quick";
+  // Models-mode task instruction: one system prompt applied to every selected candidate.
+  system_prompt?: string;
 }
 
 export function scoredByLabel(rubric: z.infer<typeof rubricSchema>): string {

@@ -42,6 +42,8 @@ function renderRunSetup(overrides: Partial<RunSetupProps> = {}) {
     onPromptModelChange: () => {},
     quickPrompt: "",
     onQuickPromptChange: () => {},
+    modelInstruction: "",
+    onModelInstructionChange: () => {},
   };
   return render(wrap(<RunSetup {...defaults} {...overrides} />));
 }
@@ -86,11 +88,26 @@ describe("RunSetup", () => {
             promptVariants: STARTER_VARIANTS, onPromptVariantsChange: () => {},
             promptModel: "mock_good", onPromptModelChange: () => {},
             quickPrompt: "Summarize this", onQuickPromptChange: () => {},
+            modelInstruction: "", onModelInstructionChange: () => {},
           } satisfies RunSetupProps)}
         />,
       ),
     );
     expect(screen.getByRole("button", { name: /Run proof/i })).toBeEnabled();
+  });
+
+  it("models mode: edits the optional Task instruction", () => {
+    const onModelInstructionChange = vi.fn();
+    renderRunSetup({ compareBy: "models", onModelInstructionChange });
+    fireEvent.change(screen.getByLabelText(/Task instruction/i), {
+      target: { value: "Reply with only the label." },
+    });
+    expect(onModelInstructionChange).toHaveBeenCalledWith("Reply with only the label.");
+  });
+
+  it("hides the Task instruction outside Models mode", () => {
+    renderRunSetup({ compareBy: "prompts" });
+    expect(screen.queryByLabelText(/Task instruction/i)).not.toBeInTheDocument();
   });
 
   it("quick mode: shows a hint when not exactly 2 candidates and edits the prompt", () => {

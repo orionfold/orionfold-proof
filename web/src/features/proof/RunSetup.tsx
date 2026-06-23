@@ -33,6 +33,9 @@ export interface RunSetupProps {
   onPromptModelChange: (id: string) => void;
   quickPrompt: string;
   onQuickPromptChange: (s: string) => void;
+  // Models-mode task instruction: one system prompt applied to every selected candidate.
+  modelInstruction: string;
+  onModelInstructionChange: (s: string) => void;
   // Slot for the decision-recipe accelerator, rendered inside the Models section (it pre-fills the
   // model panel, so it's irrelevant when comparing prompts).
   recipes?: ReactNode;
@@ -62,6 +65,8 @@ export function RunSetup(props: RunSetupProps) {
     onPromptModelChange,
     quickPrompt,
     onQuickPromptChange,
+    modelInstruction,
+    onModelInstructionChange,
     recipes,
   } = props;
 
@@ -172,6 +177,21 @@ export function RunSetup(props: RunSetupProps) {
             <div className="grid gap-6">
               {recipes}
               <CandidatePicker panel={panel} selected={selectedCandidates} onToggle={onToggleCandidate} />
+              <label className="grid gap-1.5 text-sm">
+                <span className="text-(--color-ink-muted)">Task instruction (optional)</span>
+                <textarea
+                  aria-label="Task instruction"
+                  value={modelInstruction}
+                  onChange={(e) => onModelInstructionChange(e.target.value)}
+                  rows={3}
+                  placeholder="Classify the ticket into exactly one of: billing, bug, how-to, feature-request, account-access. Reply with only the label."
+                  className={inputCls + " resize-y"}
+                />
+                <span className="text-xs text-(--color-ink-faint)">
+                  One system instruction applied to every candidate — use it to make the models
+                  classify, extract, or format rather than answer freely. Becomes part of the proof.
+                </span>
+              </label>
             </div>
           )}
         </div>

@@ -96,6 +96,11 @@ class RunRequest(BaseModel):
     prompt_variants: list[PromptVariant] | None = None
     examples: list[Example] | None = None  # inline ad-hoc examples (quick-compare); no dataset row
     mode: Literal["full", "quick"] = "full"
+    # Models-mode task instruction: a single system prompt applied to every selected candidate so
+    # classification/extraction tasks can be proven (the models classify instead of "helping").
+    # Ignored when prompt_variants is set (that path supplies a per-variant prompt). Set on a
+    # candidate → feeds config_hash (a different, intentional proof); absent → hashes unchanged.
+    system_prompt: str | None = None
 
 
 class WinnerRequest(BaseModel):
@@ -367,6 +372,11 @@ def _resolve_candidates(body: RunRequest) -> list[Candidate]:
     except UnknownCandidateError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     if not body.prompt_variants:
+        # Models mode: an optional task instruction applies one system prompt to every candidate.
+        # Empty/whitespace → leave None so model-compare runs keep byte-identical config_hashes.
+        instruction = (body.system_prompt or "").strip()
+        if instruction:
+            return [c.model_copy(update={"system_prompt": instruction}) for c in base]
         return base
     if len(base) != 1:
         raise HTTPException(status_code=422, detail="Prompt comparison needs exactly one model.")

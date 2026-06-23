@@ -58,6 +58,9 @@ export function ProofCockpit({
   const [rubric, setRubric] = useState<Rubric | null>(null);
   const [compareBy, setCompareBy] = useState<"models" | "prompts" | "quick">("models");
   const [quickPrompt, setQuickPrompt] = useState("");
+  // Models-mode task instruction: one system prompt applied to every selected candidate, so a
+  // classification/extraction proof makes the models classify instead of "helping the user."
+  const [modelInstruction, setModelInstruction] = useState("");
   const [promptVariants, setPromptVariants] = useState<PromptVariant[]>(STARTER_VARIANTS);
   const [promptModel, setPromptModel] = useState("");
   // The Task name headlines the receipt, so it should describe the dataset under test. Until the
@@ -188,6 +191,8 @@ export function ProofCockpit({
           onPromptModelChange={setPromptModel}
           quickPrompt={quickPrompt}
           onQuickPromptChange={setQuickPrompt}
+          modelInstruction={modelInstruction}
+          onModelInstructionChange={setModelInstruction}
           recipes={
             recipes.data ? (
               <RecipeRow
@@ -220,6 +225,9 @@ export function ProofCockpit({
                       candidate_ids: resolvedSelected,
                       brief: effectiveBrief,
                       ...(rubric ? { rubric } : {}),
+                      ...(modelInstruction.trim()
+                        ? { system_prompt: modelInstruction.trim() }
+                        : {}),
                     },
             )
           }
