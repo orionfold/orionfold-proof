@@ -6,48 +6,56 @@
 > To resume: in a fresh session say **"read from handoff"** (or "continue from last
 > session"), or `/clear` and paste the prompt below.
 
-_Last updated: 2026-06-23 · **Stage 3 in progress — Task 8 (WS-D2, run-level cost ledger) DONE + committed
-(`055bd50`).** A **Run cost** panel now sits beneath the cost-vs-quality scatter on a populated full run:
-per-candidate tokens in/out, candidate $, judge $, **share of run spend**, and a **reconciled run total**
-that equals the verdict banner's existing "Run cost: candidate $X · judge $Y · total $Z" line **by
-construction** (both roll up the same `report.results`). New pure `costLedgerMath.ts`
-`buildCostLedger(leaderboard, results)` rolls `ResultRow`s up per `candidate_id` (Σ `estimated_cost_usd`
-→ candidate $, Σ `judge_cost_usd` → judge $, Σ tokens), share-of-total (divide-by-zero safe on a free
-run), **leaderboard order preserved** (recommended-first), privacy **carried not guessed**. New
-`CostLedger.tsx` is DS-clean — cost is neither verdict nor PASS, so **neutral ink only, NEVER
-`--color-accent`/`--color-ok`**; `tabular-nums`; judge "—" when none ran; "Free" + note on zero-cost
-runs. Mounted in the **full-run branch only** (quick branch renders QuickCompare, unaffected).
-**File-naming:** pure module is `costLedgerMath.ts` NOT `costLedger.ts` — avoids a macOS
-case-insensitive collision with `CostLedger.tsx` (mirrors `paretoFrontier.ts`/`FrontierScatter.tsx`).
-**FE-only — no backend/Pydantic/migration/config_hash**; mock `467ddd96c9a5` untouched. Verified:
-**298 BE (unchanged) / 189 FE (+11)**, tsc+build clean, **11/11 Playwright** (free mock run →
-run-cost-total reads "Free"; re-embedded build into the gitignored package static dir). **Real-model
-browser verification** (Sandbox OFF, 2 Anthropic tiers Haiku+Opus, Auto→Similarity@0.55, config
-`04ffcde784fc`): panel = Haiku $0.0066/11% · Opus $0.0518/89% · **Run total candidate $0.0584 · judge —
-· total $0.0584** — reconciles to the verdict line *"…candidate $0.0584 · judge $0.0000 · total
-$0.0584"* to the penny; shares sum 100%; light+dark graded, secret-free. Fresh-context diff-reviewer:
-CLEAN (sum-reconciliation by construction, no DS violations, FE-only, full-run-only mount, tests assert
-real invariants). **Execute Task 9 (WS-E1, Candidates inline add-key / start-host affordance) next
-session.** `main` local-only; git remote/push stay queued LAST until packaging (operator directive)._
+_Last updated: 2026-06-23 · **Stage 3 in progress — Task 9 (WS-E1, Candidates inline add-key /
+start-host affordance) DONE + committed (`f65e686`).** The **Candidates** catalog now renders from
+`/api/selection` (every catalog provider + `available` flag) instead of the available-only
+`/api/candidates`, so unconfigured providers are SHOWN, not silently omitted. Unconfigured cloud →
+"Not configured" + a reason naming the exact env var + the existing inline **`<KeyEntry>`** (writes
+`.env.local` server-side, never echoed; invalidates `["selection"]` so the card flips to available
+**live**); unconfigured local → "Start the local server" hint (no key); available → models listed.
+**Operator chose inline KeyEntry over a "Add key in Settings →" deep-link** (SettingsView has no key
+field to land on; KeyEntry is the already-built, secrets-guard-safe path used in CandidatePicker /
+JudgeFilter / RecipeRow). Reuses `KeyEntry` / `CLOUD_KEY_NAMES` / `ProviderTag` / `ProviderLogo` / the
+panel's `available` gate — **no new gating, no key-entry rebuild**. Removed the now-orphaned
+`getCandidates()` client (the `/api/candidates` endpoint + `candidateSchema`/`Candidate` type stay —
+used by `runSchema` + `badges.tsx`). DS accent/status split intact: identity tags neutral; the only
+accent is KeyEntry's pre-existing Save button. **FE-only — no backend/Pydantic/migration/config_hash**;
+mock `467ddd96c9a5` intact by construction. Verified: **192 FE (+3) / 298 BE (unchanged)**, tsc+build
+clean, **12/12 Playwright** (+1 smoke; re-embedded build into the gitignored static dir). **Real-browser
+verification against a KEYLESS API instance** (`ORIONFOLD_ENV_FILE` override + cleared cloud-key env
+vars; the real `.env.local` was never read or modified — secrets-guard correctly blocked reading it):
+4 cloud providers (Anthropic/OpenAI/Gemini/OpenRouter) show the add-key affordance + env-var reason,
+the inline field reveals on click (password input placeholdered with the env var name + cyan Save
+control), 2 local providers (Ollama/LM Studio) list models; **light + dark graded, secret-free**.
+Fresh-context diff-reviewer: **ship-ready** (all 6 points pass, no regressions/DS violations/scope
+creep). **Next: Task 10 (WS-E2 guided CTA) is BLOCKED on the demo-scorer default fix — do that fix
+FIRST, or take the unblocked Task 11 (WS-F DS pass).** `main` local-only; git remote/push stay queued
+LAST until packaging (operator directive)._
 
-## ▶️ START HERE NEXT SESSION — execute task 9 (WS-E1 add-key affordance) from the NEXT TASKS queue
+## ▶️ START HERE NEXT SESSION — Task 10 (WS-E2) is BLOCKED; do the scorer-default fix FIRST, or take Task 11 (WS-F, unblocked)
 
-**Stage 3 is underway: one point-task per session.** Tasks 1–6 are checked off below. Read the
+**Stage 3 is underway: one point-task per session.** Tasks 1–9 are checked off below. Read the
 spec before coding. Build smallest slice → verify (tests + browser per CLAUDE.md) → check the box →
 re-handoff.
 
-**Next up: Task 9 — WS-E1 (Candidates inline add-key / start-host affordance, MED).** In the Configure
-candidate catalog, list **known** providers with a quiet "Add key in Settings →" (deep-link, prefer
-over inline key entry — keeps the secrets-guard surface small) for unconfigured cloud, and a "Start
-Ollama / LM Studio" hint for local. The selection panel **already knows gated providers** (`selection.py`
-emits gated entries; `scoring.ts`/`JudgeFilter` already surface gated judge rows — reuse that pattern,
-don't rebuild it). Reuse the keyless-default + reveal-on-configure idea from Arena's
-`OpenRouterKeySettings.jsx`. _verify:_ an unconfigured provider shows the add-key affordance and explains
-its absence; Playwright smoke. _ref:_ spec §WS-E1 · feature #4.
+**Next up is contested:** **Task 10 — WS-E2 (Guided first-run CTA, MED) is BLOCKED on the demo-scorer
+default fix** (NOT just A2). Real-run evidence (2026-06-23): the bundled summarization demo STILL reads
+"no winner" under the shipped 0.55 Similarity default — a one-click CTA landing users on 3 failing dots
+is worse than the blank form. **Two honest paths:**
+- **(a) Unblock WS-E2 first:** fix the demo scorer default so the bundled demo produces a clear winner
+  on real models (→ LLM judge as the demo's default, per `_IDEAS/issues.md` "REAL-RUN: flagship … NO
+  CLEAR WINNER"), THEN build the guided CTA. This is the demo-critical thread.
+- **(b) Take Task 11 — WS-F (DS application-consistency pass, LOW), which is UNBLOCKED** (F1 seed sample
+  metadata; F2/F3 sortable + mono-microcap leaderboard headers; F4 distinct Mock badge; F5
+  inspector-less route layout). May split into sub-tasks.
 
-_Task 8 (WS-D2 cost ledger) committed to `main` as `055bd50` (worklog
-`docs/worklog/2026-06-23-ws-d2-run-cost-ledger.md`). Task 7 (Decide insight layer) = `30e5cf5` (worklog
-`docs/worklog/2026-06-23-decide-insight-layer.md`). WS-D1 = `0f83f9e`
+Recommend **(a)** — it's the higher-value demo-critical work and unblocks the last MED feature. Confirm
+with the operator if unsure.
+
+_Task 9 (WS-E1 add-key affordance) committed to `main` as `f65e686` (worklog
+`docs/worklog/2026-06-23-ws-e1-candidates-add-key-affordance.md`). Task 8 (WS-D2 cost ledger) = `055bd50`
+(worklog `docs/worklog/2026-06-23-ws-d2-run-cost-ledger.md`). Task 7 (Decide insight layer) = `30e5cf5`
+(worklog `docs/worklog/2026-06-23-decide-insight-layer.md`). WS-D1 = `0f83f9e`
 (worklog `docs/worklog/2026-06-23-ws-d1-pareto-cost-quality-scatter.md`). WS-C = `1864b35`;
 WS-B = `5307ae5`; an unrelated CLAUDE.md self-improvement pass = `1dc3eb1`. WS-A3 = `9e413d5`,
 WS-A2 = `f2b7e91`, WS-A1 = `593d346`._
@@ -158,9 +166,23 @@ operator has OK'd it; Sandbox stays OFF (no mocks).**
   total **$0.0584** reconciles to the verdict line exactly; light+dark graded, secret-free. Fresh-context
   diff-reviewer: clean. _new files:_ `costLedgerMath.ts` + `CostLedger.tsx` (+tests). _files touched:_
   `ProofCockpit.tsx` · `proof.spec.ts`. _ref:_ §WS-D2 · feature #3.
-- [ ] **9 · E1 — Candidates inline add-key / start-host affordance** (MED). List known providers; quiet
-  "Add key in Settings →" for unconfigured cloud + "Start Ollama/LM Studio" for local. Reuse the
-  selection panel's gated entries. _ref:_ §WS-E1 · feature #4.
+- [x] **9 · E1 — Candidates inline add-key / start-host affordance** (MED) ✅ DONE 2026-06-23
+  (`f65e686`). `CandidatesView` now renders from **`/api/selection`** (every catalog provider +
+  `available` flag) instead of the available-only `/api/candidates`, so unconfigured providers are
+  shown, not silently omitted. Unconfigured cloud → "Not configured" + a reason naming the exact env
+  var + the existing inline **`<KeyEntry>`** (writes `.env.local` server-side, invalidates
+  `["selection"]` so the card flips live); unconfigured local → "Start the local server" hint;
+  available → models listed. **Operator chose inline KeyEntry over a Settings deep-link** (SettingsView
+  has no key field; KeyEntry is the already-built secrets-guard-safe path). Reuses `KeyEntry` /
+  `CLOUD_KEY_NAMES` / `ProviderTag` / `ProviderLogo` / the panel's `available` gate — no new gating,
+  no key-entry rebuild. Removed orphaned `getCandidates()` client. **FE-only — no
+  backend/migration/config_hash**; mock `467ddd96c9a5` intact. 192 FE (+3) / 298 BE (unchanged),
+  tsc+build clean, **12/12 Playwright** (+1 smoke; re-embedded build into the gitignored static dir).
+  Real-browser verified against a **keyless** API instance (`ORIONFOLD_ENV_FILE` override; real
+  `.env.local` untouched): 4 cloud providers show the add-key affordance + reason, 2 local list models,
+  light + dark graded, secret-free. Fresh-context diff-reviewer: ship-ready. _new file:_
+  `CandidatesView.test.tsx`. _files touched:_ `CandidatesView.tsx` · `lib/api.ts` · `proof.spec.ts`.
+  _ref:_ §WS-E1 · feature #4. (worklog `docs/worklog/2026-06-23-ws-e1-candidates-add-key-affordance.md`)
 - [ ] **10 · E2 — Guided first-run CTA** (MED; **BLOCKED on the scorer-default fix**, not just A2). One-click
   "Run the demo proof on real models" on the empty state → clear-winner receipt in ~30s. ⚠️ Real-run
   evidence (2026-06-23): the bundled summarization demo STILL reads "no winner" under the shipped 0.55
@@ -328,23 +350,40 @@ clear via Settings → data management for a pristine demo state if wanted._
   `CostLedger.tsx` on macOS's case-insensitive FS (same reason `paretoFrontier.ts`/`FrontierScatter.tsx`
   differ by more than case). FE-only display of existing report fields — touches no backend/hash; mock
   `467ddd96c9a5` untouched.
+- **Candidates add-key affordance (Task 9, SHIPPED `f65e686`):** `CandidatesView` renders from
+  **`getSelection()` with `queryKey: ["selection"]`** (every catalog provider + `available` flag,
+  sandbox-aware server-side) — NOT the available-only `getCandidates()` (now removed). The `["selection"]`
+  key is **load-bearing**: `KeyEntry.onSuccess` invalidates `["selection"]`, so a saved key flips the card
+  to available **live** — don't change the key. Three states keyed on `CLOUD_KEY_NAMES`: unconfigured
+  **cloud** (`!available && CLOUD_KEY_NAMES[id]`) → reason + inline `<KeyEntry>`; unconfigured **local**
+  (`!available`, no key) → start-host hint, **NO KeyEntry**; **available** → models listed. Reuses
+  `KeyEntry` / `CLOUD_KEY_NAMES` / `ProviderTag` / `ProviderLogo` — do NOT rebuild gating or key entry.
+  DS: the view itself introduces **NO `--color-accent`/`--color-ok`**; explanation text is
+  `--color-ink-faint`/`--color-ink-muted`; identity `ProviderTag` stays neutral; the only accent is
+  KeyEntry's **pre-existing** Save button (an interactive control, legitimately accent). FE-only display of
+  the selection panel — touches no backend/hash; mock `467ddd96c9a5` untouched. ⚠️ The e2e smoke's
+  `getByRole("main")` is safe ONLY because the hidden ProofCockpit `<main>` uses Tailwind `hidden`
+  (`display:none`, excluded from the a11y tree) — if that view ever switches to `visibility`/`opacity`,
+  the locator becomes strict-mode ambiguous (two `<main>`s).
 
 ## Paste prompt for the next session
 ```text
 Stage 3 execution, one point-task per session. Tasks 1 (A1, 593d346), 2 (A2, f2b7e91), 3 (A3, 9e413d5),
-4 (B, 5307ae5), 5 (C, 1864b35), 6 (D1, 0f83f9e), 7 (Decide insight layer, 30e5cf5) and 8 (D2 cost ledger,
-055bd50) are checked off in the HANDOFF NEXT TASKS queue. WS-A + WS-B + WS-C + WS-D (D1+D2) + Task 7 done.
+4 (B, 5307ae5), 5 (C, 1864b35), 6 (D1, 0f83f9e), 7 (Decide insight layer, 30e5cf5), 8 (D2 cost ledger,
+055bd50) and 9 (E1 add-key affordance, f65e686) are checked off in the HANDOFF NEXT TASKS queue.
+WS-A + WS-B + WS-C + WS-D (D1+D2) + WS-E1 + Task 7 done.
 
-▶️ EXECUTE TASK 9 — WS-E1 (Candidates inline add-key / start-host affordance, MED). In the Configure
-candidate catalog, list KNOWN providers with a quiet "Add key in Settings →" deep-link (prefer over inline
-key entry — keeps the secrets-guard surface small) for unconfigured cloud, and a "Start Ollama / LM Studio"
-hint for local. The selection panel ALREADY emits gated providers (`selection.py`; `scoring.ts`/`JudgeFilter`
-already surface gated judge rows) — reuse that pattern, don't rebuild gating. Reuse the keyless-default +
-reveal-on-configure idea from Arena `arena-app/src/components/arena/OpenRouterKeySettings.jsx`. DS: accent
-only on interactive; identity tags neutral/squared. _verify:_ an unconfigured provider shows the add-key
-affordance + explains its absence; Playwright smoke on the empty/unconfigured state. Build smallest slice →
-verify (uv run pytest + pnpm test + pnpm build + browser per CLAUDE.md, real keys/Sandbox OFF) → check the
-box → re-handoff. _ref:_ _SPECS/2026-06-22-trustworthy-proof-and-polish.md §WS-E1 · feature #4.
+▶️ NEXT IS CONTESTED. TASK 10 — WS-E2 (Guided first-run CTA, MED) is BLOCKED on the demo-scorer default
+fix (NOT just A2): real-run evidence shows the bundled summarization demo STILL reads "no winner" under the
+shipped 0.55 Similarity default, so a one-click CTA would land users on 3 failing dots — worse than the
+blank form. TWO honest paths: (a) FIX THE DEMO SCORER DEFAULT FIRST (→ LLM judge as the bundled demo's
+default so it yields a clear winner on real models; see _IDEAS/issues.md "REAL-RUN: flagship … NO CLEAR
+WINNER"), THEN build the guided CTA — this is the demo-critical thread; or (b) take Task 11 — WS-F (DS
+application-consistency pass, LOW), which is UNBLOCKED (F1 sample metadata; F2/F3 sortable + mono-microcap
+leaderboard headers; F4 distinct Mock badge; F5 inspector-less route layout; may split). RECOMMEND (a).
+Confirm with the operator if unsure. Build smallest slice → verify (uv run pytest + pnpm test + pnpm build
++ browser per CLAUDE.md, real keys/Sandbox OFF) → check the box → re-handoff. _ref:_
+_SPECS/2026-06-22-trustworthy-proof-and-polish.md §WS-E2/§WS-F · features #5, DS #1–#5.
 
 App up (REAL keys in .env.local, Sandbox OFF, no mocks; cost OK'd): API
 `uv run orionfold dev --port 8790`; UI `VITE_DEV_PORT=5174 VITE_API_PROXY=http://127.0.0.1:8790
@@ -383,5 +422,12 @@ pure costLedgerMath.ts buildCostLedger(leaderboard,results) rolls report.results
 per-candidate totals SUM BACK TO report.cost_summary / the verdict "Run cost" line BY CONSTRUCTION,
 share has grandTotal>0 guard (free→0 not NaN), leaderboard order preserved + privacy carried not guessed,
 CostLedger.tsx mounted FULL-RUN branch only, neutral ink ONLY never --color-accent/--color-ok, module is
-costLedgerMath.ts NOT costLedger.ts (macOS case collision w/ CostLedger.tsx), FE-only no backend/hash).
+costLedgerMath.ts NOT costLedger.ts (macOS case collision w/ CostLedger.tsx), FE-only no backend/hash;
+Task 9 WS-E1 add-key affordance = CandidatesView renders from getSelection() with queryKey ["selection"]
+(NOT the removed getCandidates) so a saved key invalidating ["selection"] flips the card live — don't
+change the key; 3 states keyed on CLOUD_KEY_NAMES (unconfigured cloud → reason + inline KeyEntry;
+unconfigured local → start-host hint NO KeyEntry; available → models listed), reuses
+KeyEntry/CLOUD_KEY_NAMES/ProviderTag/ProviderLogo don't rebuild gating, the view introduces NO
+--color-accent/--color-ok (only KeyEntry's pre-existing Save button is accent), FE-only no backend/hash,
+e2e getByRole("main") safe only because hidden ProofCockpit uses display:none Tailwind `hidden`).
 ```
