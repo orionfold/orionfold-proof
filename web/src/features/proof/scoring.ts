@@ -112,3 +112,42 @@ export function filterJudgeModels(
     defaultModel: def?.model ?? null,
   };
 }
+
+export interface JudgeCell {
+  privacy: Privacy;
+  tier: JudgeTier;
+  providerId: string;
+  model: string | null;
+}
+
+// Where the LLM-judge step opens, given the panel and whether Sandbox is on. The keyless Mock judge
+// is the right default ONLY in Sandbox (it's a simulation). With Sandbox OFF a real run must grade
+// with a real model: prefer a Hosted cloud judge (any available cloud key), else a real Local judge
+// (e.g. Ollama). Returns null when NO real judge is configured and Sandbox is off — the caller then
+// disables the LLM-judge method with an "add a key / start Ollama" hint instead of silently mocking.
+export function defaultJudgeCell(
+  panel: SelectionPanel | undefined,
+  sandbox: boolean,
+): JudgeCell | null {
+  if (!panel) return null;
+  if (sandbox) {
+    // Sandbox: the keyless, deterministic Mock judge (Local + Cheapest) — its spec-invariant home.
+    return { privacy: "local", tier: "economy", providerId: "mock_judge", model: null };
+  }
+  // Sandbox OFF: walk privacy×tier for the first cell offering a REAL (non-mock) judge. Cloud first
+  // (a hosted key means the user opted into paid evaluation), then local; cheapest tier first. We
+  // scan the cell's OPTIONS for a real judge rather than its `defaultProviderId` — the Local+Cheapest
+  // cell always pins Mock as its UI default, but a real Ollama model still sits in its options.
+  const tiers: JudgeTier[] = ["economy", "balanced", "frontier"];
+  for (const privacy of ["cloud", "local"] as Privacy[]) {
+    for (const tier of tiers) {
+      const { options } = filterJudgeModels(panel, privacy, tier);
+      const real =
+        options.find((o) => o.providerId !== "mock_judge" && o.recommended) ??
+        options.find((o) => o.providerId !== "mock_judge" && o.latest) ??
+        options.find((o) => o.providerId !== "mock_judge");
+      if (real) return { privacy, tier, providerId: real.providerId, model: real.model };
+    }
+  }
+  return null;
+}

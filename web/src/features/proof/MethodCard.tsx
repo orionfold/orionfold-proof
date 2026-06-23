@@ -5,6 +5,7 @@ export interface MethodCardProps {
   guidance: string;
   cost: string;
   selected: boolean;
+  disabled?: boolean;
   onSelect: () => void;
 }
 
@@ -14,10 +15,12 @@ export interface MethodCardProps {
 const base = "flex h-full flex-col gap-1 rounded-lg border p-3 text-left text-sm transition-colors";
 const active = "border-(--color-accent)/50 bg-(--color-accent)/10";
 const idle = "border-(--color-panel-line) hover:border-(--color-panel-line-strong)";
+// Disabled: dim and non-interactive, but the guidance (the "why" + how to enable) stays readable.
+const off = "border-(--color-panel-line) opacity-50 cursor-not-allowed";
 
-export function MethodCard({ title, guidance, cost, selected, onSelect }: MethodCardProps) {
+export function MethodCard({ title, guidance, cost, selected, disabled = false, onSelect }: MethodCardProps) {
   return (
-    <button type="button" aria-label={`${title} — ${cost}`} aria-pressed={selected} onClick={onSelect} className={`${base} ${selected ? active : idle}`}>
+    <button type="button" aria-label={`${title} — ${cost}`} aria-pressed={selected} disabled={disabled} onClick={onSelect} className={`${base} ${disabled ? off : selected ? active : idle}`}>
       <span className="font-medium text-(--color-ink)">{title}</span>
       <span className="text-xs text-balance text-(--color-ink-muted)">{guidance}</span>
       <span className="mt-auto pt-1 text-xs text-(--color-ink-faint)">{cost}</span>

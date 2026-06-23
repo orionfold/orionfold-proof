@@ -6,13 +6,16 @@ import { useQuery } from "@tanstack/react-query";
 
 import { getSelection } from "../../lib/api";
 import type { SelectionPanel, Privacy } from "../../lib/api";
-import { filterJudgeModels, type JudgeTier } from "./scoring";
+import { filterJudgeModels, type JudgeCell, type JudgeTier } from "./scoring";
 import { JUDGE_TIERS } from "./selectionMeta";
 import { KeyEntry } from "./KeyEntry";
 import { SelectField } from "./SelectField";
 import { Step, StepLine } from "./WorkflowStep";
 
 export interface JudgeFilterProps {
+  // Where the axes open — the sane default cell computed by `defaultJudgeCell` (Hosted+real judge
+  // when Sandbox is off, else Local+Mock). Null falls back to Local+Cheapest (the keyless default).
+  initialCell?: JudgeCell | null;
   selectedProviderId: string | null;
   selectedModel: string | null;
   onPick: (providerId: string, model: string | null) => void;
@@ -24,10 +27,10 @@ const toggleIdle = "border-(--color-panel-line) text-(--color-ink-muted) hover:b
 
 const encode = (providerId: string, model: string | null) => `${providerId}::${model ?? ""}`;
 
-export function JudgeFilter({ selectedProviderId, selectedModel, onPick }: JudgeFilterProps) {
+export function JudgeFilter({ initialCell, selectedProviderId, selectedModel, onPick }: JudgeFilterProps) {
   const { data: panel } = useQuery<SelectionPanel>({ queryKey: ["selection"], queryFn: getSelection });
-  const [privacy, setPrivacy] = useState<Privacy>("local");
-  const [tier, setTier] = useState<JudgeTier>("economy");
+  const [privacy, setPrivacy] = useState<Privacy>(initialCell?.privacy ?? "local");
+  const [tier, setTier] = useState<JudgeTier>(initialCell?.tier ?? "economy");
 
   const result = filterJudgeModels(panel, privacy, tier);
 

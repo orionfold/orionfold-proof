@@ -5,11 +5,11 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { z } from "zod";
 
-import { getSettings, rubricSchema } from "../../lib/api";
-import type { Dataset } from "../../lib/api";
+import { getSelection, getSettings, rubricSchema } from "../../lib/api";
+import type { Dataset, SelectionPanel } from "../../lib/api";
 import { MethodCard } from "./MethodCard";
 import { JudgeFilter } from "./JudgeFilter";
-import { resolveAutoKind, thresholdFor } from "./scoring";
+import { defaultJudgeCell, resolveAutoKind, thresholdFor } from "./scoring";
 import { METHOD_META } from "./selectionMeta";
 
 export type Rubric = z.infer<typeof rubricSchema>;
@@ -36,13 +36,33 @@ export function ScoringMethod({ value, onChange, dataset }: ScoringMethodProps) 
   // overrides prefill the cards. Undefined on first paint → thresholdFor falls back to the map.
   const settings = useQuery({ queryKey: ["settings"], queryFn: getSettings });
   const thresholds = settings.data?.thresholds;
+  const sandbox = settings.data?.sandbox_enabled ?? false;
+
+  // The selection panel + sandbox decide where the LLM judge opens. With Sandbox OFF and a real
+  // judge configured we default to a real one (Hosted cloud, else Local Ollama) — never silently
+  // Mock. When no real judge exists and Sandbox is off, `judgeCell` is null and the LLM-judge card
+  // is disabled with a hint (add a key / start Ollama) rather than mocking a "real" evaluation.
+  const { data: panel } = useQuery<SelectionPanel>({ queryKey: ["selection"], queryFn: getSelection });
+  // The judge default can only be resolved once we have a definite answer. That needs `settings`
+  // (is Sandbox on?) always, plus the `panel` (which real judges exist) UNLESS Sandbox is on — the
+  // Sandbox case resolves to the keyless Mock judge without consulting the panel. Until ready we must
+  // NOT emit a guessed judge: a stale `mock_judge` would diverge from the dropdown once the panel
+  // loads (it shows the first real option) and the run would silently grade with Mock.
+  const judgeReady = settings.data !== undefined && (sandbox || panel !== undefined);
+  const judgeCell = judgeReady ? defaultJudgeCell(panel, sandbox) : undefined;
+  // Disable once ready with no real judge. The enabled/commit predicates share `judgeReady` so the
+  // card is never enabled-but-dead: if it's clickable, a click commits (or it's disabled).
+  const judgeDisabled = judgeReady && judgeCell === null;
 
   function selectMethod(m: Method) {
-    setMethod(m);
-    if (m === "auto") onChange(null);
-    else if (m === "keypoint") onChange({ kind: "keypoint", threshold: thresholdFor("keypoint", thresholds), case_sensitive: false });
-    else if (m === "similarity") onChange({ kind: "similarity", threshold: thresholdFor("similarity", thresholds), case_sensitive: false });
-    else onChange({ kind: "judge", threshold: thresholdFor("judge", thresholds), case_sensitive: false, judge_provider_id: "mock_judge", judge_model: null });
+    if (m === "auto") { setMethod(m); onChange(null); }
+    else if (m === "keypoint") { setMethod(m); onChange({ kind: "keypoint", threshold: thresholdFor("keypoint", thresholds), case_sensitive: false }); }
+    else if (m === "similarity") { setMethod(m); onChange({ kind: "similarity", threshold: thresholdFor("similarity", thresholds), case_sensitive: false }); }
+    else if (judgeCell) {
+      // Only commit the judge method once we have a real judge to emit — never a guessed Mock.
+      setMethod(m);
+      onChange({ kind: "judge", threshold: thresholdFor("judge", thresholds), case_sensitive: false, judge_provider_id: judgeCell.providerId, judge_model: judgeCell.model });
+    }
   }
 
   const autoResolved = resolveAutoKind(dataset) === "keypoint" ? "Keypoint coverage" : "Similarity";
@@ -59,7 +79,14 @@ export function ScoringMethod({ value, onChange, dataset }: ScoringMethodProps) 
         <MethodCard title="Auto" guidance={autoGuidance} cost="Free" selected={method === "auto"} onSelect={() => selectMethod("auto")} />
         <MethodCard title={METHOD_META.keypoint.label} guidance={METHOD_META.keypoint.guidance} cost={METHOD_META.keypoint.cost} selected={method === "keypoint"} onSelect={() => selectMethod("keypoint")} />
         <MethodCard title={METHOD_META.similarity.label} guidance={METHOD_META.similarity.guidance} cost={METHOD_META.similarity.cost} selected={method === "similarity"} onSelect={() => selectMethod("similarity")} />
-        <MethodCard title={METHOD_META.judge.label} guidance={METHOD_META.judge.guidance} cost={METHOD_META.judge.cost} selected={method === "judge"} onSelect={() => selectMethod("judge")} />
+        <MethodCard
+          title={METHOD_META.judge.label}
+          guidance={judgeDisabled ? "Needs a real judge — add a provider key or start Ollama." : METHOD_META.judge.guidance}
+          cost={METHOD_META.judge.cost}
+          selected={method === "judge"}
+          disabled={judgeDisabled}
+          onSelect={() => selectMethod("judge")}
+        />
       </div>
 
       {method === "similarity" ? (
@@ -75,6 +102,7 @@ export function ScoringMethod({ value, onChange, dataset }: ScoringMethodProps) 
 
       {method === "judge" ? (
         <JudgeFilter
+          initialCell={judgeCell}
           selectedProviderId={value?.kind === "judge" ? (value.judge_provider_id ?? null) : null}
           selectedModel={value?.kind === "judge" ? (value.judge_model ?? null) : null}
           onPick={(providerId, model) =>

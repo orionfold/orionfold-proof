@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { resolveAutoKind, filterJudgeModels, DEFAULT_THRESHOLDS, thresholdFor } from "./scoring";
+import { resolveAutoKind, filterJudgeModels, defaultJudgeCell, DEFAULT_THRESHOLDS, thresholdFor } from "./scoring";
 import type { Dataset, SelectionPanel } from "../../lib/api";
 
 describe("DEFAULT_THRESHOLDS / thresholdFor", () => {
@@ -104,5 +104,50 @@ describe("filterJudgeModels", () => {
     expect(r.defaultModel).toBe("gpt-eco");
     expect(r.options.some((o) => o.providerId === "anthropic")).toBe(false);
     expect(r.gated).toEqual([{ providerId: "anthropic", label: "Anthropic", keyName: "ANTHROPIC_API_KEY" }]);
+  });
+});
+
+// A3: where the LLM-judge step opens. Sandbox OFF must NOT silently land on Mock when a real judge
+// exists — it picks Hosted + a real cloud judge (or Local + Ollama). Sandbox ON keeps the keyless
+// Mock judge. No real judge + Sandbox OFF → null (the judge method is disabled with a hint).
+describe("defaultJudgeCell", () => {
+  it("Sandbox ON: keeps the keyless Local+Cheapest Mock judge even with a cloud key", () => {
+    const cell = defaultJudgeCell(panel, true);
+    expect(cell).toEqual({ privacy: "local", tier: "economy", providerId: "mock_judge", model: null });
+  });
+
+  it("Sandbox OFF + cloud key: defaults to Hosted + a real cloud judge (never Mock)", () => {
+    const cell = defaultJudgeCell(panel, false);
+    expect(cell?.privacy).toBe("cloud");
+    expect(cell?.providerId).toBe("anthropic");
+    expect(cell?.model).toBe("haiku");
+    expect(cell?.providerId).not.toBe("mock_judge");
+  });
+
+  it("Sandbox OFF, no cloud key but a real local judge: defaults Local to the real model (not Mock)", () => {
+    const localOnly: SelectionPanel = {
+      providers: [
+        { provider_id: "mock_good", label: "Mock", privacy: "local", available: true, supports_custom: false, candidate_id: null, models: [] },
+        { provider_id: "ollama", label: "Ollama", privacy: "local", available: true, supports_custom: false, candidate_id: null,
+          models: [model({ model: "llama-eco", display_name: "Llama eco", tier: "economy", recommended: true })] },
+        { provider_id: "anthropic", label: "Anthropic", privacy: "cloud", available: false, supports_custom: false, candidate_id: null, models: [] },
+      ],
+    };
+    const cell = defaultJudgeCell(localOnly, false);
+    expect(cell).toEqual({ privacy: "local", tier: "economy", providerId: "ollama", model: "llama-eco" });
+  });
+
+  it("Sandbox OFF, no real judge at all: returns null (LLM judge disabled)", () => {
+    const noJudge: SelectionPanel = {
+      providers: [
+        { provider_id: "mock_good", label: "Mock", privacy: "local", available: true, supports_custom: false, candidate_id: null, models: [] },
+        { provider_id: "anthropic", label: "Anthropic", privacy: "cloud", available: false, supports_custom: false, candidate_id: null, models: [] },
+      ],
+    };
+    expect(defaultJudgeCell(noJudge, false)).toBeNull();
+  });
+
+  it("undefined panel: returns null (nothing selectable yet)", () => {
+    expect(defaultJudgeCell(undefined, false)).toBeNull();
   });
 });
