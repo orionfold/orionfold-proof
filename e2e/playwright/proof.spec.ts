@@ -16,6 +16,11 @@ test("proof loop: run → leaderboard → failure case → receipts", async ({ p
   // 5-example / keypoint-coverage / 5-failure-cases assertions below are deterministic.
   await page.getByLabel("Dataset").selectOption("investment-memo-summarization");
 
+  // Type the decision question AFTER selecting the dataset. Since WS-C, an *untouched* question
+  // clears on dataset change, so the receipt heading would otherwise fall back to the task name —
+  // a typed (touched) question survives and headlines the receipt (matched in the archive below).
+  await page.getByLabel("Decision question").fill("Which model should I trust for client memos?");
+
   // The Mock provider's Good/Bad models appear in the picker, pre-selected for a keyless run.
   await expect(page.locator("legend").filter({ hasText: /^Candidates$/ })).toBeVisible();
   await expect(page.getByRole("checkbox", { name: "Good model" })).toBeChecked();
@@ -30,6 +35,11 @@ test("proof loop: run → leaderboard → failure case → receipts", async ({ p
   await expect(leaderboard).toBeVisible();
   await expect(leaderboard.getByText("Recommended")).toBeVisible();
   await expect(leaderboard.getByText("100% (5/5)")).toBeVisible();
+
+  // Pareto cost-vs-quality scatter (WS-D1) mounts beneath the leaderboard on a populated run.
+  const scatter = page.getByRole("region", { name: "Cost vs quality" });
+  await expect(scatter).toBeVisible();
+  await expect(scatter.getByTestId("frontier-scatter").locator("svg.recharts-surface")).toBeVisible();
 
   // Finding 2 — keypoint default: the demo dataset has keypoints, so the keyless
   // run defaults to keypoint coverage scoring. The DecisionSummary must say so.
@@ -137,15 +147,13 @@ test("quick compare: run → pick → save receipt", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByText(/Connected/)).toBeVisible();
 
-  // Give this run a unique decision question (the field is hidden in Quick mode, so set it in
-  // Models mode first) — the suite shares one DB, so a unique heading makes the receipt card
-  // deterministic to open later.
-  const question = "Quick e2e: which mock reads better?";
-  await page.getByLabel("Decision question").fill(question);
-
   // Enter the Quick lane; the two mock candidates are pre-selected in Sandbox.
+  // Since WS-C, a Quick receipt's headline is DERIVED FROM THE PROMPT (never a carried
+  // Models-mode question), so a unique prompt is what makes the receipt card deterministic to
+  // open later. The suite shares one DB, so keep it distinctive.
+  const quickPrompt = "Quick e2e summarize: revenue grew 22% to $48.2M.";
   await page.getByRole("button", { name: /Quick/ }).click();
-  await page.getByLabel("Prompt", { exact: true }).fill("Summarize: revenue grew 22% to $48.2M.");
+  await page.getByLabel("Prompt", { exact: true }).fill(quickPrompt);
   await page.getByRole("button", { name: /Run proof/ }).click();
 
   // Head-to-head renders; Save is gated until a pick is made.
@@ -161,7 +169,7 @@ test("quick compare: run → pick → save receipt", async ({ page }) => {
 
   // The picked quick check now appears in Receipts and the receipt reads as a QUICK CHECK.
   await page.getByRole("button", { name: "Receipts" }).click();
-  await page.getByRole("button", { name: new RegExp(question.replace(/[.?]/g, "\\$&")) }).first().click();
+  await page.getByRole("button", { name: new RegExp(quickPrompt.replace(/[.?$]/g, "\\$&")) }).first().click();
   const preview = page.frameLocator('iframe[title="Proof Receipt preview"]');
   await expect(preview.getByText(/QUICK CHECK/i).first()).toBeVisible();
   await expect(preview.getByText(/Picked Mock/i)).toBeVisible();

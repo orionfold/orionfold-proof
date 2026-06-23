@@ -23,6 +23,7 @@ import { STARTER_VARIANTS, cleanVariants, defaultPromptModel } from "./promptVar
 import { type Rubric } from "./ScoringMethod";
 import { ProviderTag } from "./badges";
 import { FailureCases } from "./FailureCases";
+import { FrontierScatter } from "./FrontierScatter";
 import { Inspector } from "./Inspector";
 import { Leaderboard } from "./Leaderboard";
 import { QuickCompare } from "./QuickCompare";
@@ -279,6 +280,7 @@ export function ProofCockpit({
                 cost={report.cost_summary}
               />
               <Leaderboard entries={report.leaderboard} />
+              <FrontierScatter entries={report.leaderboard} />
               <FailureCases report={report} selected={openFailure} onSelect={setOpenFailure} />
             </div>
           )
