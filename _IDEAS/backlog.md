@@ -62,3 +62,40 @@
     pick a default. This is the crux that makes it a real product decision, not a mechanical fix.
 - **Anchors:** `web/src/features/proof/ProofCockpit.tsx` (`onPromote`, Quick payload ~`:234`) ·
   `QuickCompare.tsx` (promote CTA) · HANDOFF invariants "Quick-Compare" + "Datasets metadata".
+
+## B3 · Brainstorm real-world demo datasets drawn from our own `~/orionfold/` projects
+
+- **Priority:** Someday / MED. Non-blocking — the bundled *Investment memo summarization (5 examples)*
+  sample already carries the demo path. This is about **stronger, more credible proof material**, not
+  fixing a defect.
+- **Surfaced:** 2026-06-23, operator directive during a browser-use watch session.
+- **The idea.** Replace/supplement synthetic samples with datasets distilled from **our own lived
+  project experience** across the sibling `~/orionfold/` portfolio, so the demo reads as "a real
+  builder's actual task" rather than a toy. Each becomes a frozen example set a user can run a proof
+  against on first launch.
+- **Source projects to mine (study before deciding which earn a dataset):** `~/orionfold/` contains
+  `agency`, `ainative`, `books`, `consulting`, `credentials`, `llc`, `marketing`, `self-health`,
+  `self-proofs`, `self-wealth`, `spark-mac`, `strategy`, `website`. Candidate task shapes worth a
+  look: summarization (consulting/strategy memos), classification (marketing/support intents),
+  extraction (credentials/llc structured fields), rewrite (website/marketing copy), judgment-style
+  free-text (self-proofs / self-health coaching).
+- **⚠ Brainstorm FIRST (operator directive — do not jump to building).** Open questions to resolve in
+  a spec before any seeding code:
+  - **Privacy / local-first.** Real project data may contain personal or client-sensitive content.
+    Bundling it into a shipped sample dataset conflicts with the "private, local-first" promise and
+    the secrets-guard posture. Decide: synthesize *representative* examples inspired by real tasks
+    (safe to ship) vs. keep real datasets local-only (user-imported, never bundled).
+  - **Which decision does each dataset prove?** A dataset only earns its place if it makes a *better
+    Proof Receipt* — i.e. it cleanly separates candidates (clear winner, not "NO CLEAR WINNER"). Pick
+    task shapes where a real model difference shows.
+  - **Scoring fit.** Match each dataset to a rubric that actually discriminates (cf. the
+    demo-scorer-default work — paraphrase tasks need the LLM judge, not lexical/keypoint).
+  - **Count & licensing.** How many ship vs. import-on-demand; any attribution/licensing on source
+    material.
+- **Next step when it earns priority:** run a `brainstorming` skill pass over the `~/orionfold/`
+  projects → produce a short `_SPECS/` workstream naming the 1–3 datasets, their task shape, expected
+  rubric, and the privacy decision (synthesize vs. import-only). **No seeding code until that spec is
+  operator-approved.**
+- **Anchors:** bundled sample seeding (`insert_sample_dataset` / `seed_sample_data`, `is_sample`
+  metadata) · demo-scorer-default work (sample datasets default to LLM judge) · `~/orionfold/`
+  sibling projects.
