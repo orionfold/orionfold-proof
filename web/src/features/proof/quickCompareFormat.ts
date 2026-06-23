@@ -12,12 +12,3 @@ export function objectiveBar(value: number, max: number): number {
 export function totalTokens(row: { input_tokens: number; output_tokens: number }): number {
   return row.input_tokens + row.output_tokens;
 }
-
-/** Human label for the recorded pick: a named side, a tie, or no pick yet. */
-export function pickLabel(chosen: string | null, idA: string, idB: string): string {
-  if (chosen === null) return "No pick yet";
-  if (chosen === "tie") return "Tie — no clear winner";
-  if (chosen === idA) return `Picked ${idA}`;
-  if (chosen === idB) return `Picked ${idB}`;
-  return `Picked ${chosen}`;
-}
