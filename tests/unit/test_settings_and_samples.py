@@ -63,25 +63,29 @@ def test_migrations_are_idempotent_and_add_is_sample():
     assert "is_sample" in cols
 
 
-def test_seed_creates_flagged_sample_dataset_and_receipt():
+def test_seed_creates_flagged_sample_datasets_and_receipts():
     from orionfold.storage import repository
     from orionfold import sample_data
 
     conn = _db()
     repository.seed_datasets(conn)  # bundled (real) datasets exist
+    n = len(sample_data._SAMPLES)
     datasets, receipts = sample_data.seed_sample_data(conn)
-    assert (datasets, receipts) == (1, 1)
+    assert (datasets, receipts) == (n, n)
     rows = repository.list_dataset_rows(conn)
-    samples = [(d, meta) for d, meta in rows if meta.is_sample]
-    assert [d.id for d, _ in samples] == [sample_data.SAMPLE_DATASET_ID]
-    run = conn.execute("SELECT id, is_sample FROM runs").fetchone()
-    assert run["id"] == sample_data.SAMPLE_RUN_ID and run["is_sample"] == 1
-    # WS-F F1: the seeded sample carries the same display metadata a user dataset gets,
-    # so its card reads with a full metadata line + hint chip (not a bare "N examples").
-    _, sample_meta = samples[0]
-    assert sample_meta.created_at == sample_data.SAMPLE_CREATED_AT
-    assert sample_meta.source == sample_data.SAMPLE_SOURCE
-    assert sample_meta.check_hint == sample_data.SAMPLE_CHECK_HINT
+    samples = {d.id: meta for d, meta in rows if meta.is_sample}
+    assert set(samples) == {spec.sample_id for spec in sample_data._SAMPLES}
+    runs = {r["id"]: r["is_sample"] for r in conn.execute("SELECT id, is_sample FROM runs")}
+    assert runs == {spec.run_id: 1 for spec in sample_data._SAMPLES}
+    # WS-F F1 / B3: each seeded sample carries the same display metadata a user dataset gets,
+    # so its card reads with a full metadata line + hint chip (not a bare "N examples"). The
+    # per-spec check_hint round-trips (drives both the chip and the seeded receipt's scoring).
+    for spec in sample_data._SAMPLES:
+        meta = samples[spec.sample_id]
+        assert meta.created_at == sample_data.SAMPLE_CREATED_AT
+        assert meta.source == sample_data.SAMPLE_SOURCE
+        # An empty hint normalizes to None on read (no chip) — see _load_meta.
+        assert meta.check_hint == (spec.check_hint or None)
 
 
 def test_seed_is_idempotent():
@@ -90,10 +94,11 @@ def test_seed_is_idempotent():
 
     conn = _db()
     repository.seed_datasets(conn)
+    n = len(sample_data._SAMPLES)
     sample_data.seed_sample_data(conn)
     sample_data.seed_sample_data(conn)  # re-seed
-    assert conn.execute("SELECT COUNT(*) c FROM runs WHERE is_sample=1").fetchone()["c"] == 1
-    assert conn.execute("SELECT COUNT(*) c FROM datasets WHERE is_sample=1").fetchone()["c"] == 1
+    assert conn.execute("SELECT COUNT(*) c FROM runs WHERE is_sample=1").fetchone()["c"] == n
+    assert conn.execute("SELECT COUNT(*) c FROM datasets WHERE is_sample=1").fetchone()["c"] == n
 
 
 def test_remove_samples_keeps_real_data():
@@ -102,10 +107,11 @@ def test_remove_samples_keeps_real_data():
 
     conn = _db()
     repository.seed_datasets(conn)
+    n = len(sample_data._SAMPLES)
     real_before = conn.execute("SELECT COUNT(*) c FROM datasets WHERE is_sample=0").fetchone()["c"]
     sample_data.seed_sample_data(conn)
     ds, runs = repository.remove_sample_data(conn)
-    assert ds == 1 and runs == 1
+    assert ds == n and runs == n
     assert conn.execute("SELECT COUNT(*) c FROM datasets WHERE is_sample=0").fetchone()["c"] == real_before
     assert conn.execute("SELECT COUNT(*) c FROM runs").fetchone()["c"] == 0
 
@@ -119,7 +125,7 @@ def test_clear_all_wipes_datasets_and_runs_but_not_settings():
     sample_data.seed_sample_data(conn)
     settings.set_sandbox_enabled(conn, True)
     ds, runs = repository.clear_all_data(conn)
-    assert ds >= 1 and runs == 1
+    assert ds >= 1 and runs == len(sample_data._SAMPLES)
     assert conn.execute("SELECT COUNT(*) c FROM datasets").fetchone()["c"] == 0
     assert conn.execute("SELECT COUNT(*) c FROM runs").fetchone()["c"] == 0
     assert settings.get_sandbox_enabled(conn) is True  # settings preserved

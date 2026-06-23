@@ -1,0 +1,27 @@
+{
+  "id": "contract-field-extraction",
+  "name": "Contract field extraction",
+  "description": "Extract a single key field from a short contract clause — an amount, date, or identifier. Scored by 'contains', so the exact value embedded in a brief answer passes while a garbled or padded one fails. An extraction demo where a careful model clearly wins.",
+  "examples": [
+    {
+      "input_text": "Extract the total contract value from this clause and return just the amount. Clause: \"The total fees payable under this Agreement shall not exceed $42,500, inclusive of all applicable taxes and disbursements.\"",
+      "expected_text": "$42,500"
+    },
+    {
+      "input_text": "Extract the effective date from this clause and return just the date. Clause: \"This Master Services Agreement is effective as of March 14, 2026 and continues for an initial term of twelve months.\"",
+      "expected_text": "March 14, 2026"
+    },
+    {
+      "input_text": "Extract the agreement number from this clause and return just the identifier. Clause: \"This Statement of Work is issued under and governed by Master Agreement No. MSA-2026-0817 between the parties.\"",
+      "expected_text": "MSA-2026-0817"
+    },
+    {
+      "input_text": "Extract the notice period from this clause and return just the duration. Clause: \"Either party may terminate this Agreement for convenience upon 30 days written notice to the other party.\"",
+      "expected_text": "30 days"
+    },
+    {
+      "input_text": "Extract the late-payment interest rate from this clause and return just the rate. Clause: \"Any undisputed invoice not paid within the net-30 term shall accrue interest at a rate of 1.5% per month.\"",
+      "expected_text": "1.5%"
+    }
+  ]
+}

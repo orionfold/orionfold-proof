@@ -13,6 +13,9 @@ from orionfold.domain.models import Dataset
 
 _DATASET_FILES = {
     "investment-memo-summarization": "investment_memo_summarization.json",
+    "support-ticket-triage": "support_ticket_triage.json",
+    "contract-field-extraction": "contract_field_extraction.json",
+    "buyer-need-solution-match": "buyer_need_solution_match.json",
 }
 
 
@@ -24,5 +27,5 @@ def load_dataset(dataset_id: str) -> Dataset:
 
 
 def bundled_datasets() -> list[Dataset]:
-    """All datasets that ship with the app (one in v0)."""
+    """All datasets that ship with the app."""
     return [load_dataset(dataset_id) for dataset_id in _DATASET_FILES]

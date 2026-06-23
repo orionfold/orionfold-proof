@@ -2,7 +2,7 @@
 
 import pytest
 
-from orionfold.data import load_dataset
+from orionfold.data import bundled_datasets, load_dataset
 from orionfold.domain.models import Candidate, Example, ProofBrief, Rubric
 from orionfold.proof.engine import run_proof
 from orionfold.storage.db import apply_migrations, connect
@@ -39,7 +39,7 @@ def test_seed_is_idempotent():
     seed_datasets(conn)
     seed_datasets(conn)
     count = conn.execute("SELECT COUNT(*) AS n FROM datasets").fetchone()["n"]
-    assert count == 1
+    assert count == len(bundled_datasets())  # INSERT OR IGNORE → no duplicates on re-seed
     assert get_dataset(conn, "investment-memo-summarization") is not None
 
 

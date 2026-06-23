@@ -1,0 +1,32 @@
+{
+  "id": "buyer-need-solution-match",
+  "name": "Buyer need to solution match",
+  "description": "Turn an enterprise buyer's pain statement into a tight, specific pitch that names a concrete proof point. A judgment task — paraphrased pitches score near zero on lexical overlap, so the demo defaults to the LLM judge, which rewards a specific solution and a credible named proof over generic claims.",
+  "examples": [
+    {
+      "input_text": "Our analysts spend two days a quarter manually reconciling cost reports across three cloud vendors before the board meeting. Write a one-sentence pitch with a named proof point.",
+      "expected_text": "Orionfold rolls every cloud vendor into one reconciled cost ledger so the board pack closes in minutes instead of days — for example, a finance team that cut a two-day quarterly reconciliation down to under an hour.",
+      "keypoints": []
+    },
+    {
+      "input_text": "We keep shipping AI features but can't tell our customers which model we actually trust for their workload. Write a one-sentence pitch with a named proof point.",
+      "expected_text": "Orionfold produces a repeatable Proof Receipt that shows which model wins on your own task so you can defend the choice to a customer — for example, a team that settled a weeks-long internal model debate with a single shareable receipt.",
+      "keypoints": []
+    },
+    {
+      "input_text": "Compliance makes us prove that no customer data left our network during model evaluation, and we have nothing to show them. Write a one-sentence pitch with a named proof point.",
+      "expected_text": "Orionfold runs every evaluation local-first and stamps each receipt with the cloud-or-local boundary per candidate so compliance gets auditable proof the data stayed in-network — for example, a regulated team that cleared an audit on the receipts alone.",
+      "keypoints": []
+    },
+    {
+      "input_text": "Our consultants redo the same model bake-off for every client engagement and it eats the first week of every project. Write a one-sentence pitch with a named proof point.",
+      "expected_text": "Orionfold turns the model bake-off into a one-command run with a client-shareable receipt so the first week goes to the engagement instead of setup — for example, an advisory firm that reuses one receipt template across every new client.",
+      "keypoints": []
+    },
+    {
+      "input_text": "Leadership wants the cheapest model that still passes our quality bar, but nobody can show the cost-versus-quality tradeoff clearly. Write a one-sentence pitch with a named proof point.",
+      "expected_text": "Orionfold plots every candidate on a cost-versus-quality frontier and recommends the cheapest one that clears your bar so leadership sees the tradeoff at a glance — for example, a team that dropped to a far cheaper model without losing measurable accuracy.",
+      "keypoints": []
+    }
+  ]
+}

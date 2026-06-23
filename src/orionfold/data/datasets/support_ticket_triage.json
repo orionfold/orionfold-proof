@@ -1,0 +1,27 @@
+{
+  "id": "support-ticket-triage",
+  "name": "Support ticket triage",
+  "description": "Route an inbound support ticket to one category label from a fixed set: billing, bug, feature_request, account, integration. The label must be exactly one of those tokens — a classification demo where a precise model obviously beats a chatty one.",
+  "examples": [
+    {
+      "input_text": "Categorize this support ticket into exactly one of: billing, bug, feature_request, account, integration. Reply with only the label. Ticket: \"I was charged twice for my March subscription and need a refund for the duplicate.\"",
+      "expected_text": "billing"
+    },
+    {
+      "input_text": "Categorize this support ticket into exactly one of: billing, bug, feature_request, account, integration. Reply with only the label. Ticket: \"The export button throws a 500 error every time I click it on the reports page.\"",
+      "expected_text": "bug"
+    },
+    {
+      "input_text": "Categorize this support ticket into exactly one of: billing, bug, feature_request, account, integration. Reply with only the label. Ticket: \"It would be great if you could add a dark mode to the dashboard.\"",
+      "expected_text": "feature_request"
+    },
+    {
+      "input_text": "Categorize this support ticket into exactly one of: billing, bug, feature_request, account, integration. Reply with only the label. Ticket: \"I can't log in — the password reset email never arrives and my account is locked.\"",
+      "expected_text": "account"
+    },
+    {
+      "input_text": "Categorize this support ticket into exactly one of: billing, bug, feature_request, account, integration. Reply with only the label. Ticket: \"Our Slack notifications stopped syncing after you pushed the new webhook update.\"",
+      "expected_text": "integration"
+    }
+  ]
+}

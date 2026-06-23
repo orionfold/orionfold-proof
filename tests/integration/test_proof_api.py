@@ -369,19 +369,24 @@ def test_selection_is_sandbox_aware(client):
 
 
 def test_seed_then_remove_sample_data(client):
-    assert client.post("/api/sample-data/seed").json() == {"datasets": 1, "receipts": 1}
+    from orionfold import sample_data
+
+    n = len(sample_data._SAMPLES)
+    assert client.post("/api/sample-data/seed").json() == {"datasets": n, "receipts": n}
     ds = client.get("/api/datasets").json()
     assert any(d["is_sample"] for d in ds)
-    assert len(client.get("/api/runs").json()) == 1
-    assert client.request("DELETE", "/api/sample-data").json() == {"datasets": 1, "receipts": 1}
+    assert len(client.get("/api/runs").json()) == n
+    assert client.request("DELETE", "/api/sample-data").json() == {"datasets": n, "receipts": n}
     assert not any(d["is_sample"] for d in client.get("/api/datasets").json())
     assert client.get("/api/runs").json() == []
 
 
 def test_clear_all_data(client):
+    from orionfold import sample_data
+
     client.post("/api/sample-data/seed")
     out = client.request("DELETE", "/api/data").json()
-    assert out["receipts"] == 1 and out["datasets"] >= 1
+    assert out["receipts"] == len(sample_data._SAMPLES) and out["datasets"] >= 1
     assert client.get("/api/datasets").json() == []
 
 

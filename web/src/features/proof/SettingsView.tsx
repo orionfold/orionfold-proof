@@ -14,6 +14,13 @@ import {
 import { useTheme, type ThemeChoice } from "../../lib/theme";
 import { ViewShell } from "./ViewShell";
 
+// "1 dataset" / "4 datasets" — the bundled sample set spans several rubric classes now, so the
+// seed/remove confirmation copy must agree in number with whatever the API reports.
+function pluralize(count: number | undefined, noun: string): string {
+  const n = count ?? 0;
+  return `${n} ${noun}${n === 1 ? "" : "s"}`;
+}
+
 // One Data Management card: a Sandbox toggle plus seed / remove-samples / clear-all. Destructive
 // actions use an inline two-step confirm (no modal dependency); Clear all is the only red control.
 export function SettingsView() {
@@ -129,14 +136,14 @@ export function SettingsView() {
         {/* Seed */}
         <ActionRow
           label="Seed sample data"
-          description="Add a sample dataset and a finished Proof Receipt so the product isn't empty. Re-running replaces the previous sample."
+          description="Add sample datasets and finished Proof Receipts so the product isn't empty. Re-running replaces the previous samples."
           actionLabel="Seed sample data"
           icon={<Database aria-hidden className="h-4 w-4" />}
           pending={seed.isPending}
           onConfirm={() => seed.mutate()}
           done={
             seed.isSuccess
-              ? `Seeded ${seed.data?.datasets} dataset, ${seed.data?.receipts} receipt.`
+              ? `Seeded ${pluralize(seed.data?.datasets, "dataset")}, ${pluralize(seed.data?.receipts, "receipt")}.`
               : null
           }
         />
@@ -144,7 +151,7 @@ export function SettingsView() {
         {/* Remove samples */}
         <ActionRow
           label="Remove sample data"
-          description="Delete only the seeded sample dataset and receipts. Your own datasets and receipts are kept."
+          description="Delete only the seeded sample datasets and receipts. Your own datasets and receipts are kept."
           actionLabel="Remove sample data"
           pending={removeSamples.isPending}
           onConfirm={() => removeSamples.mutate()}
