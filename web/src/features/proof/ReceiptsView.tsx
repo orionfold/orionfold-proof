@@ -53,6 +53,14 @@ function ReceiptCard({ report, onOpen }: { report: ProofReport; onOpen: () => vo
   const { run } = report;
   const winner = winnerOf(report.leaderboard);
   const heading = run.brief.decision_question || run.brief.task_name;
+  // A quick compare is unscored, so nothing is `recommended` — the decided side is the human
+  // pick on `run.chosen_winner` (a candidate id, "tie", or null). Resolve it to a candidate so
+  // the summary reads "Picked <label>", matching the receipt detail's verdict.
+  const isQuick = run.mode === "quick";
+  const pickedCandidate =
+    isQuick && run.chosen_winner && run.chosen_winner !== "tie"
+      ? run.candidates.find((c) => c.id === run.chosen_winner)
+      : undefined;
 
   return (
     <div className="rounded-xl border border-(--color-panel-line) bg-(--color-panel-card) transition-colors hover:border-(--color-panel-line-strong)">
@@ -79,7 +87,17 @@ function ReceiptCard({ report, onOpen }: { report: ProofReport; onOpen: () => vo
             <ChevronRight className="h-4 w-4" />
           </span>
         </div>
-        {winner && (
+        {isQuick && pickedCandidate && (
+          <div className="flex flex-wrap items-center gap-2 text-sm text-(--color-ink-muted)">
+            <span className="text-(--color-ink-faint)">Picked</span>
+            <span className="text-(--color-ink)">{pickedCandidate.label}</span>
+            <ProviderTag candidate={pickedCandidate} />
+          </div>
+        )}
+        {isQuick && run.chosen_winner === "tie" && (
+          <div className="text-sm text-(--color-ink-muted)">Tie — no clear winner</div>
+        )}
+        {!isQuick && winner && (
           <div className="flex flex-wrap items-center gap-2 text-sm text-(--color-ink-muted)">
             <span className="text-(--color-ink-faint)">Winner</span>
             <span className="text-(--color-ink)">{winner.label}</span>
@@ -92,7 +110,7 @@ function ReceiptCard({ report, onOpen }: { report: ProofReport; onOpen: () => vo
             </span>
           </div>
         )}
-        {!winner && report.leaderboard.length > 0 && (
+        {!isQuick && !winner && report.leaderboard.length > 0 && (
           <div className="text-sm text-(--color-ink-muted)">No clear winner</div>
         )}
       </button>
