@@ -71,6 +71,93 @@ describe("ProofCockpit recipes", () => {
   });
 });
 
+// WS-E2: the guided first-run CTA. Shown only when ≥2 cheap cloud candidates are reachable; clicking
+// it preselects the seeded sample + cheap cloud and auto-runs once the sample's judge default lands.
+const CLOUD_SELECTION = {
+  providers: [
+    {
+      provider_id: "anthropic",
+      label: "Anthropic",
+      privacy: "cloud" as const,
+      available: true,
+      supports_custom: false,
+      candidate_id: null,
+      models: [
+        { candidate_id: "anthropic:haiku", model: "haiku", display_name: "Haiku", tier: "economy" as const, cost_class: "$" as const, context_window: null, latest: false, recommended: true },
+      ],
+    },
+    {
+      provider_id: "openai",
+      label: "OpenAI",
+      privacy: "cloud" as const,
+      available: true,
+      supports_custom: false,
+      candidate_id: null,
+      models: [
+        { candidate_id: "openai:nano", model: "nano", display_name: "Nano", tier: "economy" as const, cost_class: "$" as const, context_window: null, latest: false, recommended: true },
+      ],
+    },
+  ],
+};
+const SAMPLE_DATASETS = [
+  { id: "sample-investment-memo", name: "Sample · investment memo summarization", description: "", is_sample: true, examples: [{ input_text: "i", expected_text: "e", keypoints: ["22%"] }] },
+];
+const SETTINGS = { sandbox_enabled: false, thresholds: { similarity: 0.55, keypoint: 0.8, judge: 0.8 } };
+
+describe("ProofCockpit guided first-run CTA (WS-E2)", () => {
+  it("hides the CTA when there are no cheap cloud candidates", async () => {
+    vi.spyOn(api, "getDatasets").mockResolvedValue(SAMPLE_DATASETS as never);
+    vi.spyOn(api, "getSelection").mockResolvedValue(SELECTION as never); // local mock only
+    vi.spyOn(api, "getRecipes").mockResolvedValue(RECIPES as never);
+    vi.spyOn(api, "getSettings").mockResolvedValue(SETTINGS as never);
+    wrap();
+    await waitFor(() => screen.getByText(/No proof run yet/i));
+    expect(screen.queryByRole("button", { name: /Run the demo proof on real models/i })).toBeNull();
+  });
+
+  it("shows the CTA and auto-runs with the judge rubric + cheap cloud candidates", async () => {
+    vi.spyOn(api, "getDatasets").mockResolvedValue(SAMPLE_DATASETS as never);
+    vi.spyOn(api, "getSelection").mockResolvedValue(CLOUD_SELECTION as never);
+    vi.spyOn(api, "getRecipes").mockResolvedValue(RECIPES as never);
+    vi.spyOn(api, "getSettings").mockResolvedValue(SETTINGS as never);
+    const run = vi
+      .spyOn(api, "createRunStream")
+      .mockResolvedValue({ run: { id: "r1", mode: "full" } } as never);
+    wrap();
+
+    const cta = await screen.findByRole("button", { name: /Run the demo proof on real models/i });
+    fireEvent.click(cta);
+
+    await waitFor(() => expect(run).toHaveBeenCalledTimes(1));
+    const body = run.mock.calls[0][0] as api.RunRequest;
+    expect(body.dataset_id).toBe("sample-investment-memo");
+    expect(body.candidate_ids).toEqual(["anthropic:haiku", "openai:nano"]);
+    expect(body.rubric?.kind).toBe("judge"); // never the keypoint backend fallback
+  });
+
+  it("disarms (does not spin forever) if the user pre-picked a non-judge method", async () => {
+    vi.spyOn(api, "getDatasets").mockResolvedValue(SAMPLE_DATASETS as never);
+    vi.spyOn(api, "getSelection").mockResolvedValue(CLOUD_SELECTION as never);
+    vi.spyOn(api, "getRecipes").mockResolvedValue(RECIPES as never);
+    vi.spyOn(api, "getSettings").mockResolvedValue(SETTINGS as never);
+    const run = vi.spyOn(api, "createRunStream").mockResolvedValue({ run: { id: "r1", mode: "full" } } as never);
+    wrap();
+
+    const cta = await screen.findByRole("button", { name: /Run the demo proof on real models/i });
+    // The sample auto-applies the judge on mount. Switch to Keypoint first — this spends the latch
+    // with a non-judge rubric, so clicking the demo can never reach a judge rubric.
+    fireEvent.click(screen.getByRole("button", { name: /Keypoint/i }));
+    fireEvent.click(cta);
+
+    // The button must resolve back to its idle label rather than spin "Preparing…" forever, and no
+    // run fires (safety: never run with the wrong rubric).
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /Run the demo proof on real models/i })).toBeEnabled(),
+    );
+    expect(run).not.toHaveBeenCalled();
+  });
+});
+
 describe("ProofCockpit decision-question integrity (WS-C)", () => {
   it("clears an untouched decision question when the dataset changes", async () => {
     vi.spyOn(api, "getDatasets").mockResolvedValue(DATASETS as never);

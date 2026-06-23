@@ -8,6 +8,7 @@ import {
   getDatasets,
   getRecipes,
   scoredByLabel,
+  seedSampleData,
   type LeaderboardEntry,
   type ProofBrief,
   type PromptVariant,
@@ -18,6 +19,7 @@ import {
   type RunStartEvent,
   type RunCostSummary,
 } from "../../lib/api";
+import { cheapCloudCandidates } from "./scoring";
 import { effectiveDecisionQuestion, quickDecisionHeadline } from "./briefHelpers";
 import { STARTER_VARIANTS, cleanVariants, defaultPromptModel } from "./promptVariantsHelpers";
 import { type Rubric } from "./ScoringMethod";
@@ -78,6 +80,12 @@ export function ProofCockpit({
   const [openFailure, setOpenFailure] = useState<ResultRow | null>(null);
   // Live progress for the streaming run: the plan from the `start` frame + a cumulative count.
   const [progress, setProgress] = useState<{ start: RunStartEvent; done: number } | null>(null);
+  // Guided first-run CTA (WS-E2): once the user clicks "Run the demo on real models" we preselect
+  // the sample + two cheap cloud candidates, then ARM an auto-run. The judge default resolves
+  // asynchronously inside ScoringMethod's effect (rubric goes null → judge), so we can't fire the run
+  // in the same tick — the effect below waits until the sample is selected AND the judge rubric has
+  // landed, then fires exactly once.
+  const [demoArmed, setDemoArmed] = useState(false);
 
   // Whenever the shown run changes — a fresh run or one reopened from Receipts — clear any
   // failure-case selection so the inspector doesn't show a row from the previous report.
@@ -128,6 +136,72 @@ export function ProofCockpit({
     },
     onError: () => setProgress(null),
   });
+
+  // The guided demo targets the bundled sample (detected by `is_sample`, not a hardcoded id — the
+  // sample-detection invariant) and two cheap, available cloud candidates. The CTA only shows when
+  // both are reachable, so the one-click promise ("real-model clear winner in ~30s") stays honest.
+  const sampleDataset = datasets.data?.find((d) => d.is_sample);
+  const cheapCloud = useMemo(
+    () => cheapCloudCandidates(selection.data),
+    [selection.data],
+  );
+  const canRunDemo = cheapCloud.length === 2;
+
+  // Seed the bundled sample if it isn't present, then refresh datasets and select the new row so the
+  // armed auto-run can target it. `seededSampleId` from the counts isn't returned, so we re-find by
+  // `is_sample` after the refetch settles (see the select effect below).
+  const seedMutation = useMutation({
+    mutationFn: seedSampleData,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["datasets"] }),
+  });
+
+  // CTA click: preselect the sample + cheap cloud candidates, leave the rubric null (so the sample's
+  // judge auto-default fires), and arm the auto-run. Seeds first if the sample isn't loaded yet; the
+  // arm effect picks up the freshly-seeded row once the datasets query refetches.
+  const startGuidedDemo = () => {
+    setCompareBy("models");
+    setSelected(cheapCloud);
+    setModelInstruction("");
+    // Don't reset the rubric: selecting the sample makes ScoringMethod auto-apply the LLM judge, and
+    // its latch fires only once per dataset — clearing the rubric here would leave it null forever.
+    if (sampleDataset) setDatasetId(sampleDataset.id);
+    else seedMutation.mutate();
+    setDemoArmed(true);
+  };
+
+  // Once armed, make sure the sample dataset is the selected one — covers the seed-then-refetch case
+  // where the sample row only appears after the CTA click.
+  useEffect(() => {
+    if (demoArmed && sampleDataset && resolvedDatasetId !== sampleDataset.id) {
+      setDatasetId(sampleDataset.id);
+    }
+  }, [demoArmed, sampleDataset, resolvedDatasetId]);
+
+  // Auto-run the armed demo once everything has settled: the sample dataset is selected AND the
+  // judge rubric has resolved (the sample's FE-only default). Firing only when `rubric.kind` is
+  // "judge" guarantees we never start with the keypoint fallback. One-shot: disarm before mutating.
+  useEffect(() => {
+    if (!demoArmed || runMutation.isPending) return;
+    if (!sampleDataset || resolvedDatasetId !== sampleDataset.id) return;
+    // The sample is selected. The judge default normally lands here as null → judge. But if the user
+    // had already chosen a non-judge method (so the rubric is non-null and ScoringMethod's once-per-
+    // dataset latch is spent), the judge will never arrive — disarm rather than spin "Preparing…"
+    // forever. Safety holds either way: we never fire a run with the wrong rubric.
+    if (rubric !== null && rubric.kind !== "judge") {
+      setDemoArmed(false);
+      return;
+    }
+    if (rubric?.kind !== "judge") return;
+    setDemoArmed(false);
+    runMutation.mutate({
+      dataset_id: sampleDataset.id,
+      candidate_ids: cheapCloud,
+      brief: { ...effectiveBrief, task_name: sampleDataset.name },
+      rubric,
+    });
+    // effectiveBrief/cheapCloud are derived; the guard fields drive the one-shot fire.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [demoArmed, runMutation.isPending, sampleDataset?.id, resolvedDatasetId, rubric]);
 
   const toggleCandidate = (id: string) => {
     setActiveRecipeId(null);
@@ -287,7 +361,10 @@ export function ProofCockpit({
             </div>
           )
         ) : (
-          <EmptyResults />
+          <EmptyResults
+            onRunDemo={canRunDemo ? startGuidedDemo : undefined}
+            preparing={demoArmed || seedMutation.isPending}
+          />
         )}
       </main>
 
@@ -389,7 +466,13 @@ function StartingNotice() {
   );
 }
 
-function EmptyResults() {
+function EmptyResults({
+  onRunDemo,
+  preparing,
+}: {
+  onRunDemo?: () => void;
+  preparing: boolean;
+}) {
   return (
     <section aria-label="Results" className="rounded-xl border border-dashed border-(--color-panel-line) p-6">
       <h3 className="text-sm font-medium text-(--color-ink)">No proof run yet</h3>
@@ -399,6 +482,30 @@ function EmptyResults() {
         <span className="text-(--color-ink)">Sandbox</span> in Settings to try the simulated mocks,
         or seed sample data to explore a finished receipt.
       </p>
+      {onRunDemo ? (
+        <div className="mt-5 flex flex-col gap-2 border-t border-(--color-panel-line) pt-5">
+          <p className="max-w-prose text-sm text-(--color-ink-muted)">
+            Or skip the setup: run the bundled investment-memo demo on two cheap cloud models and
+            get a scored, client-shareable receipt in about 30 seconds.
+          </p>
+          <button
+            type="button"
+            onClick={onRunDemo}
+            disabled={preparing}
+            className={
+              "inline-flex w-fit items-center gap-2 rounded-lg bg-(--color-accent-strong) px-4 py-2 text-sm font-medium text-(--color-accent-ink) transition-opacity hover:opacity-90 disabled:opacity-60" +
+              (preparing ? "" : " motion-safe:animate-breathe")
+            }
+          >
+            {preparing ? (
+              <LoaderCircle aria-hidden className="h-4 w-4 animate-spin" />
+            ) : (
+              <BadgeCheck aria-hidden className="h-4 w-4" />
+            )}
+            {preparing ? "Preparing the demo…" : "Run the demo proof on real models"}
+          </button>
+        </div>
+      ) : null}
     </section>
   );
 }

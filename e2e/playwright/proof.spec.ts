@@ -128,6 +128,25 @@ test("decision recipes pre-fill the setup", async ({ page }) => {
   await expect(page.getByLabel(/decision question/i)).toHaveValue(/different hosts/i);
 });
 
+test("guided first-run CTA reflects cloud availability (WS-E2)", async ({ page }) => {
+  // The "Run the demo proof on real models" CTA on the empty Results state appears only when ≥2
+  // cheap, available cloud candidates exist — so its one-click promise (a real-model clear winner)
+  // stays honest. We don't CLICK it here: that fires a real paid run, verified in a live browser per
+  // the operator workflow. We assert the CTA's presence MATCHES the live /api/selection panel, so the
+  // smoke passes whether or not this environment has cloud keys configured.
+  await page.goto("/");
+  const sel = await page.request.get("/api/selection");
+  const panel = (await sel.json()) as {
+    providers: { privacy: string; available: boolean; models: unknown[] }[];
+  };
+  const cheapCloud = panel.providers
+    .filter((g) => g.privacy === "cloud" && g.available)
+    .flatMap((g) => g.models).length;
+  const cta = page.getByRole("button", { name: /Run the demo proof on real models/i });
+  await expect(page.getByRole("region", { name: "Results" })).toBeVisible();
+  await expect(cta).toHaveCount(cheapCloud >= 2 ? 1 : 0);
+});
+
 test("prompt compare: one model, two prompts → leaderboard + receipt section", async ({ page }) => {
   // Prompt-compare keyless needs a mock model — enable Sandbox up front via the API (deterministic).
   await page.request.put("/api/settings", { data: { sandbox_enabled: true } });

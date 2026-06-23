@@ -155,6 +155,34 @@ export function prefersSampleJudge(
   return dataset?.is_sample === true && Boolean(judgeCell) && judgeCell!.providerId !== "mock_judge";
 }
 
+// The guided first-run CTA ("Run the demo proof on real models", WS-E2) needs two cheap, available
+// CLOUD candidates so a one-click demo lands on a paid clear-winner receipt without the user picking
+// models. We scan available cloud providers cheapest-first (cost_class "free" < "$" < "$$" < "$$$",
+// then recommended → latest within a class) and take the first two distinct candidate ids. Cloud only:
+// the demo's promise is "real models", and Local/Mock are covered by the Sandbox path. Returns fewer
+// than two when not enough cloud is configured — the caller hides the CTA unless it gets exactly two.
+const COST_RANK: Record<string, number> = { free: 0, $: 1, $$: 2, $$$: 3 };
+
+export function cheapCloudCandidates(panel: SelectionPanel | undefined, count = 2): string[] {
+  if (!panel) return [];
+  const models = panel.providers
+    .filter((g) => g.privacy === "cloud" && g.available)
+    .flatMap((g) => g.models);
+  const ranked = [...models].sort((a, b) => {
+    const cost = (COST_RANK[a.cost_class] ?? 9) - (COST_RANK[b.cost_class] ?? 9);
+    if (cost !== 0) return cost;
+    if (a.recommended !== b.recommended) return a.recommended ? -1 : 1;
+    if (a.latest !== b.latest) return a.latest ? -1 : 1;
+    return 0;
+  });
+  const ids: string[] = [];
+  for (const m of ranked) {
+    if (!ids.includes(m.candidate_id)) ids.push(m.candidate_id);
+    if (ids.length === count) break;
+  }
+  return ids;
+}
+
 export function defaultJudgeCell(
   panel: SelectionPanel | undefined,
   sandbox: boolean,

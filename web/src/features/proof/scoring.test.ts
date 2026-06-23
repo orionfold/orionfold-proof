@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { resolveAutoKind, filterJudgeModels, defaultJudgeCell, prefersSampleJudge, DEFAULT_THRESHOLDS, thresholdFor } from "./scoring";
+import { resolveAutoKind, filterJudgeModels, defaultJudgeCell, prefersSampleJudge, cheapCloudCandidates, DEFAULT_THRESHOLDS, thresholdFor } from "./scoring";
 import type { JudgeCell } from "./scoring";
 import type { Dataset, SelectionPanel } from "../../lib/api";
 
@@ -205,5 +205,65 @@ describe("prefersSampleJudge", () => {
     // strictly for real-model runs. A mock_judge cell (Sandbox ON) must leave the sample on Auto.
     const mockCell: JudgeCell = { privacy: "local", tier: "economy", providerId: "mock_judge", model: null };
     expect(prefersSampleJudge(sample(true), mockCell)).toBe(false);
+  });
+});
+
+// The guided first-run CTA (WS-E2) needs two cheap, available CLOUD candidates. cheapCloudCandidates
+// scans available cloud providers cheapest-first and returns the first N distinct candidate ids.
+describe("cheapCloudCandidates", () => {
+  it("returns the two cheapest available cloud candidates, cheapest cost class first", () => {
+    const p: SelectionPanel = {
+      providers: [
+        { provider_id: "ollama", label: "Ollama", privacy: "local", available: true, supports_custom: false, candidate_id: null,
+          models: [model({ candidate_id: "local-1", cost_class: "free" })] },
+        { provider_id: "anthropic", label: "Anthropic", privacy: "cloud", available: true, supports_custom: false, candidate_id: null,
+          models: [
+            model({ candidate_id: "a-cheap", cost_class: "$" }),
+            model({ candidate_id: "a-dear", cost_class: "$$$" }),
+          ] },
+        { provider_id: "openai", label: "OpenAI", privacy: "cloud", available: true, supports_custom: false, candidate_id: null,
+          models: [model({ candidate_id: "o-mid", cost_class: "$$" })] },
+      ],
+    };
+    // Cheapest two cloud by cost class: a-cheap ($) then o-mid ($$); the $$$ and the local one are skipped.
+    expect(cheapCloudCandidates(p)).toEqual(["a-cheap", "o-mid"]);
+  });
+  it("excludes local providers entirely (cloud-only — the CTA promises real cloud models)", () => {
+    const p: SelectionPanel = {
+      providers: [
+        { provider_id: "ollama", label: "Ollama", privacy: "local", available: true, supports_custom: false, candidate_id: null,
+          models: [model({ candidate_id: "local-free", cost_class: "free" })] },
+        { provider_id: "anthropic", label: "Anthropic", privacy: "cloud", available: true, supports_custom: false, candidate_id: null,
+          models: [model({ candidate_id: "a-only", cost_class: "$" })] },
+      ],
+    };
+    // Only one cloud candidate exists, so we return just it — the caller requires exactly 2 to show the CTA.
+    expect(cheapCloudCandidates(p)).toEqual(["a-only"]);
+  });
+  it("skips unavailable cloud providers (no key configured)", () => {
+    const p: SelectionPanel = {
+      providers: [
+        { provider_id: "anthropic", label: "Anthropic", privacy: "cloud", available: false, supports_custom: false, candidate_id: null, models: [] },
+        { provider_id: "openai", label: "OpenAI", privacy: "cloud", available: true, supports_custom: false, candidate_id: null,
+          models: [model({ candidate_id: "o-1", cost_class: "$" }), model({ candidate_id: "o-2", cost_class: "$$" })] },
+      ],
+    };
+    expect(cheapCloudCandidates(p)).toEqual(["o-1", "o-2"]);
+  });
+  it("prefers recommended then latest within the same cost class", () => {
+    const p: SelectionPanel = {
+      providers: [
+        { provider_id: "anthropic", label: "Anthropic", privacy: "cloud", available: true, supports_custom: false, candidate_id: null,
+          models: [
+            model({ candidate_id: "plain", cost_class: "$" }),
+            model({ candidate_id: "rec", cost_class: "$", recommended: true }),
+            model({ candidate_id: "new", cost_class: "$", latest: true }),
+          ] },
+      ],
+    };
+    expect(cheapCloudCandidates(p)).toEqual(["rec", "new"]);
+  });
+  it("returns [] for an undefined panel", () => {
+    expect(cheapCloudCandidates(undefined)).toEqual([]);
   });
 });
