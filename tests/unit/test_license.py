@@ -149,3 +149,115 @@ def test_pack_entitlement_helpers() -> None:
     parsed = lic.parse_license(payload)
     assert parsed.entitles_pack("advisor-field-notes")
     assert not parsed.entitles_pack("some-other-pack")
+
+
+# --- prod-key routing (slice 2) ----------------------------------------------
+#
+# The prod private seed lives only in the commerce plane (Supabase), so we cannot sign a real
+# prod license in-test. What we CAN assert structurally: the prod key_id is embedded and routes to
+# the prod public key, and a signature that does not match it is rejected — i.e. a dev-signed
+# payload presented as a prod signature must fail (no cross-key acceptance).
+
+
+def test_prod_key_is_embedded_and_distinct() -> None:
+    assert lic.ACTIVE_KEY_ID == "of-license-prod-2026"
+    prod = lic.TRUSTED_KEYS.get(lic.ACTIVE_KEY_ID)
+    assert prod and prod != lic.PROD_KEY_PENDING
+    assert prod != lic.TRUSTED_KEYS[DEV_KEY_ID]  # prod and dev are different keys
+
+
+def test_dev_signature_presented_as_prod_is_rejected() -> None:
+    """A payload signed by the dev seed but labeled key_id=prod must NOT verify."""
+    payload = _founding_payload()
+    dev_sig = lic.sign_payload(payload, DEV_SEED_B64)
+    with pytest.raises(lic.LicenseError, match="does not verify"):
+        lic.verify_signature(
+            payload, {"alg": "ed25519", "key_id": lic.ACTIVE_KEY_ID, "value": dev_sig}
+        )
+
+
+# --- load_license_from_doc: the shared verified gate (file + url paths) -------
+
+
+def test_load_license_from_doc_happy_path() -> None:
+    payload = _founding_payload()
+    now = datetime(2026, 9, 1, tzinfo=timezone.utc)
+    out = lic.load_license_from_doc(_sign(payload), now=now)
+    assert out.license_id == payload["license_id"]
+    assert out.has_entitlement("proven-matrix-images")
+
+
+def test_load_license_from_doc_rejects_non_object_parts() -> None:
+    with pytest.raises(lic.LicenseError, match="object `payload` and `signature`"):
+        lic.load_license_from_doc({"payload": "x", "signature": {}}, enforce_term=False)
+
+
+def test_load_license_from_doc_enforces_term() -> None:
+    payload = _founding_payload()
+    now = datetime(2030, 1, 1, tzinfo=timezone.utc)  # past expires_at
+    with pytest.raises(lic.LicenseError, match="expired"):
+        lic.load_license_from_doc(_sign(payload), now=now)
+
+
+# --- fetch_license: the network half of --license-url ------------------------
+
+
+def _stub_get(monkeypatch, *, status: int = 200, doc: dict | None = None, exc=None):
+    """Patch lic.httpx.get to return a fake response (or raise)."""
+    import httpx
+
+    def fake_get(url, **kwargs):  # noqa: ANN001
+        if exc is not None:
+            raise exc
+        request = httpx.Request("GET", url)
+        return httpx.Response(status, json=doc if doc is not None else {}, request=request)
+
+    monkeypatch.setattr(lic.httpx, "get", fake_get)
+
+
+def test_fetch_license_returns_the_doc(monkeypatch) -> None:
+    payload = _founding_payload()
+    doc = _sign(payload)
+    _stub_get(monkeypatch, doc=doc)
+    got = lic.fetch_license("https://example.com/licenses/lic.json")
+    assert got == doc
+
+
+def test_fetch_license_rejects_non_https() -> None:
+    for url in ("http://example.com/lic.json", "file:///etc/passwd", "ftp://x/y"):
+        with pytest.raises(lic.LicenseError, match="https"):
+            lic.fetch_license(url)
+
+
+def test_fetch_license_http_error_becomes_license_error(monkeypatch) -> None:
+    _stub_get(monkeypatch, status=404, doc={"error": "not found"})
+    with pytest.raises(lic.LicenseError, match="couldn't fetch license"):
+        lic.fetch_license("https://example.com/missing.json")
+
+
+def test_fetch_license_timeout_becomes_license_error(monkeypatch) -> None:
+    import httpx
+
+    _stub_get(monkeypatch, exc=httpx.TimeoutException("slow"))
+    with pytest.raises(lic.LicenseError, match="couldn't fetch license"):
+        lic.fetch_license("https://example.com/lic.json")
+
+
+def test_fetch_license_bad_json_becomes_license_error(monkeypatch) -> None:
+    import httpx
+
+    def fake_get(url, **kwargs):  # noqa: ANN001
+        return httpx.Response(200, content=b"not json{{", request=httpx.Request("GET", url))
+
+    monkeypatch.setattr(lic.httpx, "get", fake_get)
+    with pytest.raises(lic.LicenseError, match="couldn't fetch license"):
+        lic.fetch_license("https://example.com/lic.json")
+
+
+def test_fetch_then_load_round_trips(monkeypatch) -> None:
+    """The url path mirrors the file path: fetch → load_license_from_doc verifies + term-checks."""
+    payload = _founding_payload()
+    _stub_get(monkeypatch, doc=_sign(payload))
+    doc = lic.fetch_license("https://example.com/lic.json")
+    out = lic.load_license_from_doc(doc, now=datetime(2026, 9, 1, tzinfo=timezone.utc))
+    assert out.license_id == payload["license_id"]

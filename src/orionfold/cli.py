@@ -500,18 +500,39 @@ def unlock(
         "--license",
         help="License file (default: ~/.orionfold/license, or $ORIONFOLD_LICENSE).",
     ),
+    license_url: str | None = typer.Option(
+        None,
+        "--license-url",
+        help="HTTPS signed-URL to download the license (the one the purchase email sends).",
+    ),
 ) -> None:
     """Install a licensed domain pack offline so its dataset + reference receipt become selectable.
 
     Verifies the Ed25519-signed license locally (no phone-home), checks it entitles this pack, then
     installs the pack's corpus, dataset, reference receipt, and model pointer into the local store.
-    Re-running is a safe no-op. Every failure exits non-zero with a fixable message."""
+    Pass `--license-url` to download the license from the signed URL in your purchase email, or
+    `--license` to point at a file you already saved. Re-running is a safe no-op. Every failure exits
+    non-zero with a fixable message."""
     from orionfold.licensing.install import install_pack
-    from orionfold.licensing.license import LicenseError, load_license
+    from orionfold.licensing.license import (
+        LicenseError,
+        fetch_license,
+        load_license,
+        load_license_from_doc,
+    )
     from orionfold.licensing.pack import PackError, open_pack
 
+    if license is not None and license_url is not None:
+        typer.echo(
+            "Pass either --license <file> or --license-url <url>, not both.", err=True
+        )
+        raise typer.Exit(code=2)
+
     try:
-        lic = load_license(license)
+        if license_url is not None:
+            lic = load_license_from_doc(fetch_license(license_url))
+        else:
+            lic = load_license(license)
     except LicenseError as exc:
         typer.echo(f"License error: {exc}", err=True)
         raise typer.Exit(code=2)

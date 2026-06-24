@@ -106,3 +106,67 @@ def test_unlock_rejects_tampered_pack(store, tmp_path) -> None:
     result = runner.invoke(app, ["unlock", str(pack), "--license", str(lic)])
     assert result.exit_code == 2
     assert "Pack error" in result.stderr
+
+
+# --- --license-url (slice 2): fetch the signed-URL license, then the same gate ----
+
+
+def _serve_license_doc(monkeypatch, doc: dict) -> None:
+    """Patch the license module's httpx.get so --license-url fetches `doc` (no real network)."""
+    import httpx
+
+    from orionfold.licensing import license as lic
+
+    def fake_get(url, **kwargs):  # noqa: ANN001
+        return httpx.Response(200, json=doc, request=httpx.Request("GET", url))
+
+    monkeypatch.setattr(lic.httpx, "get", fake_get)
+
+
+def _license_doc(tmp_path, **kw) -> dict:
+    import json
+
+    path = pf.write_license(tmp_path / "_url_license", **kw)
+    return json.loads(path.read_text("utf-8"))
+
+
+def test_unlock_from_license_url(store, tmp_path, monkeypatch) -> None:
+    pack = pf.write_pack_dir(tmp_path)
+    _serve_license_doc(monkeypatch, _license_doc(tmp_path))
+    result = runner.invoke(
+        app, ["unlock", str(pack), "--license-url", "https://example.com/lic.json"]
+    )
+    assert result.exit_code == 0, result.stdout
+    assert "Unlocked" in result.stdout
+    for pat in _SECRET_PATTERNS:
+        assert not re.search(pat, result.stdout), pat
+
+
+def test_unlock_license_url_must_be_https(store, tmp_path) -> None:
+    pack = pf.write_pack_dir(tmp_path)
+    result = runner.invoke(
+        app, ["unlock", str(pack), "--license-url", "http://example.com/lic.json"]
+    )
+    assert result.exit_code == 2
+    assert "https" in result.stderr
+
+
+def test_unlock_rejects_both_license_and_url(store, tmp_path) -> None:
+    pack = pf.write_pack_dir(tmp_path)
+    lic = pf.write_license(tmp_path / "license")
+    result = runner.invoke(
+        app,
+        ["unlock", str(pack), "--license", str(lic), "--license-url", "https://x/lic.json"],
+    )
+    assert result.exit_code == 2
+    assert "both" in result.stderr.lower() or "either" in result.stderr.lower()
+
+
+def test_unlock_license_url_unentitled(store, tmp_path, monkeypatch) -> None:
+    pack = pf.write_pack_dir(tmp_path)
+    _serve_license_doc(monkeypatch, _license_doc(tmp_path, pack_ids=["some-other-pack"]))
+    result = runner.invoke(
+        app, ["unlock", str(pack), "--license-url", "https://example.com/lic.json"]
+    )
+    assert result.exit_code == 3
+    assert "does not entitle" in result.stderr

@@ -63,6 +63,11 @@ samples/receipts/*.generated.*
 # by hand. Never committed here (spec _SPECS/2026-06-24-proof-field-note-layer-b-skill.md §5).
 _field-notes/
 
+# Built domain packs (scripts/build_advisor_pack.py) — a pack is a build artifact
+# carrying a real stored reference receipt; the operator ships it via the storefront,
+# never commits it here.
+_packs/
+
 # B7 — Private strategy content lives in ~/orionfold/strategy/orionfold-proof/ and is
 # symlinked back here (structural privacy, ADR-0006 §5 as amended 2026-06-24).
 # Only released code + public docs are public. These symlinks must never be committed.

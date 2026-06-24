@@ -43,6 +43,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping
 
+import httpx
+
 __all__ = [
     "LICENSE_SCHEMA",
     "DEFAULT_LICENSE_PATH",
@@ -57,8 +59,13 @@ __all__ = [
     "verify_signature",
     "parse_license",
     "load_license",
+    "load_license_from_doc",
+    "fetch_license",
     "pack_entitlement",
 ]
+
+#: How long to wait for the signed-URL license download before giving up.
+_FETCH_TIMEOUT_S = 15.0
 
 _log = logging.getLogger("orionfold.licensing")
 
@@ -273,10 +280,27 @@ def load_license(
     except json.JSONDecodeError as err:
         raise LicenseError(f"license file at {path} is not valid JSON: {err}") from err
 
+    return load_license_from_doc(doc, now=now, enforce_term=enforce_term)
+
+
+def load_license_from_doc(
+    doc: Any,
+    *,
+    now: datetime | None = None,
+    enforce_term: bool = True,
+) -> License:
+    """Verify + term-check an already-parsed license document → a :class:`License`.
+
+    The shared gate behind both :func:`load_license` (read from disk) and :func:`fetch_license` +
+    this (read over the network for ``--license-url``): a ``{payload, signature}`` object verified
+    against the embedded trusted key. Identical verification regardless of where the bytes came
+    from — the signature is the only trust boundary."""
+    if not isinstance(doc, Mapping):
+        raise LicenseError("license must be a JSON object with `payload` and `signature`")
     payload = doc.get("payload")
     signature = doc.get("signature")
     if not isinstance(payload, Mapping) or not isinstance(signature, Mapping):
-        raise LicenseError("license file must have an object `payload` and `signature`")
+        raise LicenseError("license must have an object `payload` and `signature`")
 
     verify_signature(payload, signature)
     lic = parse_license(payload)
@@ -293,6 +317,32 @@ def load_license(
                 f"license {lic.license_id} expired {lic.expires_at} — renew to keep the pack"
             )
     return lic
+
+
+def fetch_license(url: str) -> Any:
+    """Download a license document from an HTTPS signed URL → the parsed JSON ``{payload, signature}``.
+
+    Mirrors the storefront delivery contract (``stripe-webhook`` signs a license, uploads the JSON
+    to a private bucket, and emails a time-limited **signed URL** — all auth is in the URL token, so
+    this is a plain authenticated GET, no headers or body). The returned doc is handed to
+    :func:`load_license_from_doc` for the same offline signature + term gate the file path uses.
+
+    HTTPS only — a license must arrive over TLS; ``http://`` / ``file://`` are rejected. Any
+    network / HTTP-status / JSON failure becomes a named :class:`LicenseError` (never a soft pass)."""
+    if not url.lower().startswith("https://"):
+        raise LicenseError(f"license url must be https:// (got {url!r})")
+    try:
+        response = httpx.get(url, follow_redirects=True, timeout=_FETCH_TIMEOUT_S)
+        response.raise_for_status()
+        return response.json()
+    except httpx.HTTPStatusError as err:
+        raise LicenseError(
+            f"couldn't fetch license from {url}: server returned {err.response.status_code}"
+        ) from err
+    except httpx.HTTPError as err:  # connect / timeout / transport
+        raise LicenseError(f"couldn't fetch license from {url}: {err}") from err
+    except ValueError as err:  # response.json() on non-JSON
+        raise LicenseError(f"couldn't fetch license from {url}: response was not valid JSON: {err}") from err
 
 
 def _parse_ts(ts: str) -> datetime:
