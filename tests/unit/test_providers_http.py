@@ -71,6 +71,30 @@ def test_ollama_parses_message_and_token_counts(monkeypatch):
     assert result.raw_metadata == {"provider": "ollama", "model": "llama3.2"}
 
 
+def test_ollama_sends_deterministic_options(monkeypatch):
+    """Local runs must be reproducible: the provider pins temperature 0 and disables thinking
+    (think=false) so a thinking-capable model emits clean, parseable output. Without this a proof
+    run is non-deterministic — at odds with the receipt's repeatability promise."""
+    captured: dict = {}
+
+    def capturing_post(url, json=None, headers=None, timeout=None):  # noqa: A002 - mirrors httpx
+        captured["payload"] = json
+        request = httpx.Request("POST", url)
+        return httpx.Response(
+            200,
+            json={"message": {"content": "ok"}, "prompt_eval_count": 1, "eval_count": 1},
+            request=request,
+        )
+
+    monkeypatch.setattr(http_mod.httpx, "post", capturing_post)
+    OllamaProvider().generate(_example(), _candidate("ollama", "llama3.2"))
+
+    payload = captured["payload"]
+    assert payload["options"]["temperature"] == 0
+    assert payload["options"]["num_predict"] >= 1
+    assert payload["think"] is False  # thinking off → no <think> block to pollute scoring
+
+
 def test_openai_compatible_parses_choice_and_usage(monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test-not-real")
     _stub_post(

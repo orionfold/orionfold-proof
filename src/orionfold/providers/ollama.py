@@ -39,7 +39,13 @@ class OllamaProvider:
                 {"role": "user", "content": example.input_text},
             ],
             "stream": False,
-            "options": {"num_predict": max_output_tokens()},
+            # A proof must be reproducible: pin temperature 0 (greedy decode) so a re-run is
+            # byte-stable, matching the receipt's repeatability promise. `think=false` disables a
+            # thinking-capable model's reasoning block so its output is the clean, directly-scorable
+            # answer (no <think> spill into citation/refusal parsing). Both are inert for models that
+            # don't support them — Ollama ignores unknown sampling knobs and the think flag.
+            "think": False,
+            "options": {"num_predict": max_output_tokens(), "temperature": 0},
         }
         data, latency_ms = post_json(
             f"{host}/api/chat",
