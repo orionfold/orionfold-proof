@@ -1,0 +1,3 @@
+{"input": "ping", "expected": "ping"}
+{"input": "hello world", "expected": "hello world"}
+{"input": "orionfold", "expected": "orionfold"}
