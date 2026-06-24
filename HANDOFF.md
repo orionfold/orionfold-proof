@@ -153,27 +153,48 @@ regressions/invariant violations/scope creep**. (worklog `docs/worklog/2026-06-2
 guided first-run CTA) is now UNBLOCKED — build the one-click "run the demo on real models" CTA.** `main`
 local-only; git remote/push stay queued LAST until packaging (operator directive)._ -->
 
-## ▶️ START HERE NEXT SESSION — B6 FULLY SHIPPED (both slices); next = **B7 or #7 packaging** (operator picks).
+## ▶️ START HERE NEXT SESSION — **B7 spec APPROVED (`0a1fd8f`); /clear + IMPLEMENT it.**
 
-**This session (2026-06-24):** brainstormed + approved a self-contained spec
-(`_SPECS/2026-06-24-proof-field-note-layer-b-skill.md`, `f228a07`), then shipped **B6 Slice 2 — Layer B, the
-private authoring/publish skill** (`bf6ab72`), completing B6. The dev-only `.claude/skills/proof-field-note/`
-skill turns a real run into a published trust narrative: `orionfold field-note` scaffolds → operator authors
-`## Why this can be trusted` by hand → `scripts/emit_bundle.py` packages a website-ready bundle
-(`_field-notes/<slug>/bundle/{article.md, bundle.json, hero/README.md}`) for the peer website's Astro `story`
-collection. **No package change** (only consumes the public CLI → mock `467ddd96c9a5`/receipt/`RECEIPT_VERSION`
-untouched by construction); emits only to gitignored `_field-notes/` (no cross-repo writes). Verified
-end-to-end (self-test 3 cases / ruff+pyright 0 / e2e on real run `run_0fb312d3a087` secret-free / 366 BE
-unchanged / fresh-context diff-reviewer **"Ship it."**). See the worklog
-`docs/worklog/2026-06-24-b6-field-note-layer-b-skill.md`.
+**This session (2026-06-24):** scoped + approved **B7 — private-strategy symlink migration**. Wrote a
+self-contained implementation spec → **`_SPECS/2026-06-24-b7-private-strategy-symlink.md` (committed `0a1fd8f`)**.
+Per CLAUDE.md ("write spec → /clear → implement" for git-history-touching work), the **fresh session implements
+it**. No product code changed this session.
 
-**Next — operator picks (do NOT auto-start):** B6 is now DONE (both slices) and drops off the active backlog.
-The two natural continuations are **B7 — private-strategy symlink + relay** (HIGH; blocks the final git push,
-and would land the Layer B skill's symlink in its final strategy-folder home — it's a real dir today) and
-**#7 — packaging·licensing·distribution** (MED–HIGH, downstream of B6). git remote+push stays LAST, gated on
-BOTH B6→#7 AND B7. Per spec §8, OUT of scope (logged, not built): the `·fmt` retrofit across
-leaderboard/track-record/receipt; the safe-slice publish surface (ADR-0005 §5); the website Astro
-`proofFieldNotes` collection/route (lives in `~/orionfold/website`). The full backlog table is below.
+**▶️ NEXT SESSION = IMPLEMENT B7 from the spec.** Read `_SPECS/2026-06-24-b7-private-strategy-symlink.md` FIRST
+(it relocates during the move — read it into context BEFORE moving `_SPECS`). It is self-contained: move map,
+symlink table, `git rm --cached` list, `.gitignore` block, ADR-0006 §5 amendment text, full-e2e verification.
+Go step-by-step with `git status` between steps (git-history + cross-repo moves).
+
+**What B7 does (decisions already locked by the operator — do NOT re-litigate):**
+- Move private/method-leaking content into **`~/orionfold/strategy/orionfold-proof/`** (project-scoped — NOT
+  strategy root; strategy root's own `_IDEAS`/`_SPECS` hold unrelated flows-factory specs — never symlink into
+  those), leave **gitignored symlinks** behind. Skill resolution survives (CC follows symlinks; gitignore only
+  hides from git).
+- **Private (move):** `_IDEAS`, `_SPECS`, `_field-notes`, `HANDOFF.md`, `docs/worklog`, `docs/superpowers`,
+  **all** `.claude/skills`, `.claude/agents`. (`docs/worklog`→`docs-worklog`, `docs/superpowers`→`docs-superpowers`
+  on move, to avoid a future strategy-`docs/` clash.)
+- **Stays public:** `src/web/tests/e2e/samples`, public `docs/` (adr·api·ux·tech, brief/charter/opportunity/
+  demo-script), `.claude/hooks/secrets-guard.py` (enforced), `.claude/rules/`, settings, README/CHANGELOG/CLAUDE.md.
+- **`git rm --cached` only — NO history rewrite** (no remote yet; reversible). Then **amend ADR-0006 §5**
+  (append-only) to record the override (skills/worklog leak method + don't ship → private; the original
+  "skills ship public" posture is narrowed). **Full e2e re-run** of the proof-field-note skill THROUGH the
+  symlink (scaffold→marker-guard-refuses→author→emit→bundle lands in the strategy subdir→secret-free) +
+  `test_emit_bundle.py` + 366 BE green + ruff/pyright 0.
+- **Borderline flagged in spec §4:** `docs/tech/global-skills-inventory.md` defaults to **keep public** — confirm.
+- **Two commits:** one in `orionfold-proof` (staged deletions + `.gitignore` + ADR amendment); one in
+  `~/orionfold/strategy/` (the newly-arrived `orionfold-proof/` subdir).
+
+**B7 unblocks but does NOT perform #13 git remote+push** (still LAST, also gated on #7 packaging). Out of
+scope (spec §9): history rewrite/filter-repo; #7 packaging; the git push itself.
+
+<!-- prior START HERE (B6 fully shipped) below — superseded -->
+<!-- **B6 FULLY SHIPPED (both slices).** Slice 1 Layer A public export `112776e`; Slice 2 Layer B private
+skill `bf6ab72`. The dev-only `.claude/skills/proof-field-note/` skill: `orionfold field-note` scaffolds →
+operator authors `## Why this can be trusted` → `scripts/emit_bundle.py` packages a website-ready bundle.
+No package change; emits only to gitignored `_field-notes/`. Worklog `docs/worklog/2026-06-24-b6-field-note-layer-b-skill.md`. -->
+<!-- B6 backlog row now reads: B7 (HIGH, blocks git push, lands the Layer B skill's symlink home) or #7
+packaging (MED–HIGH, downstream of B6). git remote+push LAST. -->
+<!-- end prior START HERE -->
 
 <!-- prior START HERE (B6 Layer A shipped) below — superseded -->
 <!-- _**This session (2026-06-23):** committed the approved B6 spec (`457baca`) then shipped **B6 Slice 1 —
@@ -436,7 +457,7 @@ remains (below); operator picks. git remote+push stays queued LAST behind packag
 
 | # | Item | Priority | State / gate |
 | --- | --- | --- | --- |
-| 1 | **B7 — Private-strategy symlink + relay** | **NOW / HIGH** | **Blocks #13 (git push).** `_IDEAS`/`_SPECS` confirmed still **real dirs (not symlinks)**. Own git-history-touching session. Also lands the **B6 Layer B skill's symlink** in its final strategy-folder home (the skill is a real dir today — `.claude/skills/proof-field-note/`). |
+| 1 | **B7 — Private-strategy symlink + relay** | **NOW / HIGH — SPEC APPROVED (`0a1fd8f`); /clear + implement** | **Blocks #13 (git push).** Self-contained impl spec at `_SPECS/2026-06-24-b7-private-strategy-symlink.md`. Moves `_IDEAS`/`_SPECS`/`_field-notes`/`HANDOFF.md`/`docs/worklog`/`docs/superpowers`/all `.claude/skills`+`agents` → `~/orionfold/strategy/orionfold-proof/` (gitignored symlinks back). `git rm --cached` only (no rewrite); amends ADR-0006 §5. Also lands the B6 Layer B skill's symlink home. |
 | 2 | **#7 — Packaging · licensing · distribution** | MED–HIGH | **Downstream of B6** (B6 defines the boundary #7 packages). Apache-2.0 flip, PyPI metadata (dist `orionfold-proof`/CLI `orionfold`; reserve `orionfold`+`orionfold-arena`), `uv tool install … → orionfold up`, release ritual. Scope FIRST. |
 | 3 | **B4 — Reimagine Candidates → cross-run board** | MED–HIGH | Web screen already shipped (`33339d5`); the Arena-leaderboard reimagining is the remaining part (B6 no longer blocks it — B6 is done). |
 | 4 | **B5 — Make Quick Compare more whole** | MED–HIGH | Brainstorm FIRST. Overlaps B2 (#7) + B4. Mine Arena `CompareDuel.jsx`. |
