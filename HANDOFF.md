@@ -328,8 +328,15 @@ remains (below); operator picks. git remote+push stays queued LAST behind packag
 7. **Packaging · licensing · distribution** — LICENSE + source headers, PyPI metadata (dist
    `orionfold-proof`, CLI `orionfold`; reserve `orionfold` + `orionfold-arena`),
    `uv tool install orionfold-proof` → `orionfold up`, release notes / demo script. **Scope FIRST.**
-8. **git remote + push** — **LAST item; do NOT surface or start until packaging (#7) is done**
-   (operator directive). No remote configured; `main` holds all work unpushed.
+7b. **⭐ Private-strategy symlink + peer relay (B7) — BLOCKS #8.** Migrate Proof's real `_IDEAS/`/
+   `_SPECS/` dirs into a private `~/orionfold/strategy/orionfold-proof/` slot + gitignored symlinks
+   (the fleet mechanism: peers symlink `_IDEAS`/`_SPECS`/`_GUIDES` → `strategy/<project>/`, gitignored;
+   strategy is a private GitHub repo). Adds a `_RELAY.md` for cross-project publishing (Proof articles
+   → website peer). **Must land BEFORE any public Proof remote** or a push publishes strategy content.
+   Full steps + history caveat in `_IDEAS/backlog.md` §B7. Operator directive 2026-06-23.
+8. **git remote + push** — **LAST item; do NOT surface or start until packaging (#7) AND the
+   private-strategy migration (B7/7b) are done** (operator directive). No remote configured; `main`
+   holds all work unpushed (incl. strategy content — exactly why B7 precedes #8).
 
 _Done since last handoff: ICP E2E real-model verification; 16 findings captured to `_IDEAS/`
 (no code changes). Several ad-hoc real runs (incl. "no winner") sit in `~/.orionfold/proof.db` —

@@ -406,3 +406,60 @@
   `docs/release-charter.md` · `src/orionfold/` (current core) · `web/src/` (current TS-side logic to
   audit for "should this be canonical in the core?") · [[B4]] (blocked by this) · backlog #7 packaging
   (downstream of this).
+
+## B7 · ⭐ Private-strategy symlink + peer relay (STRATEGIC — blocks #8 git remote/push)
+
+- **Priority:** **HIGH / blocks backlog #8 (git remote + push).** Structural-privacy prerequisite —
+  must land BEFORE any public Proof GitHub remote, or pushing would publish the strategy "working
+  sauce." Operator directive 2026-06-23.
+- **Surfaced:** 2026-06-23, operator sidebar during the dual-distribution workstream.
+- **The mechanism (verified across the fleet on this Mac).** Peers (`ainative-business.github.io`,
+  `~/orionfold/website`) keep their `_IDEAS`/`_SPECS`/`_GUIDES` **not** in the public project repo but
+  as **gitignored symlinks** pointing into a **single private repo** `~/orionfold/strategy`
+  (`github.com/orionfold/strategy`, private). Each project gets a slot:
+  `~/orionfold/strategy/<project>/{_IDEAS,_SPECS,_GUIDES}`. The public repo's `.gitignore` lists each
+  `_FOLDER` name; the names resolve via symlink to the strategy slot. Net: **only released code +
+  public `docs/` are public; strategy/design/backlog stay private — privacy is structural, not a
+  per-push scrub** (matches ADR-0006 §5 and the ainative `CLAUDE.md` contract).
+- **The relay mechanism (why this also unblocks peer publishing).** The strategy repo carries a
+  per-project **`_RELAY.md`** (confirmed at `strategy/ainative-business-website/_RELAY.md`) — the
+  cross-project hand-off channel. This is how an **article/paper/field-note authored in Proof's repo
+  gets picked up for publishing by the `orionfold/website` peer** (the dogfooding loop's publish leg,
+  ADR-0005). Proof needs its own `strategy/orionfold-proof/_RELAY.md` slot for this to work.
+- **⚠ Proof is currently the odd one out.** Proof's `_IDEAS` (5 entries) and `_SPECS` (4 entries —
+  incl. the dual-distribution findings memo + this backlog) are **real directories committed INTO the
+  Proof repo**. They must migrate to `strategy/orionfold-proof/` and become gitignored symlinks. No
+  `strategy/orionfold-proof/` slot exists yet.
+- **Migration steps (a careful, git-history-touching, outward-facing change — do as its own session,
+  NOT slipped into other work):**
+  1. Create the strategy slot: `~/orionfold/strategy/orionfold-proof/{_IDEAS,_SPECS,_GUIDES}` (+ a
+     `_RELAY.md`). Confirm the strategy repo is the right private remote first.
+  2. **Move** Proof's current `_IDEAS/` and `_SPECS/` contents into the slot (preserve git history in
+     the strategy repo by committing there).
+  3. `git rm -r --cached _IDEAS _SPECS` in the Proof repo (stop tracking; keep working copies).
+  4. Replace them with symlinks: `_IDEAS -> ~/orionfold/strategy/orionfold-proof/_IDEAS`, same for
+     `_SPECS` (and `_GUIDES` if/when Proof grows one). Use the same relative/absolute form the peers
+     use (peers use absolute `/Users/manavsehgal/orionfold/strategy/<project>/_FOLDER`).
+  5. Add `.gitignore` entries for `_IDEAS`, `_SPECS`, `_GUIDES` (mirror the ainative `.gitignore`
+     comments/format, lines 44-50 there).
+  6. Update Proof's root `CLAUDE.md` doc-map to note the private-symlink contract (mirror ainative's
+     "private gitignored symlinks into the orionfold/strategy clone" wording) + the session contract
+     (`git pull` strategy at session start; commit+push it at session end if changed).
+  7. Verify: `git check-ignore _IDEAS _SPECS` → IGNORED; `git status` clean; the docs still resolve
+     (memory `open-review-markdown-in-obsidian` etc. unaffected). The committed copies from
+     `7ee28e7`/earlier remain in Proof's history until then — note the strategy content was already
+     committed publicly-in-the-local-repo; a future public push is what this prevents. (If full
+     history scrub is wanted, that's a separate `git filter-repo` decision — flag to operator.)
+- **⚠ History caveat to surface at migration time.** The findings memo + backlog were committed to the
+  **local** Proof repo (`7ee28e7`, `58cee89`, and B3/earlier). Since Proof has **no remote yet**,
+  nothing is published — but those commits hold strategy content in local history. Before the first
+  public push, decide: (a) accept that history holds early strategy docs (low risk — pre-remote), or
+  (b) scrub with `git filter-repo`. Operator decision at #8 time. The symlink mechanism prevents all
+  FUTURE leakage regardless.
+- **Sequencing:** B7 (this) → then #8 git remote + push becomes safe. B7 is independent of B6's build
+  (the dual-distribution vertical slice) — they can proceed in parallel; only **#8 is gated on B7**.
+- **Anchors:** FLEET — `~/orionfold/strategy/` (private repo, `github.com/orionfold/strategy`) ·
+  `strategy/ainative-business-website/{_IDEAS,_SPECS,_GUIDES,_RELAY.md}` ·
+  `strategy/orionfold-website/` · the ainative `.gitignore` lines 44-50 + `CLAUDE.md` doc-map.
+  PROOF — current real `_IDEAS/`, `_SPECS/`; root `CLAUDE.md` doc-map; ADR-0006 §5 (structural
+  public/private) · backlog #8 (blocked by this) · [[B6]] (dogfooding-loop publish leg uses the relay).
