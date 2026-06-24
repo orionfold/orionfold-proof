@@ -209,8 +209,29 @@ Distilled from the two reference docs + this pass. Apply these to any Orionfold 
 - **Open:** personal global skills can't be per-project disabled — their token tax persists
   until a multi-project removal pass. Hook only registers on session restart.
 
+### orionfold/website — 2026-06-24
+- **Worked:** same surgical shape as proof — the repo was already well-aligned (43-line lean CLAUDE.md,
+  46 memories, 6 solid skills, mirrored AGENTS.md/CODEX-CC.md parity, an inline HANDOFF-prune hook), so the
+  pass was a single high-value enforcement add: a `publish-guard.py` PreToolUse hook adapting proof's
+  secrets-guard. Adapted for this PUBLIC commerce repo by (a) adding Stripe/Supabase key signatures
+  (`sk_`/`rk_`/`whsec_`/`sbp_`) and (b) extending `check_bash()` to block `git add`/`commit` of local-only
+  paths — turning the CLAUDE.md "sweep before push" prose into enforcement (Codex had leaked local-only files
+  before). Hit 17/17 unit cases (9 blocks, 8 allows) with **zero false positives**. Project `settings.json`
+  gained a `.env` read-deny + disabled `agent-sdk-dev`/`ralph-loop`/`session-report` (kept `stripe` — core stack).
+  Every touched path is git-ignored, so the pass wrote nothing public.
+- **Friction:** orionfold-proof's `settings.json` uses a top-level `"//"` comment key — the website's settings
+  schema **rejects** unrecognized top-level fields, so the first edit bounced. Fix: drop the `"//"` key; put the
+  rationale in the hook's docstring instead. (Don't copy proof's commented settings header verbatim into repos
+  with strict schema validation.)
+- **Open:** the PreToolUse hook only registers on the next session start (same as proof). The unit test proves
+  correctness now; the guard goes live next session. Per-project plugin disable is confirmed supported and works.
+
 ## 8. Changelog (living)
 
+- **2026-06-24** — `orionfold/website` pass: added `publish-guard.py` (secrets + local-only-commit block),
+  project `settings.json` (.env deny + 3 plugin disables, kept stripe), one CLAUDE.md guardrail line pointing at
+  the hook (mirrored to AGENTS.md, parity green). Copied the 3 reference docs into a local-only `_REFER/` here.
+  No global or public changes. Recorded the `"//"`-comment schema-rejection gotcha for strict-schema repos.
 - **2026-06-22** — Doc created from the `orionfold-proof` pass. Global changes applied:
   `github` plugin off, `alwaysThinkingEnabled` off. Established the per-project inventory +
   multi-project-removal rule for personal global skills.

@@ -72,12 +72,22 @@ def test_unlock_is_idempotent(store, tmp_path) -> None:
     assert "already present" in second.stdout
 
 
+def test_unlock_with_product_ownership(store, tmp_path) -> None:
+    """The real buying intent: own Orionfold Proof → any included pack unlocks (no pack id named)."""
+    pack = pf.write_pack_dir(tmp_path)
+    # A product-ownership license carrying NO pack:<id> grant for this pack.
+    lic = pf.write_license(tmp_path / "license", pack_ids=["unrelated"], own_product=True)
+    result = runner.invoke(app, ["unlock", str(pack), "--license", str(lic)])
+    assert result.exit_code == 0, result.stdout
+    assert "Unlocked" in result.stdout
+
+
 def test_unlock_rejects_unentitled_license(store, tmp_path) -> None:
     pack = pf.write_pack_dir(tmp_path)
     lic = pf.write_license(tmp_path / "license", pack_ids=["some-other-pack"])
     result = runner.invoke(app, ["unlock", str(pack), "--license", str(lic)])
     assert result.exit_code == 3
-    assert "does not entitle" in result.stderr
+    assert "does not unlock" in result.stderr
 
 
 def test_unlock_rejects_expired_license(store, tmp_path) -> None:
@@ -169,4 +179,4 @@ def test_unlock_license_url_unentitled(store, tmp_path, monkeypatch) -> None:
         app, ["unlock", str(pack), "--license-url", "https://example.com/lic.json"]
     )
     assert result.exit_code == 3
-    assert "does not entitle" in result.stderr
+    assert "does not unlock" in result.stderr

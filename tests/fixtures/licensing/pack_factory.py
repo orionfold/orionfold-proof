@@ -104,13 +104,21 @@ def write_license(
     path: Path,
     *,
     pack_ids: list[str] | None = None,
+    own_product: bool = False,
     not_before: str = "2026-06-01T00:00:00Z",
     expires_at: str = "2027-06-01T00:00:00Z",
     key_id: str = DEV_KEY_ID,
     seed_b64: str = DEV_SEED_B64,
 ) -> Path:
-    """Write a dev-signed license entitling the given pack ids. Returns the license path."""
+    """Write a dev-signed license. Returns the license path.
+
+    ``own_product=True`` writes a product-ownership license (``product:orionfold-proof``) — the real
+    buying intent, which unlocks any included pack. Otherwise it writes per-pack ``pack:<id>`` grants
+    for ``pack_ids`` (default: the test pack) — the à-la-carte path.
+    """
     ents = [lic.pack_entitlement(p) for p in (pack_ids if pack_ids is not None else [PACK_ID])]
+    if own_product:
+        ents.append(lic.PRODUCT_ENTITLEMENT)
     payload = {
         "schema": "orionfold.license/v1",
         "license_id": "lic_test",

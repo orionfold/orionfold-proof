@@ -543,9 +543,10 @@ def unlock(
         typer.echo(f"Pack error: {exc}", err=True)
         raise typer.Exit(code=2)
 
-    if not lic.entitles_pack(opened.manifest.pack_id):
+    if not lic.unlocks_pack(opened.manifest.pack_id):
         typer.echo(
-            f"License {lic.license_id} does not entitle the '{opened.manifest.pack_id}' pack "
+            f"License {lic.license_id} does not unlock the '{opened.manifest.pack_id}' pack — "
+            "it carries neither product ownership (Orionfold Proof) nor a grant for this pack "
             f"(entitlements: {', '.join(lic.entitlements) or 'none'}).",
             err=True,
         )

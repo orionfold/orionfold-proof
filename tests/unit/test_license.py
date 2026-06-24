@@ -151,6 +151,40 @@ def test_pack_entitlement_helpers() -> None:
     assert not parsed.entitles_pack("some-other-pack")
 
 
+# --- product-ownership unlock (the buying intent is "Orionfold Proof", not a pack) ----
+#
+# Buying Orionfold Proof yields `product:orionfold-proof` in entitlements; owning the product
+# unlocks any pack that ships with it. A per-pack `pack:<id>` entitlement is still ACCEPTED (so a
+# future à-la-carte sale works), but is not required.
+
+
+def _parsed_with(entitlements: list[str]):
+    payload = _founding_payload()
+    payload["entitlements"] = entitlements
+    return lic.parse_license(payload)
+
+
+def test_product_entitlement_constant() -> None:
+    assert lic.PRODUCT_ENTITLEMENT == "product:orionfold-proof"
+
+
+def test_product_ownership_unlocks_any_pack() -> None:
+    parsed = _parsed_with([lic.PRODUCT_ENTITLEMENT])
+    assert parsed.unlocks_pack("advisor-field-notes")
+    assert parsed.unlocks_pack("any-future-pack")  # owning the product unlocks included packs
+
+
+def test_specific_pack_entitlement_still_unlocks() -> None:
+    parsed = _parsed_with(["pack:advisor-field-notes"])
+    assert parsed.unlocks_pack("advisor-field-notes")
+    assert not parsed.unlocks_pack("some-other-pack")  # à-la-carte stays scoped
+
+
+def test_neither_entitlement_does_not_unlock() -> None:
+    parsed = _parsed_with(["proven-matrix-images"])
+    assert not parsed.unlocks_pack("advisor-field-notes")
+
+
 # --- prod-key routing (slice 2) ----------------------------------------------
 #
 # The prod private seed lives only in the commerce plane (Supabase), so we cannot sign a real

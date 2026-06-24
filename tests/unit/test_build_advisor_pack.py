@@ -103,4 +103,4 @@ def test_built_pack_needs_the_matching_entitlement(tmp_path, monkeypatch) -> Non
     lic = pf.write_license(tmp_path / "license", pack_ids=["some-other-pack"])
     out = runner.invoke(app, ["unlock", str(result.pack_dir), "--license", str(lic)])
     assert out.exit_code == 3
-    assert "does not entitle" in out.stderr
+    assert "does not unlock" in out.stderr

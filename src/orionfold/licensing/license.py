@@ -62,6 +62,8 @@ __all__ = [
     "load_license_from_doc",
     "fetch_license",
     "pack_entitlement",
+    "PROOF_PRODUCT",
+    "PRODUCT_ENTITLEMENT",
 ]
 
 #: How long to wait for the signed-URL license download before giving up.
@@ -99,8 +101,19 @@ TRUSTED_KEYS: dict[str, str] = {
 ACTIVE_KEY_ID = "of-license-prod-2026"
 
 
+#: The product a Proof license is sold as. The buying intent is "Orionfold Proof" (the product),
+#: not any one pack — so a license carries the product entitlement below and owning it unlocks any
+#: pack that ships with the product.
+PROOF_PRODUCT = "orionfold-proof"
+
+#: The entitlement string that means "this buyer owns Orionfold Proof". Its presence unlocks every
+#: included pack (see :meth:`License.unlocks_pack`). A per-pack ``pack:<id>`` entitlement is still
+#: honored for a possible future à-la-carte sale, but product ownership is the primary path.
+PRODUCT_ENTITLEMENT = f"product:{PROOF_PRODUCT}"
+
+
 def pack_entitlement(pack_id: str) -> str:
-    """The entitlement string a license carries to authorize one domain pack."""
+    """The (optional, à-la-carte) entitlement string authorizing one specific domain pack."""
     return f"pack:{pack_id}"
 
 
@@ -146,8 +159,20 @@ class License:
         return name in self.entitlements
 
     def entitles_pack(self, pack_id: str) -> bool:
-        """True iff this license carries the ``pack:<pack_id>`` entitlement."""
+        """True iff this license carries the specific ``pack:<pack_id>`` entitlement (à-la-carte)."""
         return pack_entitlement(pack_id) in self.entitlements
+
+    def owns_product(self) -> bool:
+        """True iff this license carries the ``product:orionfold-proof`` entitlement."""
+        return PRODUCT_ENTITLEMENT in self.entitlements
+
+    def unlocks_pack(self, pack_id: str) -> bool:
+        """True iff this license may install the given pack.
+
+        Owning Orionfold Proof (the product entitlement) unlocks any included pack; alternatively a
+        specific ``pack:<pack_id>`` entitlement unlocks just that pack. The buying intent is the
+        product, so product ownership is the primary path and a per-pack grant is the exception."""
+        return self.owns_product() or self.entitles_pack(pack_id)
 
     def expires_dt(self) -> datetime:
         return _parse_ts(self.expires_at)
