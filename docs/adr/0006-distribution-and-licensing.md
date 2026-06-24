@@ -76,6 +76,16 @@ Proof already separates `docs/` (public-facing) from `_IDEAS/` and `_SPECS/` (wo
 the fieldkit posture: **only released code + public `docs/` ship; strategy/backlog stay private.** No
 secret material in any published artifact (reinforced by the secrets-guard hook and ADR-0005 §4).
 
+> **Amendment (2026-06-24, B7):** §5's original "skills + public docs ship" posture is **narrowed**.
+> The private boundary is now **"does it run in the shipped product, or does it leak engineering
+> method?"** Skills, agents, the worklog decision-diary, and planning docs (`docs/superpowers/`)
+> **leak method and do not ship** → they move to `~/orionfold/strategy/orionfold-proof/` (symlinked
+> back, gitignored). **Stays public:** released code (`src/`,`web/`,`tests/`), public docs
+> (`adr/`,`api/`,`ux/`,`tech/`, brief/charter/opportunity), the **enforced** `secrets-guard.py` hook,
+> path-scoped `rules/`, settings, README/CHANGELOG/LICENSE. Rationale: these skills are the product's
+> verification/quality playbook (secret sauce) and ship in no wheel — publishing them is all leak, no
+> benefit. Privacy stays **structural** (the original §5 principle), just with a corrected boundary.
+
 ### 6. PyPI-facing metadata
 
 Mirror fieldkit's `[project]` metadata shape — description, keywords, classifiers (Development Status,

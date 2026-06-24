@@ -62,3 +62,15 @@ samples/receipts/*.generated.*
 # are local working artifacts; the operator syncs bundles into ~/orionfold/website
 # by hand. Never committed here (spec _SPECS/2026-06-24-proof-field-note-layer-b-skill.md §5).
 _field-notes/
+
+# B7 — Private strategy content lives in ~/orionfold/strategy/orionfold-proof/ and is
+# symlinked back here (structural privacy, ADR-0006 §5 as amended 2026-06-24).
+# Only released code + public docs are public. These symlinks must never be committed.
+/_IDEAS
+/_SPECS
+/_field-notes
+/HANDOFF.md
+/docs/worklog
+/docs/superpowers
+/.claude/skills
+/.claude/agents
