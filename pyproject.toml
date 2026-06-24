@@ -17,6 +17,7 @@ dependencies = [
     "openpyxl>=3.1",            # .xlsx -> input/expected columns
     "python-docx>=1.1",         # .docx paragraphs + tables
     "pypdf>=4.0",               # .pdf text extraction
+    "cryptography>=43.0",       # Ed25519 verify for `orionfold unlock` (lazy-imported; import stays cheap)
 ]
 
 [project.scripts]

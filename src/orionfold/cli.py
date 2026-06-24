@@ -492,6 +492,61 @@ def pull(
     typer.echo(f"✓ {repo_id} pulled — now a selectable candidate.")
 
 
+@app.command()
+def unlock(
+    pack: Path = typer.Argument(..., help="Path to a domain pack (a directory or .zip)."),
+    license: Path | None = typer.Option(
+        None,
+        "--license",
+        help="License file (default: ~/.orionfold/license, or $ORIONFOLD_LICENSE).",
+    ),
+) -> None:
+    """Install a licensed domain pack offline so its dataset + reference receipt become selectable.
+
+    Verifies the Ed25519-signed license locally (no phone-home), checks it entitles this pack, then
+    installs the pack's corpus, dataset, reference receipt, and model pointer into the local store.
+    Re-running is a safe no-op. Every failure exits non-zero with a fixable message."""
+    from orionfold.licensing.install import install_pack
+    from orionfold.licensing.license import LicenseError, load_license
+    from orionfold.licensing.pack import PackError, open_pack
+
+    try:
+        lic = load_license(license)
+    except LicenseError as exc:
+        typer.echo(f"License error: {exc}", err=True)
+        raise typer.Exit(code=2)
+
+    try:
+        opened = open_pack(pack)
+    except PackError as exc:
+        typer.echo(f"Pack error: {exc}", err=True)
+        raise typer.Exit(code=2)
+
+    if not lic.entitles_pack(opened.manifest.pack_id):
+        typer.echo(
+            f"License {lic.license_id} does not entitle the '{opened.manifest.pack_id}' pack "
+            f"(entitlements: {', '.join(lic.entitlements) or 'none'}).",
+            err=True,
+        )
+        raise typer.Exit(code=3)
+
+    try:
+        with _with_conn() as conn:
+            result = install_pack(conn, opened)
+    except Exception as exc:  # noqa: BLE001 — surface install/binding failures as a clean exit
+        typer.echo(f"Install failed: {exc}", err=True)
+        raise typer.Exit(code=1)
+
+    typer.echo(f"✓ Unlocked {result.pack_name}")
+    if result.dataset_name:
+        verb = "installed" if result.dataset_was_new else "already present"
+        typer.echo(f"  dataset: {result.dataset_name} ({verb})")
+    if result.model_repo_id:
+        typer.echo(f"  model:   {result.model_repo_id} (pull it if not already local)")
+    if result.reference_run_id:
+        typer.echo("  Select the dataset in the cockpit and rerun the reference receipt.")
+
+
 def _now_iso() -> str:
     """Wall-clock ISO timestamp for the imported dataset card (display metadata only)."""
     from datetime import datetime, timezone

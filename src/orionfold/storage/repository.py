@@ -174,6 +174,32 @@ def seed_bench_datasets(conn: sqlite3.Connection) -> None:
     conn.commit()
 
 
+def insert_pack_dataset(conn: sqlite3.Connection, dataset: Dataset, *, source: str) -> bool:
+    """Install a pack's dataset under its OWN stable id (idempotent; non-sample).
+
+    Mirrors :func:`seed_bench_datasets` (``INSERT OR IGNORE`` on a stable id, carrying
+    ``corpus_id`` + ``system_prompt``) rather than :func:`save_dataset` (which slugs a *new* id and
+    rejects a name clash) — a pack must install under the id its reference receipt + leaderboard
+    already reference, and re-unlocking must be a no-op that never clobbers operator edits. Returns
+    True iff a new row was inserted (False when it already existed)."""
+    cur = conn.execute(
+        "INSERT OR IGNORE INTO datasets "
+        "(id, name, description, examples, is_sample, source, corpus_id, system_prompt) "
+        "VALUES (?, ?, ?, ?, 0, ?, ?, ?)",
+        (
+            dataset.id,
+            dataset.name,
+            dataset.description,
+            _examples_json(dataset),
+            source,
+            dataset.corpus_id,
+            dataset.system_prompt,
+        ),
+    )
+    conn.commit()
+    return cur.rowcount > 0
+
+
 def list_dataset_rows(conn: sqlite3.Connection) -> list[tuple[Dataset, DatasetMeta]]:
     """Datasets plus display metadata — for the API; the domain model stays flag-free."""
     rows = conn.execute(
