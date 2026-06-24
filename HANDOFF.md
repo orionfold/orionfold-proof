@@ -6,23 +6,34 @@
 > To resume: in a fresh session say **"read from handoff"** (or "continue from last
 > session"), or `/clear` and paste the prompt below.
 
-_Last updated: 2026-06-23 · **BACKLOG MERGED + PRIORITIZED (docs-only, no code).** The old HANDOFF
-list (#1–8) and `_IDEAS` (B1–B8) were reconciled against repo state into one ranked `## MERGED BACKLOG`
-table below — **B6 (dual-distribution) is now #1, NOT #7 packaging** (the prior "natural next" was stale).
-Full B1–B8 reasoning frozen in `_IDEAS/backlog-archive-2026-06-23.md`; `_IDEAS/backlog.md` reset to an
-empty intake stub for fresh findings. Last shipped code = **B4 Track Record web screen (`33339d5`)** ↓._
+_Last updated: 2026-06-23 · **B6 SLICE 1 SHIPPED — the public Proof field-note export (`112776e`).**
+The approved spec (written + interviewed last session, previously the lone untracked file) was committed
+(`457baca`), then **Layer A** built: `orionfold field-note <run_id> [--out]` emits a publish-ready Markdown
+field note from a stored `ProofReport`. **B6 is no longer #1 of the backlog — slice 2 (Layer B, the private
+authoring skill) is what remains, gated on B7.** Last shipped code = **B6 field-note Layer A (`112776e`)** ↓._
 
-_**B4 (prior commit):** Exposed the pure core fn `track_record()` over a thin `GET /api/track-record` (`?dataset_id=`) route and
-rendered it as a new cockpit view — **which candidate has earned trust across repeated runs**, grouped by
-comparable slice (dataset × rubric kind), ranked by **pooled** pass-rate (Σpasses/Σexamples), dataset
-dropdown filter. **Additive only** (core fn reads existing fields, re-runs no scoring → no migration, mock
-`467ddd96c9a5` untouched by construction). DS accent/status split held (pass bars `--color-ok`, zero
-`--color-accent` in the view); privacy carried via `ProviderTag`. **344 BE (+2) / 234 FE (+4)**, ruff+pyright
-0, tsc+vite build clean, **14/14 Playwright** (+1 nav smoke); real-browser graded light+dark (11 groups
-across every rubric class, pooled bars correct, AAA primary text, secret-free, filter + 2 empty states
-verified); fresh-context diff-reviewer **PASS — ship it**. Minor filter↔history-id seam logged as
-`_IDEAS/backlog.md` **B8** (non-blocking). See ▶️ START HERE below. (worklog
-`docs/worklog/2026-06-23-b4-track-record-web-screen.md`.)_
+_**B6 Layer A (this session):** New `orionfold field-note` CLI (thin shell over `build_field_note(report)`,
+graduated to `receipts.__all__`). Output = YAML frontmatter spine (§4, derived-only, **hand-rendered** for
+byte-determinism, no yaml dep; `recommended` reads the leaderboard's own flag; `fmt_check` true iff
+`rubric.kind∈{exact,contains}`) + **two inline SVG figures** (`receipts/figures.py`: cost-vs-quality Pareto
+scatter + pass-rate bars; pure Python, no browser, themeable `var(--color-*)`; Pareto kernel a faithful port
+of the cockpit `paretoFrontier.ts`, lower-cost-better; DS accent/status split held — recommended = only
+`--color-accent`, bars `--color-ok`; deterministic via `_num()`; graceful degrade — bars omitted when
+`rubric.kind=="none"`, scatter omits frontier when nothing dominates) + the **receipt evidence body reused
+verbatim** from `export.to_markdown` (H1→`## Evidence`, never a copy) + a narrative **stub** the package does
+NOT author. **Receipt untouched** (`export.py` unedited, `RECEIPT_VERSION` stays 8); reads only a stored
+report → no scoring/hash path, no migration, no FE — mock `467ddd96c9a5` untouched by construction. **366 BE
+(+22)**, ruff+pyright 0, 7 config_hash freeze + 19 receipt (byte-identical palette) guards pass, headless e2e
+(run→field-note: frontmatter+body+`<svg`, unknown id→exit 1, secret-free); fresh-context diff-reviewer **PASS
+on all 8 invariants**. (worklog `docs/worklog/2026-06-23-b6-field-note-layer-a.md`; spec
+`_SPECS/2026-06-23-proof-field-notes.md`.)_
+
+<!-- prior status (B4 Track Record web screen, 33339d5) below — superseded -->
+<!-- _**B4 (prior commit):** Exposed the pure core fn `track_record()` over a thin `GET /api/track-record`
+(`?dataset_id=`) route and rendered it as a new cockpit view; pooled pass-rate, additive only, no migration,
+mock untouched. 344 BE / 234 FE, 14 Playwright, diff-reviewer PASS. (worklog
+`docs/worklog/2026-06-23-b4-track-record-web-screen.md`.)_ -->
+
 
 <!-- prior status (two slices: pyright hygiene + DEFAULT_THRESHOLDS single-source) below — superseded -->
 <!-- _**Two slices DONE.** (1) **Pyright hygiene** (`39b432b`): cleared the 9 pre-existing
@@ -119,22 +130,27 @@ regressions/invariant violations/scope creep**. (worklog `docs/worklog/2026-06-2
 guided first-run CTA) is now UNBLOCKED — build the one-click "run the demo on real models" CTA.** `main`
 local-only; git remote/push stay queued LAST until packaging (operator directive)._ -->
 
-## ▶️ START HERE NEXT SESSION — B4 Track Record web screen DONE (operator picks the next slice).
+## ▶️ START HERE NEXT SESSION — B6 Layer A SHIPPED; **slice 2 = Layer B (private skill), gated on B7**.
 
-**This session (2026-06-23):** shipped **BACKLOG B4 — the Track Record web screen** (`33339d5`). The pure
-core fn `track_record()` (built in the CLI-widen slice `b2bf9d3`) is now exposed over a thin
-`GET /api/track-record` (`?dataset_id=`) route and rendered as a new cockpit nav view (after Receipts,
-`TrendingUp` icon). It answers **which candidate has earned trust across repeated runs** — groups by
-comparable slice (dataset × rubric kind), ranks by **pooled** pass-rate (Σpasses/Σexamples so a larger run
-weighs more), `won N×` markers, dataset dropdown filter. FE display + one read-only route over existing
-data → **no migration, no scoring/hash change**, mock `467ddd96c9a5` untouched by construction. This is the
-first screen to render a dual-distribution core fn the CLI already exposes (`orionfold track-record`) —
-same data, two surfaces. Verified end-to-end (344 BE / 234 FE / 14 Playwright / real-browser light+dark /
-diff-reviewer PASS). **Remaining deferred backlog below — operator picks; do NOT auto-start.** B4 is no
-longer a candidate (done).
+**This session (2026-06-23):** committed the approved B6 spec (`457baca`) then shipped **B6 Slice 1 — Layer
+A, the public Proof field-note export** (`112776e`). `orionfold field-note <run_id> [--out note.md]` turns a
+stored `ProofReport` into a publish-ready Markdown field note: YAML frontmatter spine + two inline SVG figures
+(pure-Python Pareto scatter + pass-rate bars, no browser) + the reused receipt evidence body + a narrative
+**stub the package does NOT author**. New modules `receipts/figures.py` + `receipts/field_note.py`;
+`build_field_note` graduated to `receipts.__all__`; `docs/api/receipts.md` documents it. **Receipt untouched,
+no scoring/hash path, no migration, no FE** — mock `467ddd96c9a5` untouched by construction. Verified
+end-to-end (366 BE / ruff+pyright 0 / 7 config_hash + 19 receipt-byte-identical guards / headless e2e /
+fresh-context diff-reviewer PASS on all 8 invariants). See the worklog
+`docs/worklog/2026-06-23-b6-field-note-layer-a.md`.
 
-**Earlier this session:** pyright hygiene (`39b432b` — 9 baseline errors cleared, tree now 0 errors) + the
-`DEFAULT_THRESHOLDS` single-source codegen slice (`814c120`). Both still hold.
+**Next — operator picks (do NOT auto-start):** the natural continuation is **B6 Slice 2 — Layer B, the
+private authoring/publish skill** (`.claude/skills/proof-field-note/`): scaffold-from-run (figures already in
+Layer A's output), open the narrative for the operator, emit a website-ready bundle for `~/orionfold/website`.
+**Gated on B7** for the symlink-into-strategy step (Layer B can be authored privately first; the symlink lands
+after B7). So the practical ordering question for the operator is **B7 first, or author Layer B in parallel**.
+Per spec §8, OUT of scope (logged, not built): the `·fmt` retrofit across leaderboard/track-record/receipt;
+the safe-slice publish surface (ADR-0005 §5); the website Astro `proofFieldNotes` collection. The full backlog
+table is below.
 
 <!-- prior START HERE (CLI-widen slice 2) below — superseded by the two slices above -->
 ## (superseded) Dual-distribution: CLI widened.
@@ -393,7 +409,7 @@ remains (below); operator picks. git remote+push stays queued LAST behind packag
 
 | # | Item | Priority | State / gate |
 | --- | --- | --- | --- |
-| 1 | **B6 — Dual-distribution core + dogfooding loop** | **NOW / HIGHEST** | ADRs 0004/0005/0006 + `_SPECS/2026-06-23-dual-distribution-findings.md` **already written**. Remaining: brainstorm w/ operator → vertical slice moving canonical logic into the Python core. *Supersedes #7 framing; blocks B4.* |
+| 1 | **B6 Slice 2 — field-note Layer B (private skill)** | **NOW / HIGH** | Slice 1 (Layer A public export) SHIPPED `112776e`. Remaining: the private authoring/publish skill (`.claude/skills/proof-field-note/`) — scaffold-from-run + operator narrative + website bundle. **Gated on B7** for the symlink-into-strategy step (can author in parallel). Spec `_SPECS/2026-06-23-proof-field-notes.md` §8. |
 | 2 | **B7 — Private-strategy symlink + relay** | **HIGH** | **Blocks #14.** `_IDEAS`/`_SPECS` confirmed still **real dirs (not symlinks)**. Own git-history-touching session. Independent of B6 → can run parallel. |
 | 3 | **#7 — Packaging · licensing · distribution** | MED–HIGH | **Downstream of B6** (B6 defines the boundary #7 packages). Apache-2.0 flip, PyPI metadata (dist `orionfold-proof`/CLI `orionfold`; reserve `orionfold`+`orionfold-arena`), `uv tool install … → orionfold up`, release ritual. Scope FIRST. |
 | 4 | **B4 — Reimagine Candidates → cross-run board** | MED–HIGH | ⏸ **PAUSED, blocked on B6.** Web screen already shipped (`33339d5`); the Arena-leaderboard reimagining is the paused part. |
@@ -446,6 +462,30 @@ clear via Settings → data management for a pristine demo state if wanted. `_ID
   datasets while groups reflect *historical* run ids — "All datasets" can show groups the dropdown can't
   isolate, and a selectable dataset may have no runs (correct empty state). FE display + one read-only
   route over existing data — no backend/hash/migration.
+- **Proof field note (B6 Layer A, SHIPPED `112776e`):** `orionfold field-note <run_id> [--out]` is a
+  **thin CLI shell** over the pure core fn `build_field_note(report)` in `receipts/field_note.py`
+  (graduated to `receipts.__all__`; the CLI is its second consuming use, ADR-0004 §7). It reads **only a
+  stored `ProofReport`** → no scoring/hash path, no migration, no FE; **mock `467ddd96c9a5` untouched by
+  construction**. **The receipt is NOT touched** — `export.py` is unedited, `RECEIPT_VERSION` stays 8, the
+  byte-identical palette guard stays green; the field note is a **sibling** module that *reuses*
+  `export.to_markdown` for the evidence body (H1 `# Proof Receipt`→`## Evidence` via a single `.replace`,
+  guarded by `test_field_note_has_a_single_h1…`) — **never a second copy** of receipt logic. **Frontmatter
+  is hand-rendered** (NOT `yaml.dump`) so output is byte-deterministic and `import orionfold` carries no YAML
+  dep; every value is **derived** from the report (nothing invented). `recommended` reads the leaderboard's
+  own `recommended` flag (single source of truth — never re-derives the verdict); `fmt_check` is true iff
+  `rubric.kind ∈ {exact, contains}` (ADR-0005 §4 format-vs-correctness). **Figures** (`receipts/figures.py`,
+  `pareto_svg`/`pass_rate_svg`, NOT in `__all__`) are **pure-Python inline SVG** (no browser, no charting
+  lib): the Pareto kernel `_pareto_frontier` is a **faithful port of `web/.../paretoFrontier.ts`**
+  (lower-cost-better, tier-resolved equal-cost ties — do NOT "simplify" the dominance rule). **DS accent/
+  status split held**: recommended = the ONLY `--color-accent`; pass-rate bars `--color-ok`; other dots
+  status-toned (ok/warn/danger via `_pass_rate_tone`); all colours are `var(--color-*)`. **Determinism**:
+  every emitted number routes through `_num()` (fixed 2-dp, trailing-zeros-trimmed) — do not interpolate raw
+  data floats into the SVG. **Graceful degrade**: pass-rate bars omitted when `report.run.rubric.kind ==
+  "none"` (a quick/unscored run rolls pass-rate to 0, indistinguishable from "scored, all failed" — read the
+  KIND, never draw a fake bar); the scatter omits its dashed frontier polyline when `<2` frontier points or
+  no cost spread (dots still render). The package **does NOT author** the `## Why this can be trusted`
+  narrative — it emits a stub with `<!-- author: … -->` markers (Layer B / the operator fills it). **Layer B
+  (the private authoring/publish skill) is slice 2, gated on B7** — not built yet.
 - **`RECEIPT_VERSION` is now 8.** The quick receipt is the protected artifact's lightweight variant:
   always labeled "QUICK CHECK · not scored proof" + promote CTA; never claims scored proof.
   `_RECEIPT_STYLE` is shared by full + quick HTML (full output must stay byte-identical — guarded by
