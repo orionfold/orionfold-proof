@@ -6,8 +6,13 @@
 > To resume: in a fresh session say **"read from handoff"** (or "continue from last
 > session"), or `/clear` and paste the prompt below.
 
-_Last updated: 2026-06-23 · **BACKLOG B4 (Track Record web screen) DONE + committed (`33339d5`).**
-Exposed the pure core fn `track_record()` over a thin `GET /api/track-record` (`?dataset_id=`) route and
+_Last updated: 2026-06-23 · **BACKLOG MERGED + PRIORITIZED (docs-only, no code).** The old HANDOFF
+list (#1–8) and `_IDEAS` (B1–B8) were reconciled against repo state into one ranked `## MERGED BACKLOG`
+table below — **B6 (dual-distribution) is now #1, NOT #7 packaging** (the prior "natural next" was stale).
+Full B1–B8 reasoning frozen in `_IDEAS/backlog-archive-2026-06-23.md`; `_IDEAS/backlog.md` reset to an
+empty intake stub for fresh findings. Last shipped code = **B4 Track Record web screen (`33339d5`)** ↓._
+
+_**B4 (prior commit):** Exposed the pure core fn `track_record()` over a thin `GET /api/track-record` (`?dataset_id=`) route and
 rendered it as a new cockpit view — **which candidate has earned trust across repeated runs**, grouped by
 comparable slice (dataset × rubric kind), ranked by **pooled** pass-rate (Σpasses/Σexamples), dataset
 dropdown filter. **Additive only** (core fn reads existing fields, re-runs no scoring → no migration, mock
@@ -157,14 +162,12 @@ pyright 0 errors on changed files (pre-existing 9 in export.py/resolution.py unt
 Fresh-context diff-reviewer: **clean** (no bugs / invariant violations / scope creep). (worklog
 `docs/worklog/2026-06-23-cli-widen-dataset-runs-track-record.md`.)
 
-**Next (operator picks):** ~~(a) `DEFAULT_THRESHOLDS` single-source~~ **DONE `814c120`.**
-~~(b) B4 Track Record web screen~~ **DONE `33339d5`.** (c) **B7 private-strategy symlink migration** —
-moves `_IDEAS`/`_SPECS` into private `~/orionfold/strategy/orionfold-proof/` + gitignored symlinks;
-**blocks #8 git remote** (full steps in backlog §B7); (d) **#7 packaging** (Apache-2.0 flip + PyPI metadata
-+ release ritual per ADR-0006). **#8 git remote + push stays LAST, gated on BOTH #7 AND B7.** Do NOT
-auto-start — surface when the operator asks. `main` local-only, all work committed, clean worktree,
-shippable state. _(New non-blocking item logged: `_IDEAS/backlog.md` **B8** — Track Record filter↔history-id
-seam.)_
+**Next (operator picks — see the prioritized `## MERGED BACKLOG` table below):** the full backlog
+was merged + re-ranked 2026-06-23. **Top of the list is now B6** (dual-distribution core — ADRs
+already written, brainstorm+slice remain), **NOT #7 packaging** (the old "natural next" line was
+stale; B6's same-day directive demoted packaging to *downstream of B6*). B7 (private-strategy symlink)
+is HIGH and **blocks the final git remote+push**. Do NOT auto-start anything — surface a row only when
+the operator asks. `main` local-only, all work committed, clean worktree, shippable state.
 
 **✅ Pyright baseline cleared (`39b432b`):** the 9 pre-existing `export.py`/`resolution.py` errors are
 fixed — `uv run pyright` now reports **0 errors** on the full `src` tree. A "pyright clean" claim can now
@@ -377,33 +380,39 @@ remains (below); operator picks. git remote+push stays queued LAST behind packag
 - **Peer-reuse roots:** Arena `…/ainative-business.github.io/arena-app/`; AI Native
   `…/orionfold/ainative/`. Reference mocks: `…/orionfold-design-system/mocks/design-reference/2026-06-20/{candidate-1,components}.html`.
 
-## BACKLOG — non-blocking, deferred behind the `_IDEAS`→`_SPECS` pipeline (operator picks)
-1. **Quick-Compare promote carries the prompt** — promote pre-fills the 2 candidates but NOT the
-   ad-hoc prompt (by design). Future: seed the prompt into a one-example set. **Full diagnosis +
-   forks now in `_IDEAS/backlog.md` §B2** (durable home; this line is the volatile pointer).
-2. **Stored "Recommended on 0/5"** — some 2026-06-21 stored runs persisted `recommended:true` on a
-   0-pass candidate (pre-gate). New runs correct. Optional one-off backfill.
-3. **Catalog price/source accuracy pass** — verify list prices + context windows (`current-docs-check`).
-4. **Cross-product models×prompts** — N models × M prompts in one run. **Brainstorm FIRST.**
-5. **DS-skin polish** — shared token-driven badge/chip/bar kit (now partly captured as DS findings
-   in `_IDEAS/design-system.md`); receipt proof-seal stamp.
-6. **Richer sample data** — extend `sample_data.py` if onboarding wants it.
-7. **Packaging · licensing · distribution** — LICENSE + source headers, PyPI metadata (dist
-   `orionfold-proof`, CLI `orionfold`; reserve `orionfold` + `orionfold-arena`),
-   `uv tool install orionfold-proof` → `orionfold up`, release notes / demo script. **Scope FIRST.**
-7b. **⭐ Private-strategy symlink + peer relay (B7) — BLOCKS #8.** Migrate Proof's real `_IDEAS/`/
-   `_SPECS/` dirs into a private `~/orionfold/strategy/orionfold-proof/` slot + gitignored symlinks
-   (the fleet mechanism: peers symlink `_IDEAS`/`_SPECS`/`_GUIDES` → `strategy/<project>/`, gitignored;
-   strategy is a private GitHub repo). Adds a `_RELAY.md` for cross-project publishing (Proof articles
-   → website peer). **Must land BEFORE any public Proof remote** or a push publishes strategy content.
-   Full steps + history caveat in `_IDEAS/backlog.md` §B7. Operator directive 2026-06-23.
-8. **git remote + push** — **LAST item; do NOT surface or start until packaging (#7) AND the
-   private-strategy migration (B7/7b) are done** (operator directive). No remote configured; `main`
-   holds all work unpushed (incl. strategy content — exactly why B7 precedes #8).
+## MERGED BACKLOG — prioritized (operator picks; do NOT auto-start)
 
-_Done since last handoff: ICP E2E real-model verification; 16 findings captured to `_IDEAS/`
-(no code changes). Several ad-hoc real runs (incl. "no winner") sit in `~/.orionfold/proof.db` —
-clear via Settings → data management for a pristine demo state if wanted._
+> **Single source of truth for "what's next."** Merged 2026-06-23 from the old HANDOFF list
+> (#1–8) + `_IDEAS` (B1–B8), reconciled against actual repo state. Per-item detail (Arena
+> reuse notes, migration steps, invariant forks) is frozen in
+> `_IDEAS/backlog-archive-2026-06-23.md`; `_IDEAS/backlog.md` is now an empty intake stub for
+> NEW findings. When a new item earns a slot, fold it into this table and re-rank.
+>
+> ⚠️ Reconciliation: HANDOFF's old "natural next = #7 packaging" was **stale** — the same-day
+> operator directive (archive B6) demoted #7 to *downstream of B6*. This table reflects that.
+
+| # | Item | Priority | State / gate |
+| --- | --- | --- | --- |
+| 1 | **B6 — Dual-distribution core + dogfooding loop** | **NOW / HIGHEST** | ADRs 0004/0005/0006 + `_SPECS/2026-06-23-dual-distribution-findings.md` **already written**. Remaining: brainstorm w/ operator → vertical slice moving canonical logic into the Python core. *Supersedes #7 framing; blocks B4.* |
+| 2 | **B7 — Private-strategy symlink + relay** | **HIGH** | **Blocks #14.** `_IDEAS`/`_SPECS` confirmed still **real dirs (not symlinks)**. Own git-history-touching session. Independent of B6 → can run parallel. |
+| 3 | **#7 — Packaging · licensing · distribution** | MED–HIGH | **Downstream of B6** (B6 defines the boundary #7 packages). Apache-2.0 flip, PyPI metadata (dist `orionfold-proof`/CLI `orionfold`; reserve `orionfold`+`orionfold-arena`), `uv tool install … → orionfold up`, release ritual. Scope FIRST. |
+| 4 | **B4 — Reimagine Candidates → cross-run board** | MED–HIGH | ⏸ **PAUSED, blocked on B6.** Web screen already shipped (`33339d5`); the Arena-leaderboard reimagining is the paused part. |
+| 5 | **B5 — Make Quick Compare more whole** | MED–HIGH | Brainstorm FIRST. Overlaps B2 (#8) + B4. Mine Arena `CompareDuel.jsx`. |
+| 6 | **Cross-product models × prompts** | MED | N models × M prompts in one run. Brainstorm FIRST. |
+| 7 | **Catalog price/source accuracy pass** | MED | Verify list prices + context windows (`current-docs-check`). |
+| 8 | **B2 — Quick→Promote carries the prompt** | LOW–MED | UX seam (promote drops the ad-hoc prompt by design). May be superseded by B5#4 (inline scoring). |
+| 9 | **DS-skin polish** | LOW–MED | Shared token-driven badge/chip/bar kit (DS findings in `_IDEAS/design-system.md`); receipt proof-seal stamp. |
+| 10 | **B8 — Track Record filter ↔ run-id drift** | LOW | Minor seam from the B4 build; honest empty states. Anchors in `TrackRecordView.tsx`. |
+| 11 | **B1 — Exact rubric shows `≥ 0.8` in receipt** | LOW | Cosmetic; harmless (binary check grades identically at any threshold in (0,1]). |
+| 12 | **Stored "Recommended on 0/5" backfill** | LOW | Optional one-off; 2026-06-21 pre-gate runs only. New runs correct. |
+| 13 | **Richer sample data** | LOW | Extend `sample_data.py` if onboarding wants it. |
+| 14 | **git remote + push** | **LAST** | **Gated on BOTH B6→#7 AND B7.** Do NOT surface until those land (operator directive). No remote; `main` holds all work unpushed (incl. strategy content — why B7 precedes this). |
+
+_✅ Shipped, dropped from active: **B3** real-world demo datasets (`af8203d`)._
+
+_Standing notes: several ad-hoc real runs (incl. "no winner") sit in `~/.orionfold/proof.db` —
+clear via Settings → data management for a pristine demo state if wanted. `_IDEAS/issues.md`,
+`feature-opportunities.md`, `design-system.md` still hold the unpromoted finding detail._
 
 ## Key invariants to NOT regress
 - **Quick-Compare (new):** `mode`/`chosen_winner` live on `ProofRun` (JSON report blob) ONLY and are
@@ -603,13 +612,16 @@ Stage 3 is COMPLETE — the point queue is EMPTY. Tasks 1 (A1, 593d346), 2 (A2, 
 first-run CTA, 5cc8ca0) AND 11 (WS-F DS application-consistency pass, 9820b5c) are ALL checked off. WS-A
 + WS-B + WS-C + WS-D + WS-E + WS-F + Task 7 done. There is NO next point-task.
 
-▶️ ONLY DEFERRED BACKLOG REMAINS (operator picks). Do NOT auto-start anything — surface a backlog item only
-when the operator asks. The natural next is BACKLOG #7 packaging·licensing·distribution (LICENSE + source
-headers, PyPI metadata: dist orionfold-proof / CLI orionfold / reserve orionfold + orionfold-arena;
-uv tool install orionfold-proof → orionfold up; release notes / demo script) — BRAINSTORM/scope FIRST (gate
-the planning ceremony via AskUserQuestion per CLAUDE.md). Then BACKLOG #8 git remote + push — LAST, do NOT
-surface until packaging is done (operator directive). main is local-only with all work committed; the build
-is at a clean shippable Stage-3 state.
+▶️ ONLY DEFERRED BACKLOG REMAINS (operator picks). Do NOT auto-start anything — surface a row only when the
+operator asks. The backlog is now a single prioritized table (## MERGED BACKLOG above). The top item is
+**B6 — dual-distribution core + dogfooding loop** (NOW/HIGHEST; ADRs 0004/0005/0006 + the findings spec are
+already written — brainstorm w/ operator + a vertical slice moving canonical logic into the Python core
+remain). **B7 — private-strategy symlink migration** is HIGH and BLOCKS the final git remote+push. Packaging
+(#7) is MED–HIGH and DOWNSTREAM of B6 (the prior "natural next = packaging" line was stale). git remote+push
+is LAST, gated on BOTH B6→#7 AND B7 (operator directive). Brainstorm/scope FIRST on B6/#7/B5 (gate the
+planning ceremony via AskUserQuestion per CLAUDE.md). main is local-only with all work committed; clean
+shippable state. Per-item detail: _IDEAS/backlog-archive-2026-06-23.md (frozen); _IDEAS/backlog.md is now
+an empty intake stub.
 
 App up (REAL keys in .env.local, Sandbox OFF, no mocks; cost OK'd): API
 `uv run orionfold dev --port 8790`; UI `VITE_DEV_PORT=5174 VITE_API_PROXY=http://127.0.0.1:8790
