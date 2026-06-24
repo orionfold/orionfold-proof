@@ -3,10 +3,21 @@
 ``orionfold up``  — serve the embedded cockpit + API (production-style, no reload).
 ``orionfold dev`` — run the API with auto-reload for backend development; the cockpit is
                     served separately by Vite (``pnpm --dir web dev``) proxying ``/api``.
+``orionfold run`` — run a proof headlessly and emit a receipt (the engineer/researcher path).
+``orionfold dataset import|list`` — import and list datasets headlessly.
+``orionfold runs list|show``      — inspect run history.
+``orionfold track-record``        — cross-run standings per (dataset, rubric kind).
+
+Each workflow command is a thin shell over the reusable core (ADR-0004 §3): it opens a
+local DB connection, calls a pure core/repository function, and renders. No shell
+re-implements core logic.
 """
 
 from __future__ import annotations
 
+import sqlite3
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import cast
 
@@ -16,12 +27,19 @@ from pydantic import ValidationError
 
 from orionfold import __version__
 from orionfold.data.importers import DatasetParseError, ImportFormat, parse_dataset
-from orionfold.domain.models import Dataset, ProofBrief, Rubric, RubricKind
-from orionfold.proof import execute_run
+from orionfold.domain.models import Dataset, ProofBrief, ProofReport, Rubric, RubricKind
+from orionfold.proof import execute_run, track_record
 from orionfold.providers.registry import UnknownCandidateError
 from orionfold.receipts import export
 from orionfold.storage.db import apply_migrations, connect, default_db_path
-from orionfold.storage.repository import save_report
+from orionfold.storage.repository import (
+    DuplicateDatasetError,
+    get_report,
+    list_dataset_rows,
+    list_runs,
+    save_dataset,
+    save_report,
+)
 
 app = typer.Typer(
     add_completion=False,
@@ -37,6 +55,22 @@ _APP_TARGET = "orionfold.server.app:create_app"
 
 def _serve(host: str, port: int, reload: bool) -> None:
     uvicorn.run(_APP_TARGET, host=host, port=port, reload=reload, factory=True)
+
+
+@contextmanager
+def _with_conn() -> Iterator[sqlite3.Connection]:
+    """Open the local DB, ensure the schema exists, and always close.
+
+    The web app applies migrations at startup; the headless path has no such hook, so every
+    CLI command that touches the DB ensures the schema itself. ``ORIONFOLD_DB`` (honored by
+    ``default_db_path``) lets tests isolate the database.
+    """
+    conn = connect(default_db_path())
+    try:
+        apply_migrations(conn)
+        yield conn
+    finally:
+        conn.close()
 
 
 @app.command()
@@ -129,14 +163,8 @@ def run(
         raise typer.Exit(code=1)
 
     if not no_save:
-        # The CLI opens its own connection, so it must ensure the schema exists — the web app
-        # applies migrations at startup, but the headless path has no such hook.
-        conn = connect(default_db_path())
-        try:
-            apply_migrations(conn)
+        with _with_conn() as conn:
             save_report(conn, report)
-        finally:
-            conn.close()
 
     rendered = _FORMAT_RENDERERS[output_format](report)
     if out is not None:
@@ -144,6 +172,170 @@ def run(
         typer.echo(f"Receipt written to {out}", err=True)
     else:
         typer.echo(rendered)
+
+
+# ── dataset import|list ────────────────────────────────────────────────────────────────────
+
+dataset_app = typer.Typer(no_args_is_help=True, help="Import and list local datasets.")
+app.add_typer(dataset_app, name="dataset")
+
+
+@dataset_app.command("import")
+def dataset_import(
+    path: Path = typer.Argument(..., help="Dataset file to import (.jsonl/.csv/.md)."),
+    name: str | None = typer.Option(None, "--name", help="Dataset name (default: filename)."),
+    description: str = typer.Option("", "--description", help="Optional description."),
+    check_hint: str | None = typer.Option(
+        None, "--check-hint", help="Scoring hint: exact | contains | numeric | eyeball."
+    ),
+    source: str = typer.Option("imported", "--source", help="Provenance label for the card."),
+) -> None:
+    """Parse a file and freeze it into a new local dataset (re-parsed as the source of truth)."""
+    fmt = _EXT_TO_FORMAT.get(path.suffix.lower())
+    if fmt is None:
+        typer.echo(f"Unsupported dataset extension '{path.suffix}'.", err=True)
+        raise typer.Exit(code=2)
+    try:
+        parsed = parse_dataset(path.read_text(encoding="utf-8"), fmt)
+    except (OSError, DatasetParseError) as exc:
+        typer.echo(f"Could not read dataset: {exc}", err=True)
+        raise typer.Exit(code=1)
+
+    with _with_conn() as conn:
+        try:
+            created = save_dataset(
+                conn,
+                name or path.stem,
+                description,
+                parsed.examples,
+                source=source,
+                check_hint=check_hint,
+                created_at=_now_iso(),
+            )
+        except DuplicateDatasetError as exc:
+            typer.echo(str(exc), err=True)
+            raise typer.Exit(code=1)
+        except ValueError as exc:  # blank name, etc.
+            typer.echo(str(exc), err=True)
+            raise typer.Exit(code=2)
+
+    typer.echo(f"Imported '{created.name}' ({created.id}) — {len(created.examples)} examples.")
+
+
+@dataset_app.command("list")
+def dataset_list() -> None:
+    """List local datasets with their example counts and provenance."""
+    with _with_conn() as conn:
+        rows = list_dataset_rows(conn)
+    if not rows:
+        typer.echo("No datasets yet. Import one with `orionfold dataset import <file>`.")
+        return
+    typer.echo(f"{'ID':<24} {'EXAMPLES':>8}  {'HINT':<10} {'SOURCE':<22} NAME")
+    for ds, meta in rows:
+        marker = " (sample)" if meta.is_sample else ""
+        typer.echo(
+            f"{ds.id:<24} {len(ds.examples):>8}  {(meta.check_hint or '—'):<10} "
+            f"{meta.source[:22]:<22} {ds.name}{marker}"
+        )
+
+
+# ── runs list|show ─────────────────────────────────────────────────────────────────────────
+
+runs_app = typer.Typer(no_args_is_help=True, help="Inspect run history.")
+app.add_typer(runs_app, name="runs")
+
+
+@runs_app.command("list")
+def runs_list() -> None:
+    """List stored runs, newest first, with the recommended winner and pass rate."""
+    with _with_conn() as conn:
+        reports = list_runs(conn)
+    if not reports:
+        typer.echo("No runs yet. Run a proof with `orionfold run …`.")
+        return
+    typer.echo(f"{'RUN ID':<28} {'DATASET':<22} {'RUBRIC':<10} {'WINNER':<18} CREATED")
+    for report in sorted(reports, key=lambda r: r.run.created_at, reverse=True):
+        winner = _recommended_label(report)
+        typer.echo(
+            f"{report.run.id:<28} {report.run.dataset_name[:22]:<22} "
+            f"{report.run.rubric.kind:<10} {winner[:18]:<18} {report.run.created_at}"
+        )
+
+
+@runs_app.command("show")
+def runs_show(
+    run_id: str = typer.Argument(..., help="The run id (see `orionfold runs list`)."),
+    output_format: str | None = typer.Option(
+        None, "--format", help="Dump the full receipt instead: markdown | json | html."
+    ),
+) -> None:
+    """Show a stored run — a verdict summary, or the full receipt with --format."""
+    with _with_conn() as conn:
+        report = get_report(conn, run_id)
+    if report is None:
+        typer.echo(f"Unknown run '{run_id}'.", err=True)
+        raise typer.Exit(code=1)
+
+    if output_format is not None:
+        if output_format not in _FORMAT_RENDERERS:
+            typer.echo(f"Unknown --format '{output_format}' (use markdown|json|html).", err=True)
+            raise typer.Exit(code=2)
+        typer.echo(_FORMAT_RENDERERS[output_format](report))
+        return
+
+    run = report.run
+    typer.echo(f"{run.id}  ·  {run.dataset_name}  ·  {run.rubric.kind}  ·  {run.created_at}")
+    typer.echo(f"Decision: {run.brief.decision_question}")
+    typer.echo(f"{'CANDIDATE':<24} {'PASS':>9}  {'AVG':>5}  {'COST':>9}")
+    for e in report.leaderboard:
+        crown = "★ " if e.recommended else "  "
+        pct = f"{e.pass_rate * 100:.0f}% ({e.pass_count}/{e.total})"
+        typer.echo(
+            f"{crown}{e.label[:22]:<22} {pct:>9}  {e.avg_score:>5.2f}  "
+            f"${e.total_estimated_cost_usd:>8.4f}"
+        )
+    typer.echo(f"Run cost: ${report.cost_summary.total_cost_usd:.4f}")
+
+
+# ── track-record ───────────────────────────────────────────────────────────────────────────
+
+
+@app.command("track-record")
+def track_record_cmd(
+    dataset: str | None = typer.Option(
+        None, "--dataset", help="Limit to one dataset id (see `orionfold dataset list`)."
+    ),
+) -> None:
+    """Cross-run standings, grouped per (dataset, rubric kind) — the comparable slices."""
+    with _with_conn() as conn:
+        reports = list_runs(conn)
+    groups = track_record(reports, dataset_id=dataset)
+    if not groups:
+        typer.echo("No comparable runs yet. Run a few proofs, then re-check.")
+        return
+    for g in groups:
+        typer.echo(f"\n{g.dataset_name}  ({g.rubric_kind})  —  {g.runs} run(s)")
+        typer.echo(f"  {'CANDIDATE':<22} {'RUNS':>4} {'PASS%':>6} {'AVG $':>9} {'WON':>4}")
+        for e in g.entries:
+            typer.echo(
+                f"  {e.label[:20]:<22} {e.runs:>4} {e.pass_rate * 100:>5.0f}% "
+                f"${e.avg_cost_usd:>8.4f} {e.times_recommended:>4}"
+            )
+
+
+def _now_iso() -> str:
+    """Wall-clock ISO timestamp for the imported dataset card (display metadata only)."""
+    from datetime import datetime, timezone
+
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _recommended_label(report: ProofReport) -> str:
+    """The recommended candidate's label for a run, or a calm absence."""
+    for e in report.leaderboard:
+        if e.recommended:
+            return e.label
+    return "no clear winner"
 
 
 if __name__ == "__main__":

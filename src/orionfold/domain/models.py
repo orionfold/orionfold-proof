@@ -175,3 +175,39 @@ class ProofReport(BaseModel):
             candidate_cost_usd=0.0, judge_cost_usd=0.0, total_cost_usd=0.0
         )
     )
+
+
+class TrackRecordEntry(BaseModel):
+    """One candidate's standing rolled up across every comparable run in a group.
+
+    "Comparable" means same dataset, same rubric kind (see :class:`TrackRecordGroup`).
+    Aggregates read existing :class:`LeaderboardEntry` fields only — no scoring is re-run,
+    so this never touches the run engine or ``config_hash``.
+    """
+
+    candidate_id: str
+    label: str
+    provider_id: str
+    privacy: Privacy
+    model: str | None = None
+    runs: int  # how many runs in this group included the candidate
+    total_examples: int  # Σ examples scored across those runs
+    total_passes: int  # Σ passing examples across those runs
+    pass_rate: float  # total_passes / total_examples (0.0 when no examples)
+    avg_cost_usd: float  # mean per-run total cost for this candidate
+    times_recommended: int  # how many runs in the group crowned this candidate
+
+
+class TrackRecordGroup(BaseModel):
+    """Cross-run standings for one comparable slice: a (dataset, rubric kind) pair.
+
+    The comparability rule (locked in the B4 brainstorm, ADR-0004 §5): only runs over the
+    same dataset scored with the same rubric kind roll up together — a similarity pass-rate
+    and a judge pass-rate measure different things and must not be averaged.
+    """
+
+    dataset_id: str
+    dataset_name: str
+    rubric_kind: RubricKind
+    runs: int  # distinct runs in this group
+    entries: list[TrackRecordEntry]  # candidates, best aggregate pass-rate first
