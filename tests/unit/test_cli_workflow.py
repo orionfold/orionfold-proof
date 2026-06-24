@@ -173,6 +173,57 @@ def test_track_record_dataset_filter_no_match(db) -> None:
     assert "No comparable runs" in result.stdout
 
 
+# ── field-note ────────────────────────────────────────────────────────────────────────────
+
+
+def test_field_note_to_stdout(db) -> None:
+    run_id = _run("triage")
+    result = runner.invoke(app, ["field-note", run_id])
+    assert result.exit_code == 0, result.stdout
+    assert "artifact: proof-field-note" in result.stdout  # frontmatter spine
+    assert run_id in result.stdout  # provenance
+    assert "<svg" in result.stdout  # at least the scatter figure
+    assert "## Why this can be trusted" in result.stdout  # narrative stub
+
+
+def test_field_note_to_file(db, tmp_path) -> None:
+    run_id = _run("triage")
+    out = tmp_path / "note.md"
+    result = runner.invoke(app, ["field-note", run_id, "--out", str(out)])
+    assert result.exit_code == 0, result.stdout
+    assert "Field note written to" in result.output  # confirmation on stderr
+    text = out.read_text(encoding="utf-8")
+    assert text.startswith("---\nartifact: proof-field-note")
+    # The file is byte-identical to build_field_note over the stored report (one renderer).
+    from orionfold.receipts import build_field_note
+    from orionfold.storage.db import connect, default_db_path
+    from orionfold.storage.repository import get_report
+
+    conn = connect(default_db_path())
+    try:
+        stored = get_report(conn, run_id)
+    finally:
+        conn.close()
+    assert stored is not None
+    assert text == build_field_note(stored)
+
+
+def test_field_note_unknown_id_errors_cleanly(db) -> None:
+    result = runner.invoke(app, ["field-note", "run_does_not_exist"])
+    assert result.exit_code == 1
+    assert "Unknown run" in result.output
+    assert "Traceback" not in result.output
+
+
+def test_field_note_is_secret_free(db) -> None:
+    run_id = _run("triage")
+    result = runner.invoke(app, ["field-note", run_id])
+    lowered = result.stdout.lower()
+    # Key/auth *shapes* only — dataset content legitimately contains nouns like "password".
+    for needle in ("sk-ant-", "sk-", "api_key=", "bearer ", "authorization:"):
+        assert needle not in lowered
+
+
 def test_workflow_output_is_secret_free(db) -> None:
     _import()
     _run("triage")

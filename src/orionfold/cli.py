@@ -7,6 +7,7 @@
 ``orionfold dataset import|list`` — import and list datasets headlessly.
 ``orionfold runs list|show``      — inspect run history.
 ``orionfold track-record``        — cross-run standings per (dataset, rubric kind).
+``orionfold field-note``          — export a publish-ready field note for one run.
 ``orionfold codegen``             — regenerate the frontend's shared constants from the core.
 
 Each workflow command is a thin shell over the reusable core (ADR-0004 §3): it opens a
@@ -31,7 +32,7 @@ from orionfold.data.importers import DatasetParseError, ImportFormat, parse_data
 from orionfold.domain.models import Dataset, ProofBrief, ProofReport, Rubric, RubricKind
 from orionfold.proof import execute_run, track_record
 from orionfold.providers.registry import UnknownCandidateError
-from orionfold.receipts import export
+from orionfold.receipts import build_field_note, export
 from orionfold.storage.db import apply_migrations, connect, default_db_path
 from orionfold.storage.repository import (
     DuplicateDatasetError,
@@ -335,6 +336,31 @@ def track_record_cmd(
                 f"  {e.label[:20]:<22} {e.runs:>4} {e.pass_rate * 100:>5.0f}% "
                 f"${e.avg_cost_usd:>8.4f} {e.times_recommended:>4}"
             )
+
+
+# ── field-note ─────────────────────────────────────────────────────────────────────────────
+
+
+@app.command("field-note")
+def field_note_cmd(
+    run_id: str = typer.Argument(..., help="The run id (see `orionfold runs list`)."),
+    out: Path | None = typer.Option(
+        None, "--out", help="Write the field note here (default: stdout)."
+    ),
+) -> None:
+    """Export a publish-ready field note (receipt evidence + figures + a narrative stub)."""
+    with _with_conn() as conn:
+        report = get_report(conn, run_id)
+    if report is None:
+        typer.echo(f"Unknown run '{run_id}'.", err=True)
+        raise typer.Exit(code=1)
+
+    note = build_field_note(report)
+    if out is not None:
+        out.write_text(note, encoding="utf-8")
+        typer.echo(f"Field note written to {out}", err=True)
+    else:
+        typer.echo(note)
 
 
 def _now_iso() -> str:
