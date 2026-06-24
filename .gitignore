@@ -57,3 +57,8 @@ samples/receipts/*.generated.*
 # Playwright MCP scratch (screenshots, snapshots, console logs)
 .playwright-mcp/
 .superpowers/
+
+# Proof field-note staging (Layer B skill) — scaffolds + website-ready bundles
+# are local working artifacts; the operator syncs bundles into ~/orionfold/website
+# by hand. Never committed here (spec _SPECS/2026-06-24-proof-field-note-layer-b-skill.md §5).
+_field-notes/
