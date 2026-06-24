@@ -53,3 +53,13 @@ def test_execute_run_honors_explicit_rubric() -> None:
         rubric=Rubric(kind="exact", threshold=1.0),
     )
     assert report.run.rubric.kind == "exact"
+
+
+def test_proof_package_public_surface() -> None:
+    import orionfold.proof as proof
+
+    assert "execute_run" in proof.__all__
+    # The engine primitives are part of the curated public surface too.
+    for name in ("run_proof", "run_matrix", "iter_matrix", "config_hash", "build_cost_summary"):
+        assert name in proof.__all__, name
+        assert hasattr(proof, name), name
