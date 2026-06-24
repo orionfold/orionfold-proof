@@ -132,6 +132,9 @@ def test_orionfold_roster_present_under_ollama_with_repo_ids():
     ollama = next(p for p in catalog.providers if p.id == "ollama")
     orion = [m for m in ollama.models if m.family == "orionfold"]
     assert len(orion) >= 1
+    # The flagship Advisor (the funnel's 18/21 curveball lane) must be in the roster — it's the
+    # one model the whole funnel reproduces, so a future roster edit can't silently drop it.
+    assert "hf.co/Orionfold/Advisor-GGUF" in {m.repo_id for m in orion}
     # Every curated Orionfold model carries an hf.co/Orionfold repo_id and is free/local.
     for m in orion:
         assert m.repo_id is not None

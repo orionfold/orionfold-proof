@@ -272,6 +272,15 @@
           "pricing": null
         },
         {
+          "id": "hf.co/Orionfold/Advisor-GGUF",
+          "display_name": "Advisor (Corpus)",
+          "family": "orionfold",
+          "tier": "balanced",
+          "cost_class": "free",
+          "pricing": null,
+          "repo_id": "hf.co/Orionfold/Advisor-GGUF"
+        },
+        {
           "id": "hf.co/Orionfold/Saul-7B-Instruct-v1-GGUF",
           "display_name": "Saul 7B Instruct (Legal)",
           "family": "orionfold",
