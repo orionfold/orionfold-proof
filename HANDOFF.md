@@ -6,15 +6,28 @@
 > To resume: in a fresh session say **"read from handoff"** (or "continue from last
 > session"), or `/clear` and paste the prompt below.
 
-_Last updated: 2026-06-23 · **Two slices DONE this session.** (1) **Pyright hygiene** (`39b432b`):
-cleared the 9 pre-existing `export.py`/`resolution.py` errors with behavior-identical narrowing fixes
-— tree is now **genuinely pyright-clean (0 errors)**. (2) **`DEFAULT_THRESHOLDS` single-source** (the
-deferred §6 slice, `814c120`): Python is now the single source of truth; the FE consumes a **codegen'd**
-`web/.../thresholds.generated.ts` (written by `orionfold codegen`) instead of a hand-mirrored literal. A
-backend staleness guard (`tests/unit/test_codegen.py`) fails CI on drift. **342 BE (+2) / 230 FE**,
-ruff+pyright 0, tsc+vite build clean, `467ddd96c9a5` 8/8 freeze tests pass (keypoint stayed 0.8),
-diff-reviewer clean, negative-tested. See ▶️ START HERE below. (worklog
-`docs/worklog/2026-06-23-default-thresholds-single-source.md`.)_
+_Last updated: 2026-06-23 · **BACKLOG B4 (Track Record web screen) DONE + committed (`33339d5`).**
+Exposed the pure core fn `track_record()` over a thin `GET /api/track-record` (`?dataset_id=`) route and
+rendered it as a new cockpit view — **which candidate has earned trust across repeated runs**, grouped by
+comparable slice (dataset × rubric kind), ranked by **pooled** pass-rate (Σpasses/Σexamples), dataset
+dropdown filter. **Additive only** (core fn reads existing fields, re-runs no scoring → no migration, mock
+`467ddd96c9a5` untouched by construction). DS accent/status split held (pass bars `--color-ok`, zero
+`--color-accent` in the view); privacy carried via `ProviderTag`. **344 BE (+2) / 234 FE (+4)**, ruff+pyright
+0, tsc+vite build clean, **14/14 Playwright** (+1 nav smoke); real-browser graded light+dark (11 groups
+across every rubric class, pooled bars correct, AAA primary text, secret-free, filter + 2 empty states
+verified); fresh-context diff-reviewer **PASS — ship it**. Minor filter↔history-id seam logged as
+`_IDEAS/backlog.md` **B8** (non-blocking). See ▶️ START HERE below. (worklog
+`docs/worklog/2026-06-23-b4-track-record-web-screen.md`.)_
+
+<!-- prior status (two slices: pyright hygiene + DEFAULT_THRESHOLDS single-source) below — superseded -->
+<!-- _**Two slices DONE.** (1) **Pyright hygiene** (`39b432b`): cleared the 9 pre-existing
+`export.py`/`resolution.py` errors with behavior-identical narrowing fixes — tree is now **genuinely
+pyright-clean (0 errors)**. (2) **`DEFAULT_THRESHOLDS` single-source** (the deferred §6 slice, `814c120`):
+Python is now the single source of truth; the FE consumes a **codegen'd** `web/.../thresholds.generated.ts`
+(written by `orionfold codegen`) instead of a hand-mirrored literal. A backend staleness guard
+(`tests/unit/test_codegen.py`) fails CI on drift. **342 BE (+2) / 230 FE**, ruff+pyright 0, tsc+vite build
+clean, `467ddd96c9a5` 8/8 freeze tests pass (keypoint stayed 0.8), diff-reviewer clean, negative-tested.
+(worklog `docs/worklog/2026-06-23-default-thresholds-single-source.md`.)_ -->
 
 <!-- prior status (B3 real-world demo datasets, af8203d) below — superseded -->
 <!-- _BACKLOG B3 (real-world demo datasets) is DONE + committed (`af8203d`). The
@@ -101,16 +114,22 @@ regressions/invariant violations/scope creep**. (worklog `docs/worklog/2026-06-2
 guided first-run CTA) is now UNBLOCKED — build the one-click "run the demo on real models" CTA.** `main`
 local-only; git remote/push stay queued LAST until packaging (operator directive)._ -->
 
-## ▶️ START HERE NEXT SESSION — `DEFAULT_THRESHOLDS` single-source DONE (operator picks the next slice).
+## ▶️ START HERE NEXT SESSION — B4 Track Record web screen DONE (operator picks the next slice).
 
-**This session (2026-06-23):** shipped **pyright hygiene** (`39b432b` — 9 baseline errors cleared, tree
-now 0 errors) + the **`DEFAULT_THRESHOLDS` single-source codegen slice** (`814c120` — the deferred §6
-item). Python `scoring/rubric.py` is now canonical; `orionfold codegen` writes
-`web/src/features/proof/thresholds.generated.ts`; `scoring.ts` imports + re-exports it (every consumer
-unchanged); `tests/unit/test_codegen.py` byte-diffs the committed file vs a fresh render so a `rubric.py`
-edit without regen fails CI. keypoint stayed 0.8 → mock `467ddd96c9a5` intact (8/8 freeze tests). BE/CLI
-+ a 2-line FE import swap; no scoring/hash logic touched. **Remaining deferred backlog below — operator
-picks; do NOT auto-start.** The §6 slice is no longer a candidate (done).
+**This session (2026-06-23):** shipped **BACKLOG B4 — the Track Record web screen** (`33339d5`). The pure
+core fn `track_record()` (built in the CLI-widen slice `b2bf9d3`) is now exposed over a thin
+`GET /api/track-record` (`?dataset_id=`) route and rendered as a new cockpit nav view (after Receipts,
+`TrendingUp` icon). It answers **which candidate has earned trust across repeated runs** — groups by
+comparable slice (dataset × rubric kind), ranks by **pooled** pass-rate (Σpasses/Σexamples so a larger run
+weighs more), `won N×` markers, dataset dropdown filter. FE display + one read-only route over existing
+data → **no migration, no scoring/hash change**, mock `467ddd96c9a5` untouched by construction. This is the
+first screen to render a dual-distribution core fn the CLI already exposes (`orionfold track-record`) —
+same data, two surfaces. Verified end-to-end (344 BE / 234 FE / 14 Playwright / real-browser light+dark /
+diff-reviewer PASS). **Remaining deferred backlog below — operator picks; do NOT auto-start.** B4 is no
+longer a candidate (done).
+
+**Earlier this session:** pyright hygiene (`39b432b` — 9 baseline errors cleared, tree now 0 errors) + the
+`DEFAULT_THRESHOLDS` single-source codegen slice (`814c120`). Both still hold.
 
 <!-- prior START HERE (CLI-widen slice 2) below — superseded by the two slices above -->
 ## (superseded) Dual-distribution: CLI widened.
@@ -139,12 +158,13 @@ Fresh-context diff-reviewer: **clean** (no bugs / invariant violations / scope c
 `docs/worklog/2026-06-23-cli-widen-dataset-runs-track-record.md`.)
 
 **Next (operator picks):** ~~(a) `DEFAULT_THRESHOLDS` single-source~~ **DONE `814c120`.**
-(b) **resume B4 web screen** — the "Track Record" cockpit view now that `track_record()` is a core fn it
-can render; (c) **B7 private-strategy symlink migration** — moves `_IDEAS`/`_SPECS` into private
-`~/orionfold/strategy/orionfold-proof/` + gitignored symlinks; **blocks #8 git remote** (full steps in
-backlog §B7); (d) **#7 packaging** (Apache-2.0 flip + PyPI metadata + release ritual per ADR-0006).
-**#8 git remote + push stays LAST, gated on BOTH #7 AND B7.** Do NOT auto-start — surface when the
-operator asks. `main` local-only, all work committed, clean worktree, shippable state.
+~~(b) B4 Track Record web screen~~ **DONE `33339d5`.** (c) **B7 private-strategy symlink migration** —
+moves `_IDEAS`/`_SPECS` into private `~/orionfold/strategy/orionfold-proof/` + gitignored symlinks;
+**blocks #8 git remote** (full steps in backlog §B7); (d) **#7 packaging** (Apache-2.0 flip + PyPI metadata
++ release ritual per ADR-0006). **#8 git remote + push stays LAST, gated on BOTH #7 AND B7.** Do NOT
+auto-start — surface when the operator asks. `main` local-only, all work committed, clean worktree,
+shippable state. _(New non-blocking item logged: `_IDEAS/backlog.md` **B8** — Track Record filter↔history-id
+seam.)_
 
 **✅ Pyright baseline cleared (`39b432b`):** the 9 pre-existing `export.py`/`resolution.py` errors are
 fixed — `uv run pyright` now reports **0 errors** on the full `src` tree. A "pyright clean" claim can now
@@ -398,6 +418,25 @@ clear via Settings → data management for a pristine demo state if wanted._
   `run.chosen_winner` resolved against `run.candidates` ("Picked &lt;label&gt;" / "Tie — no clear
   winner"). Do NOT collapse quick runs onto the `recommended` path — nothing is ever recommended in an
   unscored run, so it would always show the wrong "No clear winner".
+- **Track Record web screen (B4, SHIPPED `33339d5`):** `GET /api/track-record` (`?dataset_id=`) is a
+  **thin route** over the pure core fn `track_record(list_runs(conn), dataset_id=...)` in
+  `proof/leaderboard.py` — all rollup logic lives in the core fn; the route adds **zero business logic**
+  (ADR-0004 §3). The core fn reads only existing `LeaderboardEntry`/`ProofRun` fields and re-runs no
+  scoring → **can't touch `config_hash`**; mock `467ddd96c9a5` untouched. **Pooled** pass-rate =
+  Σpasses/Σexamples (NOT a mean of per-run rates); groups by `(dataset_id, rubric.kind)` (the
+  comparability rule — same dataset scored the same way); quick/`kind=="none"` runs excluded by the core
+  fn. **FE:** `TrackRecordView.tsx` renders from `getTrackRecord(datasetId?)` with queryKey
+  `["track-record", datasetId || null]`; the Zod `trackRecord{Entry,Group}Schema` in `api.ts` are a
+  **field-by-field mirror** of the Pydantic models (`domain/models.py` `TrackRecordEntry`/
+  `TrackRecordGroup`) — keep them in sync; `rubric_kind` uses the extracted `rubricKindSchema` (full
+  `RubricKind` union). DS: pass-rate bars use **`--color-ok`** (status), the view introduces **no
+  `--color-accent`**; `privacy` is **carried** from the entry into `ProviderTag`, never guessed.
+  Registered in `App.tsx` (View union / NAV `TrendingUp` after Receipts / conditional render). The e2e
+  nav smoke scopes to the **visible `<main>`** (the hidden mounted cockpit's text would otherwise satisfy
+  a global `getByText`). ⚠️ Known non-blocking seam (`_IDEAS` B8): the filter dropdown lists *current*
+  datasets while groups reflect *historical* run ids — "All datasets" can show groups the dropdown can't
+  isolate, and a selectable dataset may have no runs (correct empty state). FE display + one read-only
+  route over existing data — no backend/hash/migration.
 - **`RECEIPT_VERSION` is now 8.** The quick receipt is the protected artifact's lightweight variant:
   always labeled "QUICK CHECK · not scored proof" + promote CTA; never claims scored proof.
   `_RECEIPT_STYLE` is shared by full + quick HTML (full output must stay byte-identical — guarded by
