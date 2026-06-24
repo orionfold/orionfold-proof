@@ -6,12 +6,15 @@
 > To resume: in a fresh session say **"read from handoff"** (or "continue from last
 > session"), or `/clear` and paste the prompt below.
 
-_Last updated: 2026-06-23 · **Dual-distribution slice 2 — CLI WIDENED is DONE + committed (`b2bf9d3`).**
-Added the core `track_record()` cross-run rollup + the `dataset import|list` / `runs list|show` /
-`track-record` CLI verbs (thin shells over the shared core). **340 BE (+21)**, ruff/pyright clean on
-changed files, `467ddd96c9a5` freeze-tests pass, headless e2e secret-free, diff-reviewer clean.
-`DEFAULT_THRESHOLDS` single-source (§6) deferred to its own slice. See ▶️ START HERE below. (worklog
-`docs/worklog/2026-06-23-cli-widen-dataset-runs-track-record.md`.)_
+_Last updated: 2026-06-23 · **Two slices DONE this session.** (1) **Pyright hygiene** (`39b432b`):
+cleared the 9 pre-existing `export.py`/`resolution.py` errors with behavior-identical narrowing fixes
+— tree is now **genuinely pyright-clean (0 errors)**. (2) **`DEFAULT_THRESHOLDS` single-source** (the
+deferred §6 slice, `814c120`): Python is now the single source of truth; the FE consumes a **codegen'd**
+`web/.../thresholds.generated.ts` (written by `orionfold codegen`) instead of a hand-mirrored literal. A
+backend staleness guard (`tests/unit/test_codegen.py`) fails CI on drift. **342 BE (+2) / 230 FE**,
+ruff+pyright 0, tsc+vite build clean, `467ddd96c9a5` 8/8 freeze tests pass (keypoint stayed 0.8),
+diff-reviewer clean, negative-tested. See ▶️ START HERE below. (worklog
+`docs/worklog/2026-06-23-default-thresholds-single-source.md`.)_
 
 <!-- prior status (B3 real-world demo datasets, af8203d) below — superseded -->
 <!-- _BACKLOG B3 (real-world demo datasets) is DONE + committed (`af8203d`). The
@@ -98,7 +101,19 @@ regressions/invariant violations/scope creep**. (worklog `docs/worklog/2026-06-2
 guided first-run CTA) is now UNBLOCKED — build the one-click "run the demo on real models" CTA.** `main`
 local-only; git remote/push stay queued LAST until packaging (operator directive)._ -->
 
-## ▶️ START HERE NEXT SESSION — Dual-distribution: CLI widened (operator picks the next slice).
+## ▶️ START HERE NEXT SESSION — `DEFAULT_THRESHOLDS` single-source DONE (operator picks the next slice).
+
+**This session (2026-06-23):** shipped **pyright hygiene** (`39b432b` — 9 baseline errors cleared, tree
+now 0 errors) + the **`DEFAULT_THRESHOLDS` single-source codegen slice** (`814c120` — the deferred §6
+item). Python `scoring/rubric.py` is now canonical; `orionfold codegen` writes
+`web/src/features/proof/thresholds.generated.ts`; `scoring.ts` imports + re-exports it (every consumer
+unchanged); `tests/unit/test_codegen.py` byte-diffs the committed file vs a fresh render so a `rubric.py`
+edit without regen fails CI. keypoint stayed 0.8 → mock `467ddd96c9a5` intact (8/8 freeze tests). BE/CLI
++ a 2-line FE import swap; no scoring/hash logic touched. **Remaining deferred backlog below — operator
+picks; do NOT auto-start.** The §6 slice is no longer a candidate (done).
+
+<!-- prior START HERE (CLI-widen slice 2) below — superseded by the two slices above -->
+## (superseded) Dual-distribution: CLI widened.
 
 **Major pivot 2026-06-23: from B4 (cross-run leaderboard) to the strategic DUAL-DISTRIBUTION MODEL.**
 The FE-only rollup reflex was at odds with Proof's CLI/package distribution. Deep-studied
@@ -123,9 +138,7 @@ pyright 0 errors on changed files (pre-existing 9 in export.py/resolution.py unt
 Fresh-context diff-reviewer: **clean** (no bugs / invariant violations / scope creep). (worklog
 `docs/worklog/2026-06-23-cli-widen-dataset-runs-track-record.md`.)
 
-**Next (operator picks):** (a) **`DEFAULT_THRESHOLDS` single-source** — the deferred §6 slice: Python
-map canonical → FE reads a **generated JSON** (or codegen) instead of the hand-mirror; keep BOTH
-freeze-tests + **keypoint stays 0.8** (so `467ddd96c9a5` is safe); touches the FE build + `scoring.ts`;
+**Next (operator picks):** ~~(a) `DEFAULT_THRESHOLDS` single-source~~ **DONE `814c120`.**
 (b) **resume B4 web screen** — the "Track Record" cockpit view now that `track_record()` is a core fn it
 can render; (c) **B7 private-strategy symlink migration** — moves `_IDEAS`/`_SPECS` into private
 `~/orionfold/strategy/orionfold-proof/` + gitignored symlinks; **blocks #8 git remote** (full steps in
@@ -133,11 +146,9 @@ backlog §B7); (d) **#7 packaging** (Apache-2.0 flip + PyPI metadata + release r
 **#8 git remote + push stays LAST, gated on BOTH #7 AND B7.** Do NOT auto-start — surface when the
 operator asks. `main` local-only, all work committed, clean worktree, shippable state.
 
-**⚠️ Known pre-existing issue worth a cleanup pass (NOT from B3):** the clean tree has **9 pyright errors**
-in `src/orionfold/receipts/export.py` (3 — `str|None` return + `LeaderboardEntry|None` args) and
-`src/orionfold/recipes/resolution.py` (6 — `min()` over a `float|None` key). Stash-confirmed present before
-B3, so prior "pyright clean" handoff claims were inaccurate (`[tool.pyright]` scopes `include=["src"]`,
-basic). Likely fixable with `None`-guards / `key=lambda r: r[...] or 0.0`. Offer as a quick hygiene task.
+**✅ Pyright baseline cleared (`39b432b`):** the 9 pre-existing `export.py`/`resolution.py` errors are
+fixed — `uv run pyright` now reports **0 errors** on the full `src` tree. A "pyright clean" claim can now
+be taken at face value (run full `uv run pyright`, expect 0).
 
 _B3 real-world demo datasets = `af8203d` (worklog `docs/worklog/2026-06-23-b3-real-world-demo-datasets.md`;
 spec `_SPECS/2026-06-23-real-world-demo-datasets.md`). Task 11 (WS-F DS pass) = `9820b5c`.
@@ -406,9 +417,19 @@ clear via Settings → data management for a pristine demo state if wanted._
 - **The accent/status split (DS skin):** cyan `--color-accent` = the only interactive colour; green
   `--color-ok` = PASS/verified ONLY; semantic-token layer only; light + dark + AA; dark is `@theme`
   default; categorical value tags neutral/squared.
+- **Threshold codegen (single-source, `814c120`):** `DEFAULT_THRESHOLDS` is **canonical in
+  `scoring/rubric.py`**. The FE no longer hand-mirrors it — `orionfold codegen` (pure
+  `render_thresholds_ts()` in `src/orionfold/codegen.py`) writes `web/src/features/proof/
+  thresholds.generated.ts`, and `scoring.ts` **imports + re-exports** `DEFAULT_THRESHOLDS`/`TunableKind`
+  from it (every consumer imports via `./scoring`, unchanged). The generated file is **committed, NOT
+  gitignored** (FE builds with no prebuild step). `tests/unit/test_codegen.py` byte-diffs the committed
+  file against a fresh render → **editing `rubric.py` without `orionfold codegen` fails CI**. The renderer
+  is deterministic (`json.dumps` keeps `0.8` as `0.8`; TS union type derived from map keys). **keypoint
+  MUST stay 0.8** (mock `467ddd96c9a5`). To change a threshold: edit `rubric.py`, run `orionfold codegen`,
+  commit both. The BE `test_scoring.py` + FE `scoring.test.ts` freeze-tests stay as the value locks.
 - **Threshold defaults (A2):** per-kind map `DEFAULT_THRESHOLDS {similarity:0.55, keypoint:0.8,
-  judge:0.8}` lives in BOTH `scoring/rubric.py` and `web/.../scoring.ts` and **must stay in sync**
-  (a test on each side freezes the values). Settings sliders persist `threshold_<kind>` keys in the
+  judge:0.8}` is canonical in `scoring/rubric.py`; the FE consumes the codegen'd copy (see the codegen
+  invariant above). A test on each side freezes the values. Settings sliders persist `threshold_<kind>` keys in the
   existing `settings` k/v table (NO `app_settings` table, NO migration); the persisted value
   **overrides** the map per kind, the map is the **fallback**. `default_rubric_for(ds, overrides)`
   resolves the kind's default; the resolved threshold feeds `config_hash` (so a tuned value is part of
