@@ -90,16 +90,26 @@ regressions/invariant violations/scope creep**. (worklog `docs/worklog/2026-06-2
 guided first-run CTA) is now UNBLOCKED — build the one-click "run the demo on real models" CTA.** `main`
 local-only; git remote/push stay queued LAST until packaging (operator directive)._ -->
 
-## ▶️ START HERE NEXT SESSION — NO queued task. Deferred BACKLOG only (operator picks).
+## ▶️ START HERE NEXT SESSION — Dual-distribution pivot in progress (operator picks the next slice).
 
-**Stage 3 point queue is EMPTY and the picked backlog item (B3 demo datasets) is SHIPPED (`af8203d`).** Do
-**NOT** auto-start anything — surface a backlog item only when the operator asks. The natural next is
-**BACKLOG #7 packaging·licensing·distribution** (LICENSE + source headers, PyPI metadata: dist
-`orionfold-proof` / CLI `orionfold` / reserve `orionfold` + `orionfold-arena`; `uv tool install
-orionfold-proof` → `orionfold up`; release notes / demo script) — **BRAINSTORM/scope FIRST** (gate the
-planning ceremony via `AskUserQuestion` per CLAUDE.md). Then **BACKLOG #8 git remote + push — LAST, do NOT
-surface until packaging is done** (operator directive). `main` is local-only with all work committed; the
-build is at a clean shippable state.
+**Major pivot 2026-06-23: from B4 (cross-run leaderboard) to the strategic DUAL-DISTRIBUTION MODEL.**
+The FE-only rollup reflex was at odds with Proof's CLI/package distribution. Deep-studied
+ainative.business's fieldkit→arena→field-notes loop, wrote **ADRs 0004/0005/0006** + origin spec
+(operator-approved; **Apache-2.0 confirmed**), and shipped the **first vertical slice**: a headless
+**`orionfold run`** command driving the full proof workflow through a shared core (`execute_run` /
+`execute_resolved` in `proof/runner.py`) that the **route and CLI both call** — "one core, two shells."
+**319 BE tests pass** (route baseline 105 unchanged; mock `config_hash 467ddd96c9a5` intact); real
+keyless e2e produces a secret-free receipt. (worklog `docs/worklog/2026-06-23-dual-distribution-vertical-slice.md`;
+commits `7ee28e7` ADRs → `134e9e5` api card.)
+
+**Next (operator picks):** (a) **widen the CLI** — next slice of ADR-0004 §8: `dataset import|list`,
+`runs list|show`, `track-record` (the B4 rollup as a core fn) + the `DEFAULT_THRESHOLDS` single-source;
+(b) **B7 private-strategy symlink migration** — moves `_IDEAS`/`_SPECS` into private
+`~/orionfold/strategy/orionfold-proof/` + gitignored symlinks; **blocks #8 git remote** (full steps in
+backlog §B7); (c) **resume B4** now that its rollup has a core home; (d) **#7 packaging** (now downstream
+of the dual-distribution model — applies the Apache-2.0 flip + PyPI metadata + release ritual per
+ADR-0006). **#8 git remote + push stays LAST, now gated on BOTH #7 AND B7.** Do NOT auto-start — surface
+when the operator asks. `main` local-only, all work committed, clean worktree, shippable state.
 
 **⚠️ Known pre-existing issue worth a cleanup pass (NOT from B3):** the clean tree has **9 pyright errors**
 in `src/orionfold/receipts/export.py` (3 — `str|None` return + `LeaderboardEntry|None` args) and
