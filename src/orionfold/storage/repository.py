@@ -12,7 +12,7 @@ import sqlite3
 
 from pydantic import BaseModel
 
-from orionfold.data import bundled_corpora, bundled_datasets
+from orionfold.data import bundled_bench_datasets, bundled_corpora, bundled_datasets
 from orionfold.domain.models import Corpus, Dataset, Example, ProofReport
 
 
@@ -142,6 +142,33 @@ def insert_sample_dataset(
             check_hint,
         ),
     )
+    conn.commit()
+
+
+def seed_bench_datasets(conn: sqlite3.Connection) -> None:
+    """Seed the bundled bench datasets as selectable rows carrying their corpus binding (idempotent).
+
+    Bench datasets ship with a governing corpus and a per-row governance contract, so they can't
+    auto-seed through the plain :func:`seed_datasets` path (which writes no ``corpus_id``). They are
+    seeded **non-sample** (``is_sample=0``) on purpose: they're a first-class, always-present part of
+    the install — they survive the Settings "remove samples" action, and they don't collide with the
+    guided-demo's ``find(is_sample)`` target. Run *after* :func:`seed_corpora` so the binding has a
+    corpus to validate against. ``INSERT OR IGNORE`` on a stable id makes re-seeding a no-op and never
+    clobbers an operator's later edits."""
+    for dataset in bundled_bench_datasets():
+        conn.execute(
+            "INSERT OR IGNORE INTO datasets "
+            "(id, name, description, examples, is_sample, source, corpus_id) "
+            "VALUES (?, ?, ?, ?, 0, ?, ?)",
+            (
+                dataset.id,
+                dataset.name,
+                dataset.description,
+                _examples_json(dataset),
+                "Bundled with Orionfold",
+                dataset.corpus_id,
+            ),
+        )
     conn.commit()
 
 

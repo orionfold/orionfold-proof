@@ -71,6 +71,7 @@ from orionfold.storage.repository import (
     remove_sample_data,
     save_dataset,
     save_report,
+    seed_bench_datasets,
     seed_corpora,
     seed_datasets,
     update_dataset_meta,
@@ -179,6 +180,7 @@ class DatasetRow(BaseModel):
     created_at: str = ""
     source: str = ""
     check_hint: str | None = None
+    corpus_id: str | None = None
 
 
 def _conn(request: Request) -> sqlite3.Connection:
@@ -191,7 +193,8 @@ def init_db(db_path) -> None:
     try:
         apply_migrations(conn)
         seed_datasets(conn)
-        seed_corpora(conn)
+        seed_corpora(conn)  # bench bindings validate against bundled corpora — seed them first
+        seed_bench_datasets(conn)
     finally:
         conn.close()
 
@@ -207,6 +210,7 @@ def _to_row(d: Dataset, m) -> DatasetRow:
         created_at=m.created_at,
         source=m.source,
         check_hint=m.check_hint,
+        corpus_id=d.corpus_id,
     )
 
 

@@ -213,3 +213,43 @@ def test_validate_bench_binding_requires_known_corpus_and_in_corpus_citations():
                    expected_citations=["src_z"])]
     with pytest.raises(BenchBindingError):
         validate_bench_binding(conn, "fn", bad)
+
+
+def test_seed_bench_datasets_lists_with_corpus_and_validates():
+    """The bundled bench dataset seeds as a selectable DB row carrying its corpus binding, so the
+    cockpit's Governance-bench card surfaces and the binding passes validation. Idempotent."""
+    from orionfold.data import bundled_bench_datasets
+    from orionfold.storage.repository import (
+        seed_bench_datasets,
+        seed_corpora,
+        validate_bench_binding,
+    )
+
+    conn = _conn()
+    seed_corpora(conn)  # corpora must exist before a bench binding can validate
+    seed_bench_datasets(conn)
+    seed_bench_datasets(conn)  # idempotent: no duplicate rows on re-seed
+
+    bench = bundled_bench_datasets()
+    assert bench, "expected at least one bundled bench dataset"
+    for ds in bench:
+        row = get_dataset(conn, ds.id)
+        assert row is not None, f"{ds.id} not listed after seeding"
+        # The corpus binding is what makes the FE offer the Governance bench card.
+        assert row.corpus_id == ds.corpus_id and row.corpus_id is not None
+        # Per-row governance contract survives the round-trip (drives the deterministic scorer).
+        assert any(ex.expected_behavior is not None for ex in row.examples)
+        # The binding's integrity holds against the seeded corpus.
+        assert validate_bench_binding(conn, ds.corpus_id, ds.examples).id == ds.corpus_id
+
+    # Listed alongside the always-on datasets, not hidden.
+    listed_ids = {row[0].id for row in list_dataset_rows(conn)}
+    assert {ds.id for ds in bench} <= listed_ids
+
+    # Seeded non-sample: it's a first-class always-present dataset, so the Settings
+    # "remove samples" action must not delete it (it only returns on restart otherwise).
+    from orionfold.storage.repository import remove_sample_data
+
+    remove_sample_data(conn)
+    survivors = {row[0].id for row in list_dataset_rows(conn)}
+    assert {ds.id for ds in bench} <= survivors

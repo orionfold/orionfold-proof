@@ -30,6 +30,21 @@ def test_datasets_and_candidates_are_available(client, tmp_path, monkeypatch):
     assert candidate_ids == {"mock_good", "mock_bad", "ollama", "lmstudio"}
 
 
+def test_bundled_bench_dataset_is_listed_with_corpus_after_startup(client):
+    """The bench dataset auto-seeds at startup so it's selectable in the cockpit out of the box,
+    carrying its corpus binding (what makes the Governance bench card surface)."""
+    datasets = client.get("/api/datasets").json()
+    bench = next((d for d in datasets if d["id"] == "advisor-curveball-v0.2"), None)
+    assert bench is not None, "advisor-curveball-v0.2 not listed after startup"
+    assert bench["corpus_id"] == "ainative-field-notes"
+    # Non-sample on purpose: survives "remove samples" and never hijacks the guided-demo's
+    # find(is_sample) target nor the demo-judge auto-default (both keyed on is_sample).
+    assert bench["is_sample"] is False
+    # Its governing corpus is also seeded (binding can validate).
+    corpora = {c["id"] for c in client.get("/api/corpora").json()}
+    assert "ainative-field-notes" in corpora
+
+
 def test_full_loop_run_leaderboard_failure_and_receipts(client):
     body = {
         "dataset_id": "investment-memo-summarization",
