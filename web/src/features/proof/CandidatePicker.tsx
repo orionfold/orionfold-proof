@@ -73,7 +73,10 @@ function ProviderRow({
             key={m.candidate_id}
             model={m}
             checked={selected.includes(m.candidate_id)}
-            disabled={!group.available}
+            // Gate on the group AND the per-model flag: a curated HF/GGUF model that isn't
+            // pulled yet (available === false) can't be run, so it's not selectable here
+            // (hf-own-models — pull it first via CandidatesView's "Pull to enable" hint).
+            disabled={!group.available || m.available === false}
             onToggle={onToggle}
           />
         ))}
@@ -161,8 +164,13 @@ function ModelChip({
   disabled?: boolean;
   onToggle: (id: string) => void;
 }) {
+  const pullHint =
+    disabled && model.available === false && model.repo_id
+      ? `Not pulled — run: orionfold pull ${model.repo_id}`
+      : undefined;
   return (
     <label
+      title={pullHint}
       className={
         chipBase +
         " " +

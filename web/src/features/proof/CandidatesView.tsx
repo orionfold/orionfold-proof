@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 
-import type { SelectionGroup } from "../../lib/api";
+import type { SelectionGroup, SelectionModel } from "../../lib/api";
 import { getSelection } from "../../lib/api";
 import { KeyEntry } from "./KeyEntry";
 import { ProviderLogo } from "./ProviderLogo";
@@ -58,13 +58,7 @@ function ProviderCard({ group }: { group: SelectionGroup }) {
       {group.available && group.models.length > 0 ? (
         <ul className="grid gap-1 pl-7">
           {group.models.map((m) => (
-            <li
-              key={m.candidate_id}
-              className="flex flex-wrap items-center gap-x-3 text-sm text-(--color-ink-muted)"
-            >
-              <span className="text-(--color-ink)">{m.display_name}</span>
-              <code className="text-xs text-(--color-ink-faint)">{m.model}</code>
-            </li>
+            <ModelRow key={m.candidate_id} model={m} />
           ))}
         </ul>
       ) : null}
@@ -82,6 +76,31 @@ function ProviderCard({ group }: { group: SelectionGroup }) {
         // Unconfigured local — no key, it needs its host running.
         <p className="pl-7 text-xs text-(--color-ink-faint)">
           Start the local server (e.g. <code>ollama serve</code> or LM Studio), then reload.
+        </p>
+      ) : null}
+    </li>
+  );
+}
+
+// One model row inside an available provider. A curated HF/GGUF model that isn't pulled yet
+// (available === false, carrying a repo_id) shows the one command that turns it on — the local
+// mirror of the cloud "Add key" affordance (hf-own-models). All other models render plainly.
+function ModelRow({ model }: { model: SelectionModel }) {
+  const pullable = model.available === false && Boolean(model.repo_id);
+  return (
+    <li className="grid gap-1 text-sm text-(--color-ink-muted)">
+      <div className="flex flex-wrap items-center gap-x-3">
+        <span className={pullable ? "text-(--color-ink-muted)" : "text-(--color-ink)"}>
+          {model.display_name}
+        </span>
+        <code className="text-xs text-(--color-ink-faint)">{model.model}</code>
+        {pullable ? (
+          <span className="text-xs text-(--color-ink-faint)">Not pulled</span>
+        ) : null}
+      </div>
+      {pullable ? (
+        <p className="text-xs text-(--color-ink-faint)">
+          Pull to enable: <code className="text-(--color-ink-muted)">orionfold pull {model.repo_id}</code>
         </p>
       ) : null}
     </li>

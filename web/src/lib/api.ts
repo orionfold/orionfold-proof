@@ -24,6 +24,14 @@ export const selectionModelSchema = z.object({
   context_window: z.number().nullable().optional(),
   latest: z.boolean(),
   recommended: z.boolean(),
+  // hf-own-models: curated HF/GGUF models carry family "orionfold" + a repo_id, and gate
+  // availability per model (pulled vs. "Pull to enable"). Optional for back-compat.
+  family: z.string().nullable().optional(),
+  repo_id: z.string().nullable().optional(),
+  // Omitted ⇒ available (cloud/standard models never gate per-model); the backend always sends
+  // an explicit boolean. Optional keeps existing fixtures and back-compat valid.
+  available: z.boolean().optional(),
+  reason: z.string().nullable().optional(),
 });
 export type SelectionModel = z.infer<typeof selectionModelSchema>;
 

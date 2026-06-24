@@ -249,6 +249,15 @@ test("candidates catalog lists known providers and explains unconfigured ones", 
   const addKeyButtons = await page.getByRole("button", { name: /Add key/i }).count();
   const startHostHints = await page.getByText(/start the local server/i).count();
   expect(addKeyButtons + startHostHints).toBeGreaterThanOrEqual(gatedCount === 0 ? 0 : 1);
+
+  // hf-own-models: the curated Orionfold roster ships bundled, so a curated model is always
+  // listed under Ollama. When it isn't pulled (the default e2e state — no multi-GB GGUF in CI),
+  // it carries the exact "Pull to enable" command. Asserted either-way: the model name always
+  // renders; if it's unpulled, the pull hint is the affordance.
+  await expect(list.getByText("Saul 7B Instruct (Legal)", { exact: true })).toBeVisible();
+  const pullHints = await page.getByText(/orionfold pull hf\.co\/Orionfold\//).count();
+  const notPulled = await page.getByText(/Not pulled/i).count();
+  expect(pullHints).toBe(notPulled);
 });
 
 // B4: the Track Record view is reachable from the rail and renders its frame. The suite shares one

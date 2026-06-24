@@ -37,6 +37,10 @@ class CatalogModel(BaseModel):
     pricing: ModelPricing | None = None  # None for local models
     latest: bool = False
     recommended: bool = False
+    # HF repo a GGUF was/should be pulled from, e.g. "hf.co/Orionfold/Saul-7B-Instruct-v1-GGUF".
+    # None for cloud/generic models. Additive + nullable, so every existing catalog entry is
+    # unaffected; it tells the cockpit *what to pull* for a curated-but-unpulled local model.
+    repo_id: str | None = None
 
 
 class CatalogProvider(BaseModel):

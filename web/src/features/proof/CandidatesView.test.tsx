@@ -46,10 +46,36 @@ const PANEL: SelectionPanel = {
       provider_id: "ollama",
       label: "Ollama",
       privacy: "local",
-      available: false, // unconfigured local → start-host hint
+      available: true, // keyless, always reachable as a group; models gate per-model
       supports_custom: true,
       candidate_id: null,
-      models: [],
+      models: [
+        {
+          candidate_id: "ollama:llama3.2",
+          model: "llama3.2",
+          display_name: "Llama 3.2 (local)",
+          tier: "economy",
+          cost_class: "free",
+          context_window: 131072,
+          latest: false,
+          recommended: true,
+          available: true,
+        },
+        {
+          // A curated Orionfold model that hasn't been pulled → "Pull to enable" hint.
+          candidate_id: "ollama:hf.co/Orionfold/Saul-7B-Instruct-v1-GGUF",
+          model: "hf.co/Orionfold/Saul-7B-Instruct-v1-GGUF",
+          display_name: "Saul 7B Instruct (Legal)",
+          tier: "balanced",
+          cost_class: "free",
+          latest: false,
+          recommended: false,
+          family: "orionfold",
+          repo_id: "hf.co/Orionfold/Saul-7B-Instruct-v1-GGUF",
+          available: false,
+          reason: "Not pulled — run: orionfold pull hf.co/Orionfold/Saul-7B-Instruct-v1-GGUF",
+        },
+      ],
     },
     {
       provider_id: "openai",
@@ -89,13 +115,19 @@ describe("CandidatesView", () => {
     expect(screen.getByRole("button", { name: /add key/i })).toBeInTheDocument();
   });
 
-  test("an unconfigured local provider shows a start-host hint instead of an add-key field", async () => {
+  test("a curated-but-unpulled Orionfold model shows the Pull-to-enable command hint", async () => {
     vi.mocked(getSelection).mockResolvedValue(PANEL);
     renderView();
 
-    expect(await screen.findByText("Ollama")).toBeInTheDocument();
-    // Local providers need no key — they need their host started.
-    expect(screen.getByText(/start the local server/i)).toBeInTheDocument();
+    // The model is listed under the available Ollama group, marked not-pulled…
+    expect(await screen.findByText("Saul 7B Instruct (Legal)")).toBeInTheDocument();
+    expect(screen.getByText(/not pulled/i)).toBeInTheDocument();
+    // …with the exact one command that turns it on (the local mirror of "Add key").
+    expect(
+      screen.getByText(/orionfold pull hf\.co\/Orionfold\/Saul-7B-Instruct-v1-GGUF/),
+    ).toBeInTheDocument();
+    // A standard local model in the same group has no pull hint.
+    expect(screen.getByText("Llama 3.2 (local)")).toBeInTheDocument();
   });
 
   test("a configured provider lists its models with no add-key prompt", async () => {

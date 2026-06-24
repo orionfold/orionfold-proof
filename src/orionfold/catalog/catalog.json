@@ -270,6 +270,60 @@
           "cost_class": "free",
           "latest": true,
           "pricing": null
+        },
+        {
+          "id": "hf.co/Orionfold/Saul-7B-Instruct-v1-GGUF",
+          "display_name": "Saul 7B Instruct (Legal)",
+          "family": "orionfold",
+          "tier": "balanced",
+          "cost_class": "free",
+          "pricing": null,
+          "repo_id": "hf.co/Orionfold/Saul-7B-Instruct-v1-GGUF"
+        },
+        {
+          "id": "hf.co/Orionfold/SecurityLLM-GGUF",
+          "display_name": "SecurityLLM (Security)",
+          "family": "orionfold",
+          "tier": "balanced",
+          "cost_class": "free",
+          "pricing": null,
+          "repo_id": "hf.co/Orionfold/SecurityLLM-GGUF"
+        },
+        {
+          "id": "hf.co/Orionfold/finance-chat-GGUF",
+          "display_name": "Finance Chat (Finance)",
+          "family": "orionfold",
+          "tier": "balanced",
+          "cost_class": "free",
+          "pricing": null,
+          "repo_id": "hf.co/Orionfold/finance-chat-GGUF"
+        },
+        {
+          "id": "hf.co/Orionfold/II-Medical-8B-GGUF",
+          "display_name": "II-Medical 8B (Medical)",
+          "family": "orionfold",
+          "tier": "balanced",
+          "cost_class": "free",
+          "pricing": null,
+          "repo_id": "hf.co/Orionfold/II-Medical-8B-GGUF"
+        },
+        {
+          "id": "hf.co/Orionfold/Kepler-GGUF",
+          "display_name": "Kepler (Space)",
+          "family": "orionfold",
+          "tier": "balanced",
+          "cost_class": "free",
+          "pricing": null,
+          "repo_id": "hf.co/Orionfold/Kepler-GGUF"
+        },
+        {
+          "id": "hf.co/Orionfold/patent-strategist-v3-nemo-GGUF",
+          "display_name": "Patent Strategist (Patent)",
+          "family": "orionfold",
+          "tier": "balanced",
+          "cost_class": "free",
+          "pricing": null,
+          "repo_id": "hf.co/Orionfold/patent-strategist-v3-nemo-GGUF"
         }
       ]
     },

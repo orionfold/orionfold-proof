@@ -118,3 +118,29 @@ def test_provider_module_defaults_match_catalog():
     assert _ollama.DEFAULT_MODEL == default_model_for("ollama")
     assert _gemini.DEFAULT_MODEL == default_model_for("gemini")
     assert _anthropic.DEFAULT_MODEL == default_model_for("anthropic")
+
+
+def test_repo_id_is_additive_and_nullable():
+    # Existing models validate with repo_id defaulting to None.
+    catalog = load_catalog()
+    cloud = next(p for p in catalog.providers if p.id == "anthropic")
+    assert all(m.repo_id is None for m in cloud.models)
+
+
+def test_orionfold_roster_present_under_ollama_with_repo_ids():
+    catalog = load_catalog()
+    ollama = next(p for p in catalog.providers if p.id == "ollama")
+    orion = [m for m in ollama.models if m.family == "orionfold"]
+    assert len(orion) >= 1
+    # Every curated Orionfold model carries an hf.co/Orionfold repo_id and is free/local.
+    for m in orion:
+        assert m.repo_id is not None
+        assert m.repo_id.startswith("hf.co/Orionfold/")
+        assert m.cost_class == "free" and m.pricing is None
+        # id == repo_id so the run path sends the hf.co/... name straight to /api/chat.
+        assert m.id == m.repo_id
+
+
+def test_orionfold_models_do_not_displace_default_ollama_model():
+    # The Orionfold roster is additive — the keyless default stays a standard local model.
+    assert default_model_for("ollama") == "llama3.2"

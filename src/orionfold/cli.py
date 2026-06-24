@@ -8,6 +8,7 @@
 ``orionfold runs list|show``      — inspect run history.
 ``orionfold track-record``        — cross-run standings per (dataset, rubric kind).
 ``orionfold field-note``          — export a publish-ready field note for one run.
+``orionfold pull``                — pull an HF/GGUF model into Ollama so it's a candidate.
 ``orionfold codegen``             — regenerate the frontend's shared constants from the core.
 
 Each workflow command is a thin shell over the reusable core (ADR-0004 §3): it opens a
@@ -21,7 +22,7 @@ import sqlite3
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
 import typer
 import uvicorn
@@ -42,6 +43,9 @@ from orionfold.storage.repository import (
     save_dataset,
     save_report,
 )
+
+if TYPE_CHECKING:
+    from orionfold.catalog.models import CatalogModel
 
 app = typer.Typer(
     add_completion=False,
@@ -361,6 +365,78 @@ def field_note_cmd(
         typer.echo(f"Field note written to {out}", err=True)
     else:
         typer.echo(note)
+
+
+# ── pull ───────────────────────────────────────────────────────────────────────────────────
+
+
+def _overlay_model_for(repo_id: str) -> "CatalogModel":
+    """The CatalogModel to record for a pulled ``repo_id``.
+
+    Prefer the curated catalog entry (so a roster model keeps its display name/tier); otherwise
+    synthesize a generic local entry. The model ``id`` is the ``hf.co/...`` name Ollama runs it
+    under — i.e. equal to ``repo_id`` — so the run path sends it straight to ``/api/chat``.
+    """
+    from orionfold.catalog import load_catalog
+    from orionfold.catalog.models import CatalogModel
+
+    for provider in load_catalog().providers:
+        for m in provider.models:
+            if m.repo_id == repo_id:
+                return m
+    name = repo_id.removeprefix("hf.co/").removeprefix("huggingface.co/")
+    return CatalogModel(
+        id=repo_id,
+        display_name=name.rsplit("/", 1)[-1],
+        family="hf",
+        tier="balanced",
+        cost_class="free",
+        pricing=None,
+        repo_id=repo_id,
+    )
+
+
+def _fmt_bytes(n: int) -> str:
+    gb = n / 1e9
+    return f"{gb:.1f} GB" if gb >= 1 else f"{n / 1e6:.0f} MB"
+
+
+@app.command()
+def pull(
+    repo_id: str = typer.Argument(
+        ..., help="HF GGUF repo, e.g. hf.co/Orionfold/Saul-7B-Instruct-v1-GGUF."
+    ),
+) -> None:
+    """Pull an HF/GGUF model into Ollama so it becomes a selectable candidate.
+
+    Streams Ollama's local pull (which fetches the GGUF from HuggingFace); on success records
+    the model in ``~/.orionfold/models.json`` so the cockpit and CLI list it as first-class.
+    """
+    from orionfold.catalog.overlay import add_to_overlay
+    from orionfold.providers.http import ProviderError
+    from orionfold.providers.ollama_pull import pull_model, resolve_host
+
+    host = resolve_host()
+    last = ""
+    try:
+        for status in pull_model(host, repo_id):
+            if status.completed is not None and status.total:
+                pct = status.completed / status.total * 100
+                line = (
+                    f"{status.status} {pct:.0f}% "
+                    f"({_fmt_bytes(status.completed)}/{_fmt_bytes(status.total)})"
+                )
+            else:
+                line = status.status
+            if line != last:
+                typer.echo(line, err=True)
+                last = line
+    except ProviderError as exc:
+        typer.echo(f"Pull failed: {exc}", err=True)
+        raise typer.Exit(code=1)
+
+    add_to_overlay(_overlay_model_for(repo_id))
+    typer.echo(f"✓ {repo_id} pulled — now a selectable candidate.")
 
 
 def _now_iso() -> str:
