@@ -33,7 +33,8 @@ from orionfold.data.extractors import (
     extract_document,
 )
 from orionfold.domain.models import Candidate, Dataset, Example, ProofBrief, ProofReport, ProofRun, PromptVariant, Rubric
-from orionfold.proof.engine import build_cost_summary, config_hash, iter_matrix, run_proof
+from orionfold.proof.engine import build_cost_summary, config_hash, iter_matrix
+from orionfold.proof.runner import execute_resolved
 from orionfold.proof.leaderboard import build_leaderboard
 from orionfold.scoring.judge import build_judge
 from orionfold.scoring.rubric import default_rubric_for
@@ -457,18 +458,16 @@ def create_run(request: Request, body: RunRequest) -> ProofReport:
                 build_judge(rubric)
             except (ValueError, KeyError) as exc:
                 raise HTTPException(status_code=422, detail=f"Judge not available: {exc}")
-        # Normalize to the trailing-Z form so live receipts match the fixtures/samples.
-        now = datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
         try:
-            report = run_proof(
-                run_id=f"run_{uuid.uuid4().hex[:12]}",
-                created_at=now,
-                brief=body.brief,
+            # The id/timestamp generation + run_proof call live in the shared core (also used by
+            # the CLI). The route owns candidate fan-out, rubric resolution, and the judge check.
+            report = execute_resolved(
                 dataset=dataset,
                 candidates=candidates,
                 rubric=rubric,
+                brief=body.brief,
+                mode=body.mode,
             )
-            report.run.mode = body.mode
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc))
         save_report(conn, report)

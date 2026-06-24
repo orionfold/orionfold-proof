@@ -11,10 +11,11 @@ from orionfold.proof.engine import (
     run_matrix,
     run_proof,
 )
-from orionfold.proof.runner import execute_run
+from orionfold.proof.runner import execute_resolved, execute_run
 
 __all__ = [
     "execute_run",
+    "execute_resolved",
     "run_proof",
     "run_matrix",
     "iter_matrix",

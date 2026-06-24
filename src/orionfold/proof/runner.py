@@ -12,7 +12,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Literal
 
-from orionfold.domain.models import Dataset, ProofBrief, ProofReport, Rubric
+from orionfold.domain.models import Candidate, Dataset, ProofBrief, ProofReport, Rubric
 from orionfold.proof.engine import run_proof
 from orionfold.providers.registry import build_candidates
 from orionfold.scoring.rubric import default_rubric_for
@@ -21,6 +21,33 @@ from orionfold.scoring.rubric import default_rubric_for
 def _now() -> str:
     """UTC, seconds precision, trailing-Z — matches the live route and the receipt fixtures."""
     return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+
+
+def execute_resolved(
+    *,
+    dataset: Dataset,
+    candidates: list[Candidate],
+    rubric: Rubric,
+    brief: ProofBrief,
+    mode: Literal["full", "quick"] = "full",
+) -> ProofReport:
+    """Run the matrix from already-resolved candidates + rubric (the route's path).
+
+    The route does its own candidate fan-out (prompt variants), threshold-override + check-hint
+    rubric resolution, and judge pre-check; it then hands the resolved objects here so the
+    id/timestamp generation + ``run_proof`` call live in ONE place. ``execute_run`` (the CLI path)
+    resolves ids/rubric itself and delegates here.
+    """
+    report = run_proof(
+        run_id=f"run_{uuid.uuid4().hex[:12]}",
+        created_at=_now(),
+        brief=brief,
+        dataset=dataset,
+        candidates=candidates,
+        rubric=rubric,
+    )
+    report.run.mode = mode
+    return report
 
 
 def execute_run(
@@ -39,13 +66,10 @@ def execute_run(
     """
     candidates = build_candidates(candidate_ids)
     resolved_rubric = rubric or default_rubric_for(dataset)
-    report = run_proof(
-        run_id=f"run_{uuid.uuid4().hex[:12]}",
-        created_at=_now(),
-        brief=brief,
+    return execute_resolved(
         dataset=dataset,
         candidates=candidates,
         rubric=resolved_rubric,
+        brief=brief,
+        mode=mode,
     )
-    report.run.mode = mode
-    return report
