@@ -32,10 +32,20 @@ from orionfold.data.extractors import (
     doc_format_for,
     extract_document,
 )
-from orionfold.domain.models import Candidate, Dataset, Example, ProofBrief, ProofReport, ProofRun, PromptVariant, Rubric
+from orionfold.domain.models import (
+    Candidate,
+    Dataset,
+    Example,
+    ProofBrief,
+    ProofReport,
+    ProofRun,
+    PromptVariant,
+    Rubric,
+    TrackRecordGroup,
+)
 from orionfold.proof.engine import build_cost_summary, config_hash, iter_matrix
 from orionfold.proof.runner import execute_resolved
-from orionfold.proof.leaderboard import build_leaderboard
+from orionfold.proof.leaderboard import build_leaderboard, track_record
 from orionfold.scoring.judge import build_judge
 from orionfold.scoring.rubric import default_rubric_for
 from orionfold.providers.registry import (
@@ -577,6 +587,21 @@ def get_runs(request: Request) -> list[ProofReport]:
     conn = _conn(request)
     try:
         return list_runs(conn)
+    finally:
+        conn.close()
+
+
+@router.get("/track-record")
+def get_track_record(request: Request, dataset_id: str | None = None) -> list[TrackRecordGroup]:
+    """Cross-run standings — pure rollup over past runs, one group per (dataset, rubric kind).
+
+    Thin shell over the core ``track_record`` fn (ADR-0004 §3/§5): reads existing leaderboard
+    fields only, re-runs no scoring, never touches ``config_hash``. ``dataset_id`` narrows to one
+    dataset. Quick/unscored runs are excluded by the core fn.
+    """
+    conn = _conn(request)
+    try:
+        return track_record(list_runs(conn), dataset_id=dataset_id)
     finally:
         conn.close()
 

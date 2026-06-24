@@ -1,5 +1,13 @@
 import { useEffect, useState } from "react";
-import { Boxes, Database, Gauge, ReceiptText, Settings, type LucideIcon } from "lucide-react";
+import {
+  Boxes,
+  Database,
+  Gauge,
+  ReceiptText,
+  Settings,
+  TrendingUp,
+  type LucideIcon,
+} from "lucide-react";
 
 import { getHealth, type Health, type ProofReport } from "../lib/api";
 import { CandidatesView } from "../features/proof/CandidatesView";
@@ -8,8 +16,9 @@ import { ProofCockpit } from "../features/proof/ProofCockpit";
 import { ReceiptDetailView } from "../features/proof/ReceiptDetailView";
 import { ReceiptsView } from "../features/proof/ReceiptsView";
 import { SettingsView } from "../features/proof/SettingsView";
+import { TrackRecordView } from "../features/proof/TrackRecordView";
 
-type View = "proof" | "datasets" | "candidates" | "receipts" | "settings";
+type View = "proof" | "datasets" | "candidates" | "receipts" | "track-record" | "settings";
 
 type Probe =
   | { state: "loading" }
@@ -84,6 +93,7 @@ const NAV: { id: View; label: string; Icon: LucideIcon }[] = [
   { id: "datasets", label: "Datasets", Icon: Database },
   { id: "candidates", label: "Candidates", Icon: Boxes },
   { id: "receipts", label: "Receipts", Icon: ReceiptText },
+  { id: "track-record", label: "Track Record", Icon: TrendingUp },
   { id: "settings", label: "Settings", Icon: Settings },
 ];
 
@@ -198,6 +208,7 @@ export function App() {
       </div>
       {view === "datasets" && <DatasetsView />}
       {view === "candidates" && <CandidatesView />}
+      {view === "track-record" && <TrackRecordView />}
       {view === "settings" && <SettingsView />}
       {view === "receipts" &&
         (receiptInView ? (

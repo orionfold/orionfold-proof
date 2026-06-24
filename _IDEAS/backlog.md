@@ -463,3 +463,24 @@
   `strategy/orionfold-website/` · the ainative `.gitignore` lines 44-50 + `CLAUDE.md` doc-map.
   PROOF — current real `_IDEAS/`, `_SPECS/`; root `CLAUDE.md` doc-map; ADR-0006 §5 (structural
   public/private) · backlog #8 (blocked by this) · [[B6]] (dogfooding-loop publish leg uses the relay).
+
+## B8 · Track Record dataset filter ↔ historical-run id drift — minor UX seam (surfaced during B4 build)
+
+- **What:** The Track Record screen's dataset dropdown is populated from `getDatasets()` (the
+  *current* dataset list), but the rollup groups come from *historical runs* keyed by the run's
+  stored `dataset_id`/`dataset_name`. These two sets don't always line up:
+  - A group can reference a dataset that's no longer selectable — e.g. `quick-compare` (full runs
+    over the ephemeral compare dataset) or a since-renamed/deleted dataset — so "All datasets" shows
+    groups the dropdown can't isolate.
+  - A selectable dataset can have zero runs (e.g. `support-ticket-triage` exists, but runs live under
+    `support-ticket-triage-v1`) → selecting it correctly shows the per-dataset empty state.
+- **Why it's fine for v1:** the filter is a convenience narrowing, not a 1:1 guarantee; both behaviors
+  are *correct* (the rollup honestly reflects run history, the empty state is honest). Verified live
+  during the B4 browser grade.
+- **Possible future polish (pick if onboarding wants it):** (a) drive the filter options from the
+  *groups themselves* (`distinct dataset_id` in the track-record response) so every option always has
+  data and historical ids appear; (b) OR keep the dataset dropdown but show a subtle "(no runs yet)"
+  affordance on options with no rollup; (c) leave as-is. Lowest-effort honest option is (a).
+- **Anchors:** `web/src/features/proof/TrackRecordView.tsx` (filter built from `getDatasets`),
+  `GET /api/track-record` (groups carry `dataset_id`/`dataset_name`), core
+  `track_record()` in `src/orionfold/proof/leaderboard.py`. Surfaced 2026-06-23 during the B4 slice.

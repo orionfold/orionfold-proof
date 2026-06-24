@@ -250,3 +250,23 @@ test("candidates catalog lists known providers and explains unconfigured ones", 
   const startHostHints = await page.getByText(/start the local server/i).count();
   expect(addKeyButtons + startHostHints).toBeGreaterThanOrEqual(gatedCount === 0 ? 0 : 1);
 });
+
+// B4: the Track Record view is reachable from the rail and renders its frame. The suite shares one
+// DB across tests (single worker, no per-test reset), so whether any scored runs exist by the time
+// this runs depends on order — assert what's true EITHER way: the heading is shown, and the body is
+// alive (the calm empty notice OR at least one populated group). The populated rollup's exact shape
+// is covered deterministically by the unit + integration tests.
+test("track record view is reachable and renders its frame", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Track Record" }).click();
+
+  await expect(page.getByRole("heading", { name: "Track Record" })).toBeVisible();
+  // Scope to the view's <main>: the cockpit stays mounted with Tailwind `hidden` (display:none) so
+  // an in-flight run survives nav, and display:none excludes that <main> from the a11y tree — so
+  // getByRole("main") resolves to exactly the Track Record view, never the hidden cockpit's text.
+  const main = page.getByRole("main");
+  // Either the empty-state notice or a rendered standings section header — never blank or errored.
+  const emptyNotice = main.getByText(/No track record yet|No scored runs/i);
+  const groupHeader = main.getByRole("heading", { level: 3 });
+  await expect(emptyNotice.or(groupHeader).first()).toBeVisible();
+});

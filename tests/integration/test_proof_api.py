@@ -692,3 +692,65 @@ def test_unpicked_quick_runs_are_hidden_from_the_list(client):
     client.patch(f"/api/runs/{run_id}/winner", json={"chosen_winner": "tie"})
     listed = client.get("/api/runs").json()
     assert any(r["run"]["id"] == run_id for r in listed)   # picked → visible
+
+
+def _make_full_run(client, dataset_id: str = "investment-memo-summarization") -> dict:
+    body = {
+        "dataset_id": dataset_id,
+        "candidate_ids": ["mock_good", "mock_bad"],
+        "brief": {
+            "task_name": "Memo summarization",
+            "decision_question": "Which model to trust?",
+            "success_criteria": "",
+        },
+    }
+    res = client.post("/api/runs", json=body)
+    assert res.status_code == 200, res.text
+    return res.json()
+
+
+def test_track_record_pools_runs_over_the_same_comparable_slice(client):
+    # Two scored runs over the same (dataset, rubric kind) roll up into one group with a pooled
+    # pass-rate (Σpasses / Σexamples), not a mean of the two runs' rates.
+    r1 = _make_full_run(client)
+    r2 = _make_full_run(client)
+    kind = r1["run"]["rubric"]["kind"]
+    assert kind != "none"  # the sample resolves to a scored rubric
+
+    groups = client.get("/api/track-record").json()
+    assert len(groups) == 1
+    group = groups[0]
+    assert group["dataset_id"] == "investment-memo-summarization"
+    assert group["rubric_kind"] == kind
+    assert group["runs"] == 2
+
+    # mock_good ranks first; its pooled pass-rate equals total_passes / total_examples and its
+    # run-count reflects both runs.
+    top = group["entries"][0]
+    assert top["candidate_id"] == "mock_good"
+    assert top["runs"] == 2
+    # Pooled over both runs: each scored the 5-example sample, so Σexamples = 5 × 2.
+    per_run_examples = len(r1["results"]) // len(r1["leaderboard"])
+    assert top["total_examples"] == per_run_examples * 2
+    assert top["pass_rate"] == pytest.approx(top["total_passes"] / top["total_examples"])
+    # times_recommended counts the runs that crowned this candidate (both, for mock_good).
+    lb1_winner = next(e for e in r1["leaderboard"] if e["recommended"])
+    lb2_winner = next(e for e in r2["leaderboard"] if e["recommended"])
+    expected_wins = sum(w["candidate_id"] == "mock_good" for w in (lb1_winner, lb2_winner))
+    assert top["times_recommended"] == expected_wins
+
+
+def test_track_record_filter_and_quick_exclusion(client):
+    _make_full_run(client)
+    # A quick run is unscored (rubric kind "none") — invisible to the rollup.
+    _make_quick_run(client)
+    groups = client.get("/api/track-record").json()
+    assert all(g["rubric_kind"] != "none" for g in groups)
+    assert {g["dataset_id"] for g in groups} == {"investment-memo-summarization"}
+
+    # ?dataset_id narrows to that dataset; an unknown id yields no groups.
+    narrowed = client.get(
+        "/api/track-record", params={"dataset_id": "investment-memo-summarization"}
+    ).json()
+    assert len(narrowed) == 1
+    assert client.get("/api/track-record", params={"dataset_id": "nope"}).json() == []

@@ -84,8 +84,11 @@ export const extractResultSchema = z.object({
 });
 export type ExtractResult = z.infer<typeof extractResultSchema>;
 
+export const rubricKindSchema = z.enum(["exact", "contains", "similarity", "keypoint", "judge", "none"]);
+export type RubricKind = z.infer<typeof rubricKindSchema>;
+
 export const rubricSchema = z.object({
-  kind: z.enum(["exact", "contains", "similarity", "keypoint", "judge", "none"]),
+  kind: rubricKindSchema,
   threshold: z.number(),
   case_sensitive: z.boolean(),
   judge_provider_id: z.string().nullable().optional(),
@@ -111,6 +114,33 @@ export const leaderboardEntrySchema = z.object({
   cost_per_quality: z.number().nullable().optional(),
 });
 export type LeaderboardEntry = z.infer<typeof leaderboardEntrySchema>;
+
+// Cross-run standings (B4). Mirrors the Python TrackRecordEntry/TrackRecordGroup — a pure rollup
+// over existing leaderboard fields, so these touch no scoring/config_hash. pass_rate is pooled
+// (Σpasses / Σexamples across the group's runs), not a mean of per-run rates.
+export const trackRecordEntrySchema = z.object({
+  candidate_id: z.string(),
+  label: z.string(),
+  provider_id: z.string(),
+  privacy: Privacy,
+  model: z.string().nullable().optional(),
+  runs: z.number(),
+  total_examples: z.number(),
+  total_passes: z.number(),
+  pass_rate: z.number(),
+  avg_cost_usd: z.number(),
+  times_recommended: z.number(),
+});
+export type TrackRecordEntry = z.infer<typeof trackRecordEntrySchema>;
+
+export const trackRecordGroupSchema = z.object({
+  dataset_id: z.string(),
+  dataset_name: z.string(),
+  rubric_kind: rubricKindSchema,
+  runs: z.number(),
+  entries: z.array(trackRecordEntrySchema),
+});
+export type TrackRecordGroup = z.infer<typeof trackRecordGroupSchema>;
 
 export const resultRowSchema = z.object({
   candidate_id: z.string(),
@@ -314,6 +344,15 @@ export async function setProviderKey(
 // and reopen the run in the cockpit without a second fetch.
 export function getRuns(): Promise<ProofReport[]> {
   return getJson("/api/runs", z.array(proofReportSchema));
+}
+
+// Cross-run standings, one group per (dataset, rubric kind). Pass a datasetId to narrow to one
+// dataset. Quick/unscored runs are excluded server-side by the core rollup.
+export function getTrackRecord(datasetId?: string): Promise<TrackRecordGroup[]> {
+  const url = datasetId
+    ? `/api/track-record?dataset_id=${encodeURIComponent(datasetId)}`
+    : "/api/track-record";
+  return getJson(url, z.array(trackRecordGroupSchema));
 }
 
 // Record the operator's head-to-head pick on a quick-compare run (candidate id or "tie").
