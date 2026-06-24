@@ -90,9 +90,8 @@ def _scored_by(rubric) -> str:
         return "Keypoint coverage"
     if rubric.kind == "judge":
         return f"LLM judge · {rubric.judge_model or rubric.judge_provider_id}"
-    return {"similarity": "Similarity", "exact": "Exact match", "contains": "Contains"}.get(
-        rubric.kind, rubric.kind
-    )
+    labels = {"similarity": "Similarity", "exact": "Exact match", "contains": "Contains"}
+    return labels.get(rubric.kind) or rubric.kind
 
 
 def _md_cell(text: str) -> str:
@@ -130,12 +129,21 @@ def build_receipt(report: ProofReport) -> dict:
     n_examples = len(report.results) // max(len(run.candidates), 1)
     if is_quick:
         summary = f"{len(run.candidates)} candidate(s) × {n_examples} example(s) · quick check (unscored)"
-        quick_verdict, quick_reco = _quick_pick_lines(report)
+        verdict, recommendation = _quick_pick_lines(report)
     else:
         summary = (
             f"{len(run.candidates)} candidate(s) × {n_examples} "
             f"example(s) · rubric {run.rubric.kind} ≥ {run.rubric.threshold}"
         )
+        if top is not None and has_winner:
+            verdict = _verdict(top)
+            recommendation = _recommendation_line(top)
+        elif top is not None:
+            verdict = "No clear winner"
+            recommendation = f"No candidate passed the rubric (threshold {run.rubric.threshold:.2f})."
+        else:
+            verdict = "No run"
+            recommendation = "No candidates were run."
     return {
         "receipt_version": RECEIPT_VERSION,
         "run_id": run.id,
@@ -158,22 +166,8 @@ def build_receipt(report: ProofReport) -> dict:
             "repeatable proof."
             if is_quick else ""
         ),
-        "verdict": (
-            quick_verdict if is_quick
-            else (_verdict(top) if has_winner else ("No clear winner" if top else "No run"))
-        ),
-        "recommendation": (
-            quick_reco if is_quick
-            else (
-                _recommendation_line(top)
-                if has_winner
-                else (
-                    f"No candidate passed the rubric (threshold {run.rubric.threshold:.2f})."
-                    if top
-                    else "No candidates were run."
-                )
-            )
-        ),
+        "verdict": verdict,
+        "recommendation": recommendation,
         "leaderboard": [e.model_dump() for e in report.leaderboard],
         "prompt_variants": [
             {"name": e["label"], "system_prompt": e["system_prompt"]}

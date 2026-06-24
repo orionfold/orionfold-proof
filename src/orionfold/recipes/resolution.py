@@ -48,6 +48,12 @@ def _price(model: CatalogModel) -> float | None:
     return model.pricing.input_per_mtok if model.pricing else None
 
 
+def _price_key(row: tuple[CatalogProvider, CatalogModel], *, unpriced: float) -> float:
+    """Non-None sort key for ``min``: unpriced models sort to ``unpriced``."""
+    price = _price(row[1])
+    return price if price is not None else unpriced
+
+
 def _matches(selector: Selector, provider: CatalogProvider, model: CatalogModel) -> bool:
     if selector.family is not None and model.family != selector.family:
         return False
@@ -62,7 +68,7 @@ def _matches(selector: Selector, provider: CatalogProvider, model: CatalogModel)
 
 def _pick(selector: Selector, rows: list[tuple[CatalogProvider, CatalogModel]]):
     if selector.pick == "cheapest":
-        return min(rows, key=lambda r: _price(r[1]) if _price(r[1]) is not None else 0.0)
+        return min(rows, key=lambda r: _price_key(r, unpriced=0.0))
     if selector.pick == "latest":
         return next((r for r in rows if r[1].latest), rows[0])
     # "recommended": recommended flag, then latest, then cheapest, then first.
@@ -74,7 +80,7 @@ def _pick(selector: Selector, rows: list[tuple[CatalogProvider, CatalogModel]]):
             return r
     priced = [r for r in rows if _price(r[1]) is not None]
     if priced:
-        return min(priced, key=lambda r: _price(r[1]))
+        return min(priced, key=lambda r: _price_key(r, unpriced=0.0))
     return rows[0]
 
 
@@ -99,9 +105,7 @@ def _resolve_one(selector: Selector, available: set[str]):
     cloud = [r for r in matches if r[0].id in CLOUD_KEY_NAMES]
     if not cloud:
         return None
-    provider, _ = min(
-        cloud, key=lambda r: _price(r[1]) if _price(r[1]) is not None else float("inf")
-    )
+    provider, _ = min(cloud, key=lambda r: _price_key(r, unpriced=float("inf")))
     return UnmetSelector(
         label=selector.label,
         needs_provider_id=provider.id,
