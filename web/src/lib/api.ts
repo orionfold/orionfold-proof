@@ -55,13 +55,30 @@ export const exampleSchema = z.object({
   input_text: z.string(),
   expected_text: z.string(),
   keypoints: z.array(z.string()).optional().default([]),
+  // Per-row governance contract (bench datasets); all optional → plain datasets are unaffected.
+  // Read with `?? []` / `?? false`; left optional (not defaulted) so fixtures stay terse.
+  expected_behavior: z.enum(["answer", "route", "refuse"]).nullable().optional(),
+  expected_citations: z.array(z.string()).optional(),
+  accepted_source_ids: z.array(z.string()).optional(),
+  requires_citation: z.boolean().optional(),
+  requires_refusal: z.boolean().optional(),
+  requires_route: z.boolean().optional(),
 });
+
+export const corpusSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  description: z.string().default(""),
+  source_ids: z.array(z.string()).default([]),
+});
+export type Corpus = z.infer<typeof corpusSchema>;
 
 export const datasetSchema = z.object({
   id: z.string(),
   name: z.string(),
   description: z.string(),
   examples: z.array(exampleSchema),
+  corpus_id: z.string().nullable().optional(),
   // Seeded sample datasets are flagged so the UI can badge them and offer targeted removal.
   // Optional (not defaulted) so the inferred type stays loose for fixtures; absent reads as falsy.
   is_sample: z.boolean().optional(),
@@ -92,8 +109,23 @@ export const extractResultSchema = z.object({
 });
 export type ExtractResult = z.infer<typeof extractResultSchema>;
 
-export const rubricKindSchema = z.enum(["exact", "contains", "similarity", "keypoint", "judge", "none"]);
+export const rubricKindSchema = z.enum(["exact", "contains", "similarity", "keypoint", "judge", "bench", "none"]);
 export type RubricKind = z.infer<typeof rubricKindSchema>;
+
+// Per-row governance verdict carried on a bench-scored ResultRow (citation/refusal/route/leak).
+export const benchVerdictSchema = z.object({
+  citation_ok: z.boolean(),
+  refusal_ok: z.boolean(),
+  route_ok: z.boolean(),
+  thinking_leak: z.boolean(),
+  private_state_risk: z.boolean(),
+  alias_residue: z.boolean(),
+  bare_answer: z.boolean(),
+  cited_source_ids: z.array(z.string()),
+  passed: z.boolean(),
+  strict_passed: z.boolean(),
+});
+export type BenchVerdict = z.infer<typeof benchVerdictSchema>;
 
 export const rubricSchema = z.object({
   kind: rubricKindSchema,
@@ -120,6 +152,8 @@ export const leaderboardEntrySchema = z.object({
   error_count: z.number(),
   recommended: z.boolean(),
   cost_per_quality: z.number().nullable().optional(),
+  // Throughput (Σoutput_tokens / Σlatency_s); null when no measured latency. Presentation only.
+  tokens_per_second: z.number().nullable().optional(),
 });
 export type LeaderboardEntry = z.infer<typeof leaderboardEntrySchema>;
 
@@ -164,6 +198,7 @@ export const resultRowSchema = z.object({
   output_tokens: z.number().default(0),
   judge_cost_usd: z.number().default(0),
   judge_latency_ms: z.number().default(0),
+  bench_detail: benchVerdictSchema.nullable().optional(),
   privacy: Privacy,
   error: z.string().nullable(),
 });
@@ -393,6 +428,7 @@ export interface RunRequest {
 export function scoredByLabel(rubric: z.infer<typeof rubricSchema>): string {
   if (rubric.kind === "keypoint") return "Keypoint coverage";
   if (rubric.kind === "judge") return `LLM judge · ${rubric.judge_model ?? rubric.judge_provider_id ?? "model"}`;
+  if (rubric.kind === "bench") return "Governance bench (citation · refusal · route)";
   if (rubric.kind === "none") return "Quick check (unscored)";
   return { similarity: "Similarity", exact: "Exact match", contains: "Contains" }[rubric.kind] ?? rubric.kind;
 }

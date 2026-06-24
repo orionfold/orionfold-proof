@@ -170,3 +170,37 @@ def test_leaderboard_is_none_safe_for_unscored_rows():
         assert e.avg_score == 0.0
         assert e.pass_count == 0
         assert e.recommended is False
+
+
+# ─── Throughput (tokens_per_second) — presentation-only generalization metric ─────────
+
+
+def _row_tok(cid: str, idx: int, *, latency: int, out_tokens: int) -> ResultRow:
+    return ResultRow(
+        candidate_id=cid, example_index=idx, input_text="in", expected_text="exp",
+        output_text="out", score=1.0, passed=True, latency_ms=latency,
+        estimated_cost_usd=0.0, output_tokens=out_tokens, privacy="local",
+    )
+
+
+def test_tokens_per_second_is_token_weighted_rollup():
+    # Σoutput_tokens / Σ(latency_s): (100 + 300) / ((1000 + 1000)/1000) = 400 / 2 = 200.
+    rows = [_row_tok("a", 0, latency=1000, out_tokens=100),
+            _row_tok("a", 1, latency=1000, out_tokens=300)]
+    entry = build_leaderboard([_cand("a")], rows)[0]
+    assert entry.tokens_per_second == 200.0
+
+
+def test_tokens_per_second_none_when_no_latency():
+    rows = [_row_tok("a", 0, latency=0, out_tokens=50)]
+    entry = build_leaderboard([_cand("a")], rows)[0]
+    assert entry.tokens_per_second is None
+
+
+def test_tokens_per_second_does_not_change_ranking():
+    # A faster-tok/s candidate with a worse pass rate must NOT outrank a slower one — throughput
+    # is informational, latency stays the tiebreaker.
+    fast_weak = [_row("fast", 0, score=0.0, passed=False, latency=10)]
+    slow_strong = [_row("slow", 0, score=1.0, passed=True, latency=999)]
+    board = build_leaderboard([_cand("fast"), _cand("slow")], fast_weak + slow_strong)
+    assert board[0].candidate_id == "slow"  # higher pass rate wins regardless of tok/s

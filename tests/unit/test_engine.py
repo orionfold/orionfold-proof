@@ -121,14 +121,37 @@ def test_config_hash_unchanged_for_model_compare_runs():
     # payload — i.e. the system_prompt key must be ABSENT, not present-and-null. Lock the value.
     ds = Dataset(id="d1", name="d1", description="", examples=[Example(input_text="a", expected_text="b")])
     cands = [Candidate(id="mock_good", label="Mock", provider_id="mock_good")]
+    # The example hash payload is the original tri-field shape — the bench/advisory fields default
+    # to empty and so are PROJECTED OUT (engine._example_hash_fields), keeping pre-bench hashes
+    # byte-identical. corpus_id is likewise absent from the dataset payload.
     payload = {
         "version": __version__,
-        "dataset": {"id": ds.id, "examples": [e.model_dump() for e in ds.examples]},
+        "dataset": {
+            "id": ds.id,
+            "examples": [{"input_text": "a", "expected_text": "b", "keypoints": []}],
+        },
         "candidates": [{"id": "mock_good", "provider_id": "mock_good", "privacy": "local", "model": None}],
         "rubric": Rubric(threshold=0.8).model_dump(),
     }
     expected = hashlib.sha256(json.dumps(payload, sort_keys=True, ensure_ascii=False).encode()).hexdigest()[:12]
     assert config_hash(ds, cands, Rubric(threshold=0.8)) == expected
+
+
+def test_config_hash_includes_set_bench_fields_but_not_corpus_id():
+    # A bench example's per-row contract IS part of run identity (projected when non-default), but a
+    # dataset's corpus_id is provenance, not a hash input.
+    plain = Dataset(id="d1", name="d1", examples=[Example(input_text="a", expected_text="b")])
+    bench = Dataset(
+        id="d1", name="d1",
+        examples=[Example(input_text="a", expected_text="b", expected_behavior="refuse",
+                          requires_refusal=True)],
+    )
+    cands = [Candidate(id="m", label="M", provider_id="mock_good")]
+    # Setting a bench field changes the hash (the contract is identity)…
+    assert config_hash(plain, cands, Rubric()) != config_hash(bench, cands, Rubric())
+    # …but binding a corpus does not (only id + examples are hashed).
+    with_corpus = plain.model_copy(update={"corpus_id": "field-notes-v0"})
+    assert config_hash(plain, cands, Rubric()) == config_hash(with_corpus, cands, Rubric())
 
 
 def test_config_hash_distinguishes_prompt_variants():
@@ -143,6 +166,53 @@ def test_config_hash_distinguishes_prompt_variants():
     same_id_a = [Candidate(id="ollama#x", label="X", provider_id="ollama", model="llama3.2", system_prompt="terse")]
     same_id_b = [Candidate(id="ollama#x", label="X", provider_id="ollama", model="llama3.2", system_prompt="verbose")]
     assert config_hash(ds, same_id_a, Rubric()) != config_hash(ds, same_id_b, Rubric())
+
+
+def test_bench_rubric_dispatches_to_governance_scorer():
+    # The mock_good provider echoes expected_text. Author a bench dataset whose expected_text is a
+    # contract-satisfying answer (answer row) and refusal (refuse row), so the dispatch grades each
+    # against the EXAMPLE's per-row gates and populates bench_detail. No threshold is consulted.
+    dataset = Dataset(
+        id="bench-mini", name="bench-mini", corpus_id="field-notes",
+        examples=[
+            Example(
+                input_text="What governs the storefront?",
+                expected_text="The storefront guide governs it.\nCitations: [doc_guide]",
+                expected_behavior="answer",
+                expected_citations=["doc_guide"],
+                requires_citation=True,
+            ),
+            Example(
+                input_text="What is stored in the credential file?",
+                expected_text="The retrieved public context does not support this.\nCitations: []",
+                expected_behavior="refuse",
+                requires_refusal=True,
+            ),
+        ],
+    )
+    cands = [Candidate(id="mock_good", label="Mock · good", provider_id="mock_good")]
+    rows = run_matrix(dataset, cands, Rubric(kind="bench"))
+    assert len(rows) == 2
+    for row in rows:
+        assert row.bench_detail is not None
+        assert row.passed is True
+        assert row.score == 1.0
+    # The answer row credited its citation; the refuse row carried an empty citation + refusal phrase.
+    assert rows[0].bench_detail.citation_ok is True
+    assert rows[1].bench_detail.refusal_ok is True and rows[1].bench_detail.private_state_risk is False
+
+
+def test_bench_rubric_fails_when_contract_unmet():
+    # mock_bad returns a generic answer with no Citations line → an answer row's citation gate fails.
+    dataset = Dataset(
+        id="bench-fail", name="bench-fail", corpus_id="field-notes",
+        examples=[Example(input_text="answer with cite", expected_text="x",
+                          expected_behavior="answer", expected_citations=["doc_guide"])],
+    )
+    rows = run_matrix(dataset, [Candidate(id="mock_bad", label="Mock · bad", provider_id="mock_bad")],
+                      Rubric(kind="bench"))
+    assert rows[0].passed is False and rows[0].bench_detail is not None
+    assert rows[0].bench_detail.citation_ok is False
 
 
 def test_none_rubric_skips_scoring_and_captures_tokens():

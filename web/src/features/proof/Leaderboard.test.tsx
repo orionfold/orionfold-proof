@@ -53,18 +53,32 @@ test("score bar uses the traffic-light status token for the pass rate, never the
 });
 
 test("$/quality cell renders Free / em-dash / value", () => {
+  // Give every row a tok/s value so the only em-dash on screen is the null $/quality cell.
   render(
     <Leaderboard
       entries={[
-        entry({ candidate_id: "free", cost_per_quality: 0 }),
-        entry({ candidate_id: "none", cost_per_quality: null }),
-        entry({ candidate_id: "paid", cost_per_quality: 0.004 }),
+        entry({ candidate_id: "free", cost_per_quality: 0, tokens_per_second: 10 }),
+        entry({ candidate_id: "none", cost_per_quality: null, tokens_per_second: 10 }),
+        entry({ candidate_id: "paid", cost_per_quality: 0.004, tokens_per_second: 10 }),
       ]}
     />,
   );
   expect(screen.getByText("Free")).toBeInTheDocument();
   expect(screen.getByText("—")).toBeInTheDocument();
   expect(screen.getByText("$0.0040")).toBeInTheDocument();
+});
+
+test("tok/s cell renders the throughput value or an em-dash when unmeasured", () => {
+  render(
+    <Leaderboard
+      entries={[
+        entry({ candidate_id: "fast", cost_per_quality: 0.01, tokens_per_second: 72.4 }),
+        entry({ candidate_id: "nolat", cost_per_quality: 0.01, tokens_per_second: null }),
+      ]}
+    />,
+  );
+  expect(screen.getByText("72.4")).toBeInTheDocument();
+  expect(screen.getByText("—")).toBeInTheDocument(); // the unmeasured throughput cell
 });
 
 // ── WS-F F2/F3: sortable + mono-microcap headers ───────────────────────────────────────────────

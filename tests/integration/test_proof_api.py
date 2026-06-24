@@ -207,7 +207,21 @@ def test_create_dataset_round_trips_and_appears_in_list(client):
     assert resp.status_code == 201
     created = resp.json()
     assert created["id"] == "client-summaries"
-    assert created["examples"] == [{"input_text": "hello", "expected_text": "world", "keypoints": []}]
+    # A plain (non-bench) example: the core tri-fields plus the defaulted bench/advisory contract
+    # (additive in v9 — bench fields default to empty, so a non-bench import carries them inert).
+    assert created["examples"] == [
+        {
+            "input_text": "hello",
+            "expected_text": "world",
+            "keypoints": [],
+            "expected_behavior": None,
+            "expected_citations": [],
+            "accepted_source_ids": [],
+            "requires_citation": False,
+            "requires_refusal": False,
+            "requires_route": False,
+        }
+    ]
     ids = {d["id"] for d in client.get("/api/datasets").json()}
     assert "client-summaries" in ids
 
@@ -754,3 +768,63 @@ def test_track_record_filter_and_quick_exclusion(client):
     ).json()
     assert len(narrowed) == 1
     assert client.get("/api/track-record", params={"dataset_id": "nope"}).json() == []
+
+
+# ─── v9: Corpus route + bench-run binding validation ──────────────────────────────────
+
+
+def test_corpora_route_lists_bundled_corpus(client):
+    corpora = client.get("/api/corpora").json()
+    ids = {c["id"] for c in corpora}
+    assert "ainative-field-notes" in ids
+    fn = next(c for c in corpora if c["id"] == "ainative-field-notes")
+    assert len(fn["source_ids"]) > 0
+
+
+def test_bench_run_against_unbound_dataset_is_400(client):
+    # A non-bench dataset has no corpus_id; forcing a bench rubric must fail the binding gate.
+    body = {
+        "dataset_id": "investment-memo-summarization",
+        "candidate_ids": ["mock_good"],
+        "rubric": {"kind": "bench"},
+        "brief": {"task_name": "t", "decision_question": "q?"},
+    }
+    resp = client.post("/api/runs", json=body)
+    assert resp.status_code == 400
+    assert "corpus" in resp.json()["detail"].lower()
+
+
+def test_bench_run_on_bound_dataset_produces_governance_receipt(client, tmp_path):
+    # Create a corpus + a bench dataset bound to it via the repository, then run it through the API
+    # and confirm the receipt is scored by the governance bench (not similarity/keypoint).
+    from orionfold.domain.models import Corpus, Example
+    from orionfold.storage.db import connect
+    from orionfold.storage.repository import save_dataset, upsert_corpus
+
+    conn = connect(tmp_path / "proof.db")
+    upsert_corpus(conn, Corpus(id="fn-test", name="FN", source_ids=["doc_guide"]))
+    ds = save_dataset(
+        conn, "Bench API set", "d",
+        [Example(input_text="How is the storefront positioned?",
+                 expected_text="The guide governs it.\nCitations: [doc_guide]",
+                 expected_behavior="answer", expected_citations=["doc_guide"])],
+        corpus_id="fn-test",
+    )
+    conn.close()
+
+    body = {
+        "dataset_id": ds.id,
+        "candidate_ids": ["mock_good"],
+        "rubric": {"kind": "bench"},
+        "brief": {"task_name": "Governance", "decision_question": "Cites right?"},
+    }
+    resp = client.post("/api/runs", json=body)
+    assert resp.status_code == 200
+    report = resp.json()
+    assert report["run"]["rubric"]["kind"] == "bench"
+    # The receipt's scored-by descriptor is the governance bench (deterministic, no threshold).
+    from orionfold.domain.models import ProofReport
+    from orionfold.receipts import export
+
+    scored_by = export.build_receipt(ProofReport.model_validate(report))["scored_by"]
+    assert scored_by.startswith("Governance bench")

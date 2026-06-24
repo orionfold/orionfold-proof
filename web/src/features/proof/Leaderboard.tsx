@@ -94,6 +94,8 @@ export function Leaderboard({ entries }: { entries: LeaderboardEntry[] }) {
               <SortableHeader column="cost_per_quality" label="$ / quality" sort={sort} onSort={onSort} />
               <SortableHeader column="avg_score" label="Avg score" sort={sort} onSort={onSort} />
               <SortableHeader column="avg_latency_ms" label="Avg latency" sort={sort} onSort={onSort} />
+              {/* Throughput is informational, never a ranking key (spec §4a) → a plain, non-sortable header. */}
+              <th className={HEADER_CLS}>tok/s</th>
               <SortableHeader column="total_estimated_cost_usd" label="Est. cost" sort={sort} onSort={onSort} />
               <SortableHeader column="failure_count" label="Failures" sort={sort} onSort={onSort} />
             </tr>
@@ -138,6 +140,9 @@ export function Leaderboard({ entries }: { entries: LeaderboardEntry[] }) {
                 <td className="p-3 tabular-nums">{formatCostPerQuality(e.cost_per_quality)}</td>
                 <td className="p-3">{e.avg_score.toFixed(2)}</td>
                 <td className="p-3">{e.avg_latency_ms}ms</td>
+                <td className="p-3 tabular-nums">
+                  {e.tokens_per_second != null ? e.tokens_per_second.toFixed(1) : "—"}
+                </td>
                 <td className="p-3">${e.total_estimated_cost_usd.toFixed(2)}</td>
                 <td className="p-3">
                   {e.failure_count}

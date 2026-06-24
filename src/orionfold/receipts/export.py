@@ -26,8 +26,13 @@ from orionfold.domain.models import LeaderboardEntry, ProofReport, ResultRow
 # v8: quick-compare runs — the receipt carries `mode` ("full"|"quick") and `chosen_winner`. A quick
 # receipt is a single-example, un-scored, human-picked check: objective columns only (latency / cost
 # / tokens), no failure cases, a "quick check — not scored proof" note, and a promote-to-full CTA.
+# v9: governance bench — a new `bench` rubric kind scored deterministically (citation / refusal /
+# route / no-leak), with NO threshold. The receipt's "Scored by" reads "Governance bench (…)", the
+# summary drops the "≥ threshold" tail for bench, each leaderboard row carries a `tok/s` throughput
+# column (the 32GB-Mac-vs-128GB-GB10 generalization metric; presentation only), and a bench failure
+# case shows the per-gate verdict (citation/refusal/route/leak/residue) instead of a numeric score.
 # Bump on any schema change so downstream consumers can detect drift.
-RECEIPT_VERSION = 8
+RECEIPT_VERSION = 9
 
 
 def _verdict(top: LeaderboardEntry) -> str:
@@ -84,12 +89,40 @@ def _cost_per_quality_label(v: float | None) -> str:
     return f"${v:.4f}"
 
 
+def _tok_per_sec_label(v: float | None) -> str:
+    """Display rule for the throughput cell (tok/s), shared by MD and HTML."""
+    return "—" if v is None else f"{v:.1f}"
+
+
+def _rubric_label(rubric: dict) -> str:
+    """The 'Rubric:' metadata value, shared by MD and HTML. Bench is threshold-free, so it shows the
+    kind alone — never a misleading '≥ 0.8' tail it doesn't use."""
+    if rubric["kind"] == "bench":
+        return "bench (deterministic)"
+    return f"{rubric['kind']} ≥ {rubric['threshold']}"
+
+
+def _bench_gate_summary(detail: dict) -> str:
+    """One-line list of the FAILED governance gates for a bench failure case."""
+    flags = [
+        ("citation", not detail.get("citation_ok", True)),
+        ("refusal", not detail.get("refusal_ok", True)),
+        ("route", not detail.get("route_ok", True)),
+        ("thinking-leak", detail.get("thinking_leak", False)),
+        ("private-state-leak", detail.get("private_state_risk", False)),
+    ]
+    failed = [name for name, is_failed in flags if is_failed]
+    return ", ".join(failed) if failed else "residue"
+
+
 def _scored_by(rubric) -> str:
     """Human-readable descriptor for the rubric kind, safe to display in receipts."""
     if rubric.kind == "keypoint":
         return "Keypoint coverage"
     if rubric.kind == "judge":
         return f"LLM judge · {rubric.judge_model or rubric.judge_provider_id}"
+    if rubric.kind == "bench":
+        return "Governance bench (citation · refusal · route)"
     labels = {"similarity": "Similarity", "exact": "Exact match", "contains": "Contains"}
     return labels.get(rubric.kind) or rubric.kind
 
@@ -131,16 +164,25 @@ def build_receipt(report: ProofReport) -> dict:
         summary = f"{len(run.candidates)} candidate(s) × {n_examples} example(s) · quick check (unscored)"
         verdict, recommendation = _quick_pick_lines(report)
     else:
+        is_bench = run.rubric.kind == "bench"
+        rubric_clause = (
+            "governance bench (deterministic)"
+            if is_bench
+            else f"rubric {run.rubric.kind} ≥ {run.rubric.threshold}"
+        )
         summary = (
-            f"{len(run.candidates)} candidate(s) × {n_examples} "
-            f"example(s) · rubric {run.rubric.kind} ≥ {run.rubric.threshold}"
+            f"{len(run.candidates)} candidate(s) × {n_examples} example(s) · {rubric_clause}"
         )
         if top is not None and has_winner:
             verdict = _verdict(top)
             recommendation = _recommendation_line(top)
         elif top is not None:
             verdict = "No clear winner"
-            recommendation = f"No candidate passed the rubric (threshold {run.rubric.threshold:.2f})."
+            recommendation = (
+                "No candidate passed the governance bench."
+                if is_bench
+                else f"No candidate passed the rubric (threshold {run.rubric.threshold:.2f})."
+            )
         else:
             verdict = "No run"
             recommendation = "No candidates were run."
@@ -273,7 +315,7 @@ def to_markdown(report: ProofReport) -> str:
         f"- **Decision:** {brief['decision_question']}",
         f"- **Task:** {brief['task_name']}",
         f"- **Dataset:** {data['dataset']['name']} (`{data['dataset']['id']}`)",
-        f"- **Rubric:** {data['rubric']['kind']} ≥ {data['rubric']['threshold']}",
+        f"- **Rubric:** {_rubric_label(data['rubric'])}",
         f"- **Scored by:** {data['scored_by']}",
         f"- **Run id:** `{data['run_id']}`",
         f"- **Config hash:** `{data['config_hash']}`",
@@ -282,8 +324,8 @@ def to_markdown(report: ProofReport) -> str:
         "",
         "## Leaderboard",
         "",
-        "| Candidate | Provider | Privacy | Pass rate | $ / quality | Avg score | Avg latency | Est. cost | Failures |",
-        "| --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+        "| Candidate | Provider | Privacy | Pass rate | $ / quality | Avg score | Avg latency | tok/s | Est. cost | Failures |",
+        "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
     ]
     for e in data["leaderboard"]:
         marker = " ⭐" if e["recommended"] else ""
@@ -292,7 +334,8 @@ def to_markdown(report: ProofReport) -> str:
             f"{_md_cell(e['privacy'])} | "
             f"{e['pass_rate']:.0%} ({e['pass_count']}/{e['total']}) | "
             f"{_cost_per_quality_label(e['cost_per_quality'])} | {e['avg_score']:.2f} | "
-            f"{e['avg_latency_ms']}ms | ${e['total_estimated_cost_usd']:.2f} | {_failures_label(e)} |"
+            f"{e['avg_latency_ms']}ms | {_tok_per_sec_label(e['tokens_per_second'])} | "
+            f"${e['total_estimated_cost_usd']:.2f} | {_failures_label(e)} |"
         )
 
     c = data["cost"]
@@ -307,7 +350,12 @@ def to_markdown(report: ProofReport) -> str:
     if not failures:
         lines.append("_No failures — every candidate passed every example._")
     for f in failures:
-        reason = f"error: {f['error']}" if f["error"] else f"score {f['score']:.2f}"
+        if f["error"]:
+            reason = f"error: {f['error']}"
+        elif f.get("bench_detail"):
+            reason = f"failed gate(s): {_bench_gate_summary(f['bench_detail'])}"
+        else:
+            reason = f"score {f['score']:.2f}"
         lines += [
             f"- **{f['candidate_id']}** · example {f['example_index']} · {reason}",
             f"  - input: {_md_inline(f['input_text'])}",
@@ -458,6 +506,7 @@ def to_html(report: ProofReport, theme: str | None = None) -> str:
         f"<td>{html.escape(_cost_per_quality_label(e['cost_per_quality']))}</td>"
         f"<td>{e['avg_score']:.2f}</td>"
         f"<td>{e['avg_latency_ms']}ms</td>"
+        f"<td>{html.escape(_tok_per_sec_label(e['tokens_per_second']))}</td>"
         f"<td>${e['total_estimated_cost_usd']:.2f}</td>"
         f"<td>{html.escape(_failures_label(e))}</td>"
         "</tr>"
@@ -474,7 +523,13 @@ def to_html(report: ProofReport, theme: str | None = None) -> str:
                 cid=html.escape(f["candidate_id"]),
                 idx=f["example_index"],
                 reason=html.escape(
-                    f"error: {f['error']}" if f["error"] else f"score {f['score']:.2f}"
+                    f"error: {f['error']}"
+                    if f["error"]
+                    else (
+                        f"failed gate(s): {_bench_gate_summary(f['bench_detail'])}"
+                        if f.get("bench_detail")
+                        else f"score {f['score']:.2f}"
+                    )
                 ),
                 inp=html.escape(f["input_text"]),
                 exp=html.escape(f["expected_text"]),
@@ -513,7 +568,7 @@ def to_html(report: ProofReport, theme: str | None = None) -> str:
   <dl>
     <dt>Decision</dt><dd>{html.escape(brief['decision_question'])}</dd>
     <dt>Dataset</dt><dd>{html.escape(data['dataset']['name'])} (<code>{html.escape(data['dataset']['id'])}</code>)</dd>
-    <dt>Rubric</dt><dd>{html.escape(data['rubric']['kind'])} ≥ {data['rubric']['threshold']}</dd>
+    <dt>Rubric</dt><dd>{html.escape(_rubric_label(data['rubric']))}</dd>
     <dt>Scored by</dt><dd>{html.escape(data['scored_by'])}</dd>
     <dt>Run id</dt><dd><code>{html.escape(data['run_id'])}</code></dd>
     <dt>Config hash</dt><dd><code>{html.escape(data['config_hash'])}</code></dd>
@@ -525,7 +580,7 @@ def to_html(report: ProofReport, theme: str | None = None) -> str:
     <thead><tr>
       <th>Candidate</th><th>Provider</th><th>Privacy</th><th>Pass rate</th>
       <th>$ / quality</th>
-      <th>Avg score</th><th>Avg latency</th><th>Est. cost</th><th>Failures</th>
+      <th>Avg score</th><th>Avg latency</th><th>tok/s</th><th>Est. cost</th><th>Failures</th>
     </tr></thead>
     <tbody>{rows}</tbody>
   </table>

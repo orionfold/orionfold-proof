@@ -145,3 +145,71 @@ def test_update_dataset_meta_changes_only_provided_fields():
 def test_update_dataset_meta_unknown_id_returns_false():
     conn = _conn()
     assert update_dataset_meta(conn, "nope", tags=["x"]) is False
+
+
+# ─── Migration 6: Corpus + nullable corpus_id binding ─────────────────────────────────
+
+
+def test_migration_six_adds_corpora_and_corpus_id():
+    conn = _conn()
+    cols = {r["name"] for r in conn.execute("PRAGMA table_info(datasets)")}
+    assert "corpus_id" in cols
+    tables = {r["name"] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+    assert "corpora" in tables
+
+
+def test_corpus_crud_round_trip():
+    from orionfold.domain.models import Corpus
+    from orionfold.storage.repository import get_corpus, list_corpora, upsert_corpus
+
+    conn = _conn()
+    c = Corpus(id="field-notes", name="Field notes", description="d", source_ids=["a", "b"])
+    upsert_corpus(conn, c)
+    back = get_corpus(conn, "field-notes")
+    assert back is not None and back.source_ids == ["a", "b"]
+    assert [x.id for x in list_corpora(conn)] == ["field-notes"]
+    # Idempotent replace.
+    upsert_corpus(conn, c.model_copy(update={"source_ids": ["a", "b", "c"]}))
+    assert get_corpus(conn, "field-notes").source_ids == ["a", "b", "c"]
+
+
+def test_bench_dataset_corpus_id_round_trips():
+    conn = _conn()
+    from orionfold.storage.repository import save_dataset
+
+    ds = save_dataset(
+        conn, "Bench set", "d",
+        [Example(input_text="q", expected_text="", expected_behavior="refuse")],
+        corpus_id="field-notes",
+    )
+    assert ds.corpus_id == "field-notes"
+    assert get_dataset(conn, ds.id).corpus_id == "field-notes"
+    # A non-bench dataset keeps corpus_id None.
+    plain = save_dataset(conn, "Plain set", "d", [Example(input_text="q", expected_text="e")])
+    assert get_dataset(conn, plain.id).corpus_id is None
+
+
+def test_validate_bench_binding_requires_known_corpus_and_in_corpus_citations():
+    from orionfold.domain.models import Corpus
+    from orionfold.storage.repository import (
+        BenchBindingError,
+        upsert_corpus,
+        validate_bench_binding,
+    )
+
+    conn = _conn()
+    upsert_corpus(conn, Corpus(id="fn", name="FN", source_ids=["src_a", "src_b"]))
+    good = [Example(input_text="q", expected_text="", expected_behavior="answer",
+                    expected_citations=["src_a"])]
+    assert validate_bench_binding(conn, "fn", good).id == "fn"
+    # Missing corpus_id.
+    with pytest.raises(BenchBindingError):
+        validate_bench_binding(conn, None, good)
+    # Unknown corpus.
+    with pytest.raises(BenchBindingError):
+        validate_bench_binding(conn, "nope", good)
+    # A cited id outside the corpus.
+    bad = [Example(input_text="q", expected_text="", expected_behavior="answer",
+                   expected_citations=["src_z"])]
+    with pytest.raises(BenchBindingError):
+        validate_bench_binding(conn, "fn", bad)

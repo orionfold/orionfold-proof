@@ -12,8 +12,8 @@ import sqlite3
 
 from pydantic import BaseModel
 
-from orionfold.data import bundled_datasets
-from orionfold.domain.models import Dataset, Example, ProofReport
+from orionfold.data import bundled_corpora, bundled_datasets
+from orionfold.domain.models import Corpus, Dataset, Example, ProofReport
 
 
 class DatasetMeta(BaseModel):
@@ -61,37 +61,41 @@ def seed_datasets(conn: sqlite3.Connection) -> None:
     conn.commit()
 
 
-def list_datasets(conn: sqlite3.Connection) -> list[Dataset]:
-    rows = conn.execute(
-        "SELECT id, name, description, examples FROM datasets ORDER BY name"
-    ).fetchall()
-    return [
-        Dataset.model_validate(
-            {
-                "id": r["id"],
-                "name": r["name"],
-                "description": r["description"],
-                "examples": _load_examples(r["examples"]),
-            }
-        )
-        for r in rows
-    ]
-
-
-def get_dataset(conn: sqlite3.Connection, dataset_id: str) -> Dataset | None:
-    r = conn.execute(
-        "SELECT id, name, description, examples FROM datasets WHERE id = ?", (dataset_id,)
-    ).fetchone()
-    if r is None:
-        return None
+def _dataset_from_row(r: sqlite3.Row) -> Dataset:
+    """Build a domain Dataset from a row, carrying corpus_id when the column is present."""
+    keys = r.keys()
     return Dataset.model_validate(
         {
             "id": r["id"],
             "name": r["name"],
             "description": r["description"],
             "examples": _load_examples(r["examples"]),
+            "corpus_id": (r["corpus_id"] if "corpus_id" in keys else None),
         }
     )
+
+
+def seed_corpora(conn: sqlite3.Connection) -> None:
+    """Insert bundled corpus manifests if absent (idempotent). Runs before any bench dataset so a
+    bench binding can validate its citations against a known corpus."""
+    for corpus in bundled_corpora():
+        upsert_corpus(conn, corpus)
+    conn.commit()
+
+
+def list_datasets(conn: sqlite3.Connection) -> list[Dataset]:
+    rows = conn.execute(
+        "SELECT id, name, description, examples, corpus_id FROM datasets ORDER BY name"
+    ).fetchall()
+    return [_dataset_from_row(r) for r in rows]
+
+
+def get_dataset(conn: sqlite3.Connection, dataset_id: str) -> Dataset | None:
+    r = conn.execute(
+        "SELECT id, name, description, examples, corpus_id FROM datasets WHERE id = ?",
+        (dataset_id,),
+    ).fetchone()
+    return None if r is None else _dataset_from_row(r)
 
 
 def save_report(conn: sqlite3.Connection, report: ProofReport, *, is_sample: bool = False) -> None:
@@ -144,21 +148,10 @@ def insert_sample_dataset(
 def list_dataset_rows(conn: sqlite3.Connection) -> list[tuple[Dataset, DatasetMeta]]:
     """Datasets plus display metadata — for the API; the domain model stays flag-free."""
     rows = conn.execute(
-        "SELECT id, name, description, examples, is_sample, tags, created_at, source, check_hint "
-        "FROM datasets ORDER BY name"
+        "SELECT id, name, description, examples, is_sample, tags, created_at, source, check_hint, "
+        "corpus_id FROM datasets ORDER BY name"
     ).fetchall()
-    out: list[tuple[Dataset, DatasetMeta]] = []
-    for r in rows:
-        dataset = Dataset.model_validate(
-            {
-                "id": r["id"],
-                "name": r["name"],
-                "description": r["description"],
-                "examples": _load_examples(r["examples"]),
-            }
-        )
-        out.append((dataset, _load_meta(r)))
-    return out
+    return [(_dataset_from_row(r), _load_meta(r)) for r in rows]
 
 
 def get_dataset_meta(conn: sqlite3.Connection, dataset_id: str) -> DatasetMeta | None:
@@ -260,8 +253,14 @@ def save_dataset(
     source: str = "",
     check_hint: str | None = None,
     created_at: str = "",
+    corpus_id: str | None = None,
 ) -> Dataset:
-    """Create a new dataset. Name must be unique (case-insensitive); id is a unique slug."""
+    """Create a new dataset. Name must be unique (case-insensitive); id is a unique slug.
+
+    A ``corpus_id`` binds a bench dataset to its governing corpus; the binding's integrity (the
+    corpus exists and every cited id is drawn from it) is validated by the caller via
+    :func:`validate_bench_binding` before this is reached.
+    """
     import json
 
     name = name.strip()
@@ -277,11 +276,13 @@ def save_dataset(
         name=name,
         description=description.strip(),
         examples=examples,
+        corpus_id=corpus_id,
     )
     clean_tags = [str(t).strip() for t in (tags or []) if str(t).strip()]
     conn.execute(
-        "INSERT INTO datasets (id, name, description, examples, tags, created_at, source, check_hint) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO datasets "
+        "(id, name, description, examples, tags, created_at, source, check_hint, corpus_id) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
         (
             dataset.id,
             dataset.name,
@@ -291,10 +292,85 @@ def save_dataset(
             created_at,
             source,
             (check_hint or "").strip(),
+            corpus_id,
         ),
     )
     conn.commit()
     return dataset
+
+
+# ─── Corpus CRUD + bench-binding integrity gate (spec §4) ─────────────────────────────
+
+
+def upsert_corpus(conn: sqlite3.Connection, corpus: Corpus) -> Corpus:
+    """Insert or replace a corpus by id. Idempotent — used to seed the bundled corpus."""
+    import json
+
+    conn.execute(
+        "INSERT OR REPLACE INTO corpora (id, name, description, source_ids) VALUES (?, ?, ?, ?)",
+        (corpus.id, corpus.name, corpus.description, json.dumps(corpus.source_ids)),
+    )
+    conn.commit()
+    return corpus
+
+
+def get_corpus(conn: sqlite3.Connection, corpus_id: str) -> Corpus | None:
+    r = conn.execute(
+        "SELECT id, name, description, source_ids FROM corpora WHERE id = ?", (corpus_id,)
+    ).fetchone()
+    if r is None:
+        return None
+    import json
+
+    return Corpus(
+        id=r["id"], name=r["name"], description=r["description"],
+        source_ids=list(json.loads(r["source_ids"] or "[]")),
+    )
+
+
+def list_corpora(conn: sqlite3.Connection) -> list[Corpus]:
+    import json
+
+    rows = conn.execute(
+        "SELECT id, name, description, source_ids FROM corpora ORDER BY name"
+    ).fetchall()
+    return [
+        Corpus(
+            id=r["id"], name=r["name"], description=r["description"],
+            source_ids=list(json.loads(r["source_ids"] or "[]")),
+        )
+        for r in rows
+    ]
+
+
+class BenchBindingError(ValueError):
+    """A bench dataset's corpus binding is invalid — surfaced to the API as HTTP 400."""
+
+
+def validate_bench_binding(
+    conn: sqlite3.Connection, corpus_id: str | None, examples: list[Example]
+) -> Corpus:
+    """Validate a bench dataset's binding: the corpus exists and every cited id is drawn from it.
+
+    The integrity gate of spec §4 — provenance, not retrieval. Raises :class:`BenchBindingError`
+    when ``corpus_id`` is missing/unknown or any expected/accepted id is outside the corpus.
+    """
+    if not corpus_id:
+        raise BenchBindingError("A bench dataset must bind a corpus (corpus_id is required).")
+    corpus = get_corpus(conn, corpus_id)
+    if corpus is None:
+        raise BenchBindingError(f"Unknown corpus '{corpus_id}'.")
+    known = set(corpus.source_ids)
+    cited: set[str] = set()
+    for ex in examples:
+        cited.update(ex.expected_citations)
+        cited.update(ex.accepted_source_ids)
+    unknown = sorted(cited - known)
+    if unknown:
+        raise BenchBindingError(
+            f"Citations not in corpus '{corpus_id}': {', '.join(unknown)}."
+        )
+    return corpus
 
 
 def _slug(name: str) -> str:

@@ -123,8 +123,8 @@ def make_report():
     return _make
 
 
-def test_receipt_version_is_8():
-    assert export.RECEIPT_VERSION == 8
+def test_receipt_version_is_9():
+    assert export.RECEIPT_VERSION == 9
 
 
 def test_receipt_has_cost_per_quality_column_and_field():
@@ -198,7 +198,7 @@ def test_receipt_records_prompt_variants_and_text():
                          cost_summary=RunCostSummary(candidate_cost_usd=0, judge_cost_usd=0, total_cost_usd=0))
 
     data = export.build_receipt(report)
-    assert data["receipt_version"] == 8
+    assert data["receipt_version"] == 9
     assert data["prompt_variants"] == [
         {"name": "Baseline", "system_prompt": "Be neutral."},
         {"name": "Concise", "system_prompt": "Be terse."},
@@ -270,3 +270,65 @@ def test_quick_html_is_objective_and_secret_free():
     assert "Promote to a full scored run" in html_out
     low = html_out.lower()
     assert "api_key" not in low and "sk-" not in low
+
+
+# ─── v9: governance bench receipt (Scored by · tok/s · per-gate failure detail) ───────
+
+
+def _bench_report():
+    """A bench run where mock_good echoes a contract-satisfying answer and mock_bad fails it."""
+    dataset = Dataset(
+        id="advisor-curveball-v0.2", name="Advisor curveball v0.2", corpus_id="ainative-field-notes",
+        examples=[
+            Example(
+                # Chosen so mock_bad doesn't hit its deterministic error path (% 5 != 0), letting the
+                # receipt show a real failed-gate verdict rather than a provider error.
+                input_text="How is the storefront positioned?",
+                expected_text="The storefront guide governs it.\nCitations: [doc_guide]",
+                expected_behavior="answer", expected_citations=["doc_guide"], requires_citation=True,
+            ),
+        ],
+    )
+    return run_proof(
+        run_id="run_bench01", created_at="2026-06-19T12:00:00Z",
+        brief=ProofBrief(task_name="Advisor governance", decision_question="Does it cite right?"),
+        dataset=dataset,
+        candidates=[
+            Candidate(id="mock_good", label="Mock · good", provider_id="mock_good"),
+            Candidate(id="mock_bad", label="Mock · bad", provider_id="mock_bad"),
+        ],
+        rubric=Rubric(kind="bench"),
+    )
+
+
+def test_bench_receipt_scored_by_and_no_threshold_summary():
+    report = _bench_report()
+    data = export.build_receipt(report)
+    assert data["scored_by"] == "Governance bench (citation · refusal · route)"
+    assert "governance bench (deterministic)" in data["summary"]
+    assert "≥" not in data["summary"]  # bench has no threshold
+    # Neither the rendered Markdown nor HTML "Rubric:" line shows a misleading threshold tail.
+    md = export.to_markdown(report)
+    html_doc = export.to_html(report)
+    assert "bench (deterministic)" in md and "bench (deterministic)" in html_doc
+    assert "bench ≥" not in md and "bench ≥" not in html_doc
+
+
+def test_bench_receipt_surfaces_tokens_per_second_column():
+    md = export.to_markdown(_bench_report())
+    html_doc = export.to_html(_bench_report())
+    assert "tok/s" in md and "tok/s" in html_doc
+
+
+def test_bench_failure_case_shows_failed_gates():
+    # mock_bad returns a generic answer with no Citations line → the citation gate fails, and the
+    # receipt names the failed gate rather than a numeric score.
+    md = export.to_markdown(_bench_report())
+    assert "failed gate(s): citation" in md
+
+
+def test_bench_receipt_is_secret_free():
+    for text in (export.to_json(_bench_report()), export.to_markdown(_bench_report()),
+                 export.to_html(_bench_report())):
+        lowered = text.lower()
+        assert "api_key" not in lowered and "sk-" not in lowered

@@ -21,6 +21,7 @@ const RUBRIC_KIND_LABEL: Record<RubricKind, string> = {
   similarity: "Similarity",
   keypoint: "Keypoint coverage",
   judge: "LLM judge",
+  bench: "Governance bench",
   none: "Unscored",
 };
 

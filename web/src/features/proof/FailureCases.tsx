@@ -1,9 +1,22 @@
 import { useState } from "react";
 
-import type { ProofReport, ResultRow } from "../../lib/api";
+import type { BenchVerdict, ProofReport, ResultRow } from "../../lib/api";
 import { StatusBadge } from "./badges";
 
 const rowKey = (r: ResultRow) => `${r.candidate_id}-${r.example_index}`;
+
+// The governance gates a bench failure can trip, in the order the receipt names them.
+function failedBenchGates(detail: BenchVerdict): string[] {
+  const gates: Array<[string, boolean]> = [
+    ["citation", !detail.citation_ok],
+    ["refusal", !detail.refusal_ok],
+    ["route", !detail.route_ok],
+    ["thinking-leak", detail.thinking_leak],
+    ["private-state-leak", detail.private_state_risk],
+  ];
+  const failed = gates.filter(([, isFailed]) => isFailed).map(([name]) => name);
+  return failed.length ? failed : ["residue"];
+}
 
 // Failure cases are where trust is won or lost. The user picks a candidate, then a case; the
 // full input/expected/output opens in the inspector. Provider errors are surfaced, never
@@ -105,6 +118,14 @@ function FailureRow({
         <span className="min-w-0 flex-1 truncate text-(--color-ink-muted)">{row.input_text}</span>
         {row.error ? (
           <StatusBadge kind="error">error: {row.error}</StatusBadge>
+        ) : row.bench_detail ? (
+          <span className="flex shrink-0 flex-wrap items-center justify-end gap-1">
+            {failedBenchGates(row.bench_detail).map((gate) => (
+              <StatusBadge key={gate} kind="fail">
+                {gate}
+              </StatusBadge>
+            ))}
+          </span>
         ) : (
           <StatusBadge kind="fail">Fail · score {(row.score ?? 0).toFixed(2)}</StatusBadge>
         )}

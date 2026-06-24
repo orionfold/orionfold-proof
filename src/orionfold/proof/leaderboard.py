@@ -41,6 +41,14 @@ def build_leaderboard(
         avg_latency = round(sum(r.latency_ms for r in rows) / total) if total else 0
         total_cost = sum(r.estimated_cost_usd for r in rows)
         cost_per_quality = total_cost / avg_score if avg_score > 0 else None
+        # Throughput: token-weighted Σoutput_tokens / Σ(latency_s), the generalization-test metric
+        # (32GB Mac vs 128GB GB10). None when no measured latency (never div-by-zero). Presentation
+        # only — NOT a ranking key (latency stays the tiebreaker) and never in config_hash.
+        total_latency_ms = sum(r.latency_ms for r in rows)
+        total_output_tokens = sum(r.output_tokens for r in rows)
+        tokens_per_second = (
+            total_output_tokens / (total_latency_ms / 1000.0) if total_latency_ms > 0 else None
+        )
         entries.append(
             LeaderboardEntry(
                 candidate_id=cand.id,
@@ -58,6 +66,7 @@ def build_leaderboard(
                 failure_count=failure_count,
                 error_count=error_count,
                 cost_per_quality=cost_per_quality,
+                tokens_per_second=tokens_per_second,
             )
         )
 

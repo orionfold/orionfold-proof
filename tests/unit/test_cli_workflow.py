@@ -231,3 +231,44 @@ def test_workflow_output_is_secret_free(db) -> None:
         result = runner.invoke(app, argv)
         for needle in ("sk-", "api_key", "API_KEY", "Bearer "):
             assert needle not in result.stdout
+
+
+# ─── corpus list|import + bench-bound dataset import ──────────────────────────────────
+
+
+def test_corpus_list_shows_bundled_corpus(db):
+    result = runner.invoke(app, ["corpus", "list"])
+    assert result.exit_code == 0
+    assert "ainative-field-notes" in result.output
+
+
+def test_corpus_import_then_bind_bench_dataset(db, tmp_path):
+    # Register a small corpus, then import a bench dataset bound to it (valid citations).
+    manifest = tmp_path / "corpus.json"
+    manifest.write_text(json.dumps({"id": "fn", "name": "FN", "source_ids": ["doc_a", "doc_b"]}))
+    r1 = runner.invoke(app, ["corpus", "import", str(manifest)])
+    assert r1.exit_code == 0 and "fn" in r1.output
+
+    bench = tmp_path / "bench.jsonl"
+    bench.write_text(json.dumps({
+        "input": "What governs it?", "expected": "Answer.\nCitations: [doc_a]",
+        "expected_behavior": "answer", "expected_citations": ["doc_a"],
+    }) + "\n")
+    r2 = runner.invoke(app, ["dataset", "import", str(bench), "--name", "Bench", "--corpus", "fn"])
+    # The import succeeds because doc_a is in the corpus.
+    assert r2.exit_code == 0, r2.output
+    assert "Bench" in r2.output
+
+
+def test_bench_import_rejects_citation_outside_corpus(db, tmp_path):
+    manifest = tmp_path / "corpus.json"
+    manifest.write_text(json.dumps({"id": "fn2", "name": "FN2", "source_ids": ["doc_a"]}))
+    runner.invoke(app, ["corpus", "import", str(manifest)])
+    bench = tmp_path / "bad.jsonl"
+    bench.write_text(json.dumps({
+        "input": "q", "expected": "a", "expected_behavior": "answer",
+        "expected_citations": ["doc_z"],
+    }) + "\n")
+    result = runner.invoke(app, ["dataset", "import", str(bench), "--name", "Bad", "--corpus", "fn2"])
+    assert result.exit_code == 2
+    assert "doc_z" in result.output

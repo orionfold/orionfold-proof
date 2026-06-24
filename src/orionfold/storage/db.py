@@ -48,6 +48,17 @@ MIGRATIONS: list[str] = [
     ALTER TABLE datasets ADD COLUMN source     TEXT NOT NULL DEFAULT '';
     ALTER TABLE datasets ADD COLUMN check_hint TEXT NOT NULL DEFAULT '';
     """,
+    # Migration 6 (spec §4): first-class Corpus + a nullable bench binding on datasets. Additive
+    # and nullable → no existing row changes; the mock dataset keeps corpus_id = NULL.
+    """
+    CREATE TABLE corpora (
+        id          TEXT PRIMARY KEY,
+        name        TEXT NOT NULL,
+        description TEXT NOT NULL DEFAULT '',
+        source_ids  TEXT NOT NULL DEFAULT '[]'   -- JSON array of legal citation source ids
+    );
+    ALTER TABLE datasets ADD COLUMN corpus_id TEXT;   -- nullable FK to corpora(id); NULL for non-bench
+    """,
 ]
 
 

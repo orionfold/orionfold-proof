@@ -76,3 +76,31 @@ def test_whitespace_only_fields_are_skipped():
 def test_zero_valid_examples_raises():
     with pytest.raises(DatasetParseError):
         parse_dataset("\n\n", "jsonl")
+
+
+# ─── v9: bench/advisory per-row contract passes through JSONL import ───────────────────
+
+
+def test_jsonl_import_carries_bench_contract():
+    from orionfold.data.importers import parse_dataset
+
+    text = (
+        '{"input":"Q1","expected":"A1\\nCitations: [doc_a]","expected_behavior":"answer",'
+        '"expected_citations":["doc_a"],"requires_citation":true}\n'
+        '{"input":"Q2 boundary","expected":"","expected_behavior":"refuse","requires_refusal":true}\n'
+    )
+    result = parse_dataset(text, "jsonl")
+    assert len(result.examples) == 2  # the empty-expected refuse row is kept (behavior declared)
+    answer, refuse = result.examples
+    assert answer.expected_behavior == "answer" and answer.expected_citations == ["doc_a"]
+    assert answer.requires_citation is True
+    assert refuse.expected_behavior == "refuse" and refuse.expected_text == ""
+    assert refuse.requires_refusal is True
+
+
+def test_jsonl_plain_row_has_default_bench_fields():
+    from orionfold.data.importers import parse_dataset
+
+    result = parse_dataset('{"input":"i","expected":"e"}\n', "jsonl")
+    ex = result.examples[0]
+    assert ex.expected_behavior is None and ex.expected_citations == []

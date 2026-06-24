@@ -195,4 +195,25 @@ describe("ScoringMethod", () => {
     });
     expect(await screen.findByText(/Mock judge/i)).toBeInTheDocument();
   });
+
+  // ── v9: Governance bench card (deterministic, no threshold) ──────────────────────────
+  const benchDataset: Dataset = {
+    id: "advisor-curveball", name: "Advisor curveball", description: "", corpus_id: "ainative-field-notes",
+    examples: [{ input_text: "q", expected_text: "", keypoints: [], expected_behavior: "refuse" }],
+  };
+
+  it("offers the Governance bench card for a bench dataset and auto-defaults to it", async () => {
+    const onChange = vi.fn();
+    render(wrap(<ScoringMethod value={null} onChange={onChange} dataset={benchDataset} />));
+    expect(await screen.findByRole("button", { name: /Governance bench/i })).toBeInTheDocument();
+    // The bench latch fires once the dataset arrives → commits a bench rubric (threshold ignored).
+    await vi.waitFor(() => {
+      expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ kind: "bench" }));
+    });
+  });
+
+  it("does NOT offer the Governance bench card for a non-bench dataset", () => {
+    render(wrap(<ScoringMethod value={null} onChange={() => {}} dataset={kpDataset} />));
+    expect(screen.queryByRole("button", { name: /Governance bench/i })).not.toBeInTheDocument();
+  });
 });

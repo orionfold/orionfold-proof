@@ -15,7 +15,7 @@ import { checkHintLabel } from "./tags";
 
 export type Rubric = z.infer<typeof rubricSchema>;
 
-type Method = "auto" | "exact" | "keypoint" | "similarity" | "judge";
+type Method = "auto" | "exact" | "keypoint" | "similarity" | "judge" | "bench";
 
 function deriveMethod(value: Rubric | null): Method {
   if (value === null) return "auto";
@@ -23,7 +23,16 @@ function deriveMethod(value: Rubric | null): Method {
   if (value.kind === "keypoint") return "keypoint";
   if (value.kind === "similarity") return "similarity";
   if (value.kind === "judge") return "judge";
+  if (value.kind === "bench") return "bench";
   return "auto";
+}
+
+// A bench dataset declares a governance contract — it binds a corpus or carries per-row behaviors.
+// Only then is the deterministic Governance bench a meaningful (and offered) scoring method.
+function isBenchDataset(dataset?: Dataset): boolean {
+  if (!dataset) return false;
+  if (dataset.corpus_id) return true;
+  return dataset.examples.some((e) => e.expected_behavior != null);
 }
 
 export interface ScoringMethodProps {
@@ -61,6 +70,7 @@ export function ScoringMethod({ value, onChange, dataset }: ScoringMethodProps) 
     else if (m === "exact") { setMethod(m); onChange({ kind: "exact", threshold: 1, case_sensitive: false }); }
     else if (m === "keypoint") { setMethod(m); onChange({ kind: "keypoint", threshold: thresholdFor("keypoint", thresholds), case_sensitive: false }); }
     else if (m === "similarity") { setMethod(m); onChange({ kind: "similarity", threshold: thresholdFor("similarity", thresholds), case_sensitive: false }); }
+    else if (m === "bench") { setMethod(m); onChange({ kind: "bench", threshold: 0, case_sensitive: false }); }
     else if (judgeCell) {
       // Only commit the judge method once we have a real judge to emit — never a guessed Mock.
       setMethod(m);
@@ -86,6 +96,20 @@ export function ScoringMethod({ value, onChange, dataset }: ScoringMethodProps) 
     // guards above); deps cover every input that flips the decision.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dataset?.id, dataset?.is_sample, value, judgeCell]);
+
+  // A bench dataset has a deterministic governance contract, not a free-form rubric — default the
+  // Configure step to the Governance bench once it arrives (once per dataset, while still Auto), so
+  // the operator doesn't have to know to pick it. Mirrors the sample-judge latch above.
+  const bench = isBenchDataset(dataset);
+  const benchDefaultedFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (benchDefaultedFor.current === dataset?.id) return;
+    if (value === null && bench) {
+      benchDefaultedFor.current = dataset?.id ?? null;
+      selectMethod("bench");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dataset?.id, bench, value]);
 
   const autoKind = resolveAutoKind(dataset);
   const AUTO_LABEL: Record<typeof autoKind, string> = {
@@ -120,6 +144,26 @@ export function ScoringMethod({ value, onChange, dataset }: ScoringMethodProps) 
           onSelect={() => selectMethod("judge")}
         />
       </div>
+
+      {bench ? (
+        <MethodCard
+          title="Governance bench"
+          guidance="Deterministic citation · refusal · route · no-leak grading for a corpus advisor. No threshold."
+          cost="Free"
+          selected={method === "bench"}
+          onSelect={() => selectMethod("bench")}
+        />
+      ) : null}
+
+      {method === "bench" ? (
+        <p className="text-xs text-(--color-ink-faint)">
+          Scored by the{" "}
+          <span className="font-medium text-(--color-ink-muted)">Governance bench</span> — each row
+          is graded against its declared contract (cite the right sources, refuse when unsupported,
+          route correctly, never leak private state). Pass/fail is deterministic; there is no
+          threshold to tune.
+        </p>
+      ) : null}
 
       {method === "auto" && hintDroveAuto ? (
         <p className="text-xs text-(--color-ink-faint)">

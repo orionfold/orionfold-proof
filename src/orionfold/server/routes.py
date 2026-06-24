@@ -34,6 +34,7 @@ from orionfold.data.extractors import (
 )
 from orionfold.domain.models import (
     Candidate,
+    Corpus,
     Dataset,
     Example,
     ProofBrief,
@@ -58,18 +59,22 @@ from orionfold.receipts import export
 from orionfold.sample_data import seed_sample_data
 from orionfold.storage.db import apply_migrations, connect
 from orionfold.storage.repository import (
+    BenchBindingError,
     DuplicateDatasetError,
     clear_all_data,
     get_dataset,
     get_dataset_meta,
     get_report,
+    list_corpora,
     list_dataset_rows,
     list_runs,
     remove_sample_data,
     save_dataset,
     save_report,
+    seed_corpora,
     seed_datasets,
     update_dataset_meta,
+    validate_bench_binding,
 )
 from orionfold.storage.settings import (
     get_sandbox_enabled,
@@ -186,6 +191,7 @@ def init_db(db_path) -> None:
     try:
         apply_migrations(conn)
         seed_datasets(conn)
+        seed_corpora(conn)
     finally:
         conn.close()
 
@@ -209,6 +215,16 @@ def get_datasets(request: Request) -> list[DatasetRow]:
     conn = _conn(request)
     try:
         return [_to_row(d, m) for d, m in list_dataset_rows(conn)]
+    finally:
+        conn.close()
+
+
+@router.get("/corpora")
+def get_corpora(request: Request) -> list[Corpus]:
+    """The governed corpora a bench dataset can cite against (provenance; not retrieval)."""
+    conn = _conn(request)
+    try:
+        return list_corpora(conn)
     finally:
         conn.close()
 
@@ -449,6 +465,17 @@ def _resolve_dataset(conn: sqlite3.Connection, body: RunRequest) -> Dataset:
     return dataset
 
 
+def _validate_bench_run(conn: sqlite3.Connection, rubric: Rubric, dataset: Dataset) -> None:
+    """Enforce the bench binding integrity gate (spec §4): a bench dataset must bind a known corpus
+    and cite only ids drawn from it. No-op for every non-bench rubric kind."""
+    if rubric.kind != "bench":
+        return
+    try:
+        validate_bench_binding(conn, dataset.corpus_id, dataset.examples)
+    except BenchBindingError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
 @router.post("/runs")
 def create_run(request: Request, body: RunRequest) -> ProofReport:
     conn = _conn(request)
@@ -468,6 +495,7 @@ def create_run(request: Request, body: RunRequest) -> ProofReport:
                 build_judge(rubric)
             except (ValueError, KeyError) as exc:
                 raise HTTPException(status_code=422, detail=f"Judge not available: {exc}")
+        _validate_bench_run(conn, rubric, dataset)
         try:
             # The id/timestamp generation + run_proof call live in the shared core (also used by
             # the CLI). The route owns candidate fan-out, rubric resolution, and the judge check.
@@ -508,14 +536,17 @@ def create_run_stream(request: Request, body: RunRequest) -> StreamingResponse:
         dataset = _resolve_dataset(conn, body)
         threshold_overrides = get_threshold_defaults(conn)
         meta = get_dataset_meta(conn, dataset.id)
+        # Resolve the rubric here so the bench binding gate can run while the connection is open
+        # (validation is synchronous up front → a bad request is a normal 4xx, not an SSE error).
+        rubric = body.rubric or default_rubric_for(
+            dataset, threshold_overrides, check_hint=meta.check_hint if meta else None
+        )
+        _validate_bench_run(conn, rubric, dataset)
     finally:
         conn.close()
     if not body.candidate_ids:
         raise HTTPException(status_code=400, detail="Select at least one candidate")
     candidates = _resolve_candidates(body)
-    rubric = body.rubric or default_rubric_for(
-        dataset, threshold_overrides, check_hint=meta.check_hint if meta else None
-    )
     if rubric.kind == "judge":
         try:
             build_judge(rubric)

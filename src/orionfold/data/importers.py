@@ -58,6 +58,30 @@ def _pair_from_obj(obj: dict) -> tuple[str, str] | None:
     return input_text, expected_text
 
 
+_BENCH_LIST_KEYS = ("expected_citations", "accepted_source_ids")
+_BENCH_BOOL_KEYS = ("requires_citation", "requires_refusal", "requires_route")
+
+
+def _bench_fields_from_obj(obj: dict) -> dict:
+    """Extract the optional per-row governance contract from a JSONL row (all fields optional).
+
+    Only present, well-typed fields are pulled; absent fields stay at their Example defaults so a
+    plain (non-bench) row imports byte-identically. CSV import has no bench schema in v0.
+    """
+    out: dict[str, object] = {}
+    behavior = obj.get("expected_behavior")
+    if behavior in ("answer", "route", "refuse"):
+        out["expected_behavior"] = behavior
+    for key in _BENCH_LIST_KEYS:
+        value = obj.get(key)
+        if isinstance(value, list) and all(isinstance(v, str) for v in value):
+            out[key] = [v for v in value if v]
+    for key in _BENCH_BOOL_KEYS:
+        if isinstance(obj.get(key), bool):
+            out[key] = obj[key]
+    return out
+
+
 def _parse_jsonl(text: str) -> tuple[list[Example], list[str]]:
     examples: list[Example] = []
     warnings: list[str] = []
@@ -72,11 +96,18 @@ def _parse_jsonl(text: str) -> tuple[list[Example], list[str]]:
         if not isinstance(obj, dict):
             warnings.append(f"Line {lineno}: expected a JSON object — skipped.")
             continue
+        bench = _bench_fields_from_obj(obj)
         pair = _pair_from_obj(obj)
         if pair is None:
+            # A bench refuse row legitimately has no expected answer — accept it on a non-empty
+            # input + a declared behavior, so the per-row governance contract survives import.
+            raw_in = obj.get("input", obj.get("input_text", ""))
+            if bench and isinstance(raw_in, str) and raw_in.strip():
+                examples.append(Example(input_text=raw_in.strip(), expected_text="", **bench))
+                continue
             warnings.append(f"Line {lineno}: missing input/expected — skipped.")
             continue
-        examples.append(Example(input_text=pair[0], expected_text=pair[1]))
+        examples.append(Example(input_text=pair[0], expected_text=pair[1], **bench))
     return examples, warnings
 
 

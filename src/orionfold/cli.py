@@ -36,12 +36,17 @@ from orionfold.providers.registry import UnknownCandidateError
 from orionfold.receipts import build_field_note, export
 from orionfold.storage.db import apply_migrations, connect, default_db_path
 from orionfold.storage.repository import (
+    BenchBindingError,
     DuplicateDatasetError,
     get_report,
+    list_corpora,
     list_dataset_rows,
     list_runs,
     save_dataset,
     save_report,
+    seed_corpora,
+    upsert_corpus,
+    validate_bench_binding,
 )
 
 if TYPE_CHECKING:
@@ -74,6 +79,7 @@ def _with_conn() -> Iterator[sqlite3.Connection]:
     conn = connect(default_db_path())
     try:
         apply_migrations(conn)
+        seed_corpora(conn)  # bundled corpora are needed to validate any bench dataset binding
         yield conn
     finally:
         conn.close()
@@ -208,6 +214,9 @@ def dataset_import(
         None, "--check-hint", help="Scoring hint: exact | contains | numeric | eyeball."
     ),
     source: str = typer.Option("imported", "--source", help="Provenance label for the card."),
+    corpus: str | None = typer.Option(
+        None, "--corpus", help="Bind a bench dataset to a corpus id (validates citations ⊆ corpus)."
+    ),
 ) -> None:
     """Parse a file and freeze it into a new local dataset (re-parsed as the source of truth)."""
     fmt = _EXT_TO_FORMAT.get(path.suffix.lower())
@@ -221,6 +230,13 @@ def dataset_import(
         raise typer.Exit(code=1)
 
     with _with_conn() as conn:
+        if corpus is not None:
+            # A bench binding must validate before the row is written: known corpus, cited ids ⊆ it.
+            try:
+                validate_bench_binding(conn, corpus, parsed.examples)
+            except BenchBindingError as exc:
+                typer.echo(str(exc), err=True)
+                raise typer.Exit(code=2)
         try:
             created = save_dataset(
                 conn,
@@ -230,6 +246,7 @@ def dataset_import(
                 source=source,
                 check_hint=check_hint,
                 created_at=_now_iso(),
+                corpus_id=corpus,
             )
         except DuplicateDatasetError as exc:
             typer.echo(str(exc), err=True)
@@ -256,6 +273,42 @@ def dataset_list() -> None:
             f"{ds.id:<24} {len(ds.examples):>8}  {(meta.check_hint or '—'):<10} "
             f"{meta.source[:22]:<22} {ds.name}{marker}"
         )
+
+
+# ── corpus list|import ─────────────────────────────────────────────────────────────────────
+
+corpus_app = typer.Typer(no_args_is_help=True, help="Manage governed corpora for bench datasets.")
+app.add_typer(corpus_app, name="corpus")
+
+
+@corpus_app.command("list")
+def corpus_list() -> None:
+    """List local corpora and how many source ids each governs."""
+    with _with_conn() as conn:
+        corpora = list_corpora(conn)
+    if not corpora:
+        typer.echo("No corpora yet. Import one with `orionfold corpus import <file.json>`.")
+        return
+    typer.echo(f"{'ID':<28} {'SOURCES':>8}  NAME")
+    for c in corpora:
+        typer.echo(f"{c.id:<28} {len(c.source_ids):>8}  {c.name}")
+
+
+@corpus_app.command("import")
+def corpus_import(
+    path: Path = typer.Argument(..., help="Corpus manifest JSON: {id, name, description, source_ids}."),
+) -> None:
+    """Register (or replace) a corpus from a JSON manifest so a bench dataset can bind to it."""
+    from orionfold.domain.models import Corpus
+
+    try:
+        corpus = Corpus.model_validate_json(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        typer.echo(f"Could not read corpus manifest: {exc}", err=True)
+        raise typer.Exit(code=1)
+    with _with_conn() as conn:
+        upsert_corpus(conn, corpus)
+    typer.echo(f"Registered corpus '{corpus.name}' ({corpus.id}) — {len(corpus.source_ids)} sources.")
 
 
 # ── runs list|show ─────────────────────────────────────────────────────────────────────────

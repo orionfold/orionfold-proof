@@ -12,15 +12,64 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 Privacy = Literal["local", "cloud"]
-RubricKind = Literal["exact", "contains", "similarity", "keypoint", "judge", "none"]
+RubricKind = Literal["exact", "contains", "similarity", "keypoint", "judge", "bench", "none"]
+# A bench row's declared behavior contract (governance scoring; see scoring/bench.py).
+BenchBehavior = Literal["answer", "route", "refuse"]
 
 
 class Example(BaseModel):
-    """A single frozen input/expected pair the candidates are proven against."""
+    """A single frozen input/expected pair the candidates are proven against.
+
+    The trailing ``bench``/advisory fields carry a per-row governance contract (citation /
+    refusal / route). They are **all defaulted** so an example that doesn't set them is hashed
+    byte-identically to one authored before the bench kind existed — ``config_hash`` projects
+    only the non-default bench fields (see ``engine._example_hash_fields``).
+    """
 
     input_text: str
     expected_text: str
     keypoints: list[str] = []  # authored required facts; [] = none
+    # --- bench/advisory contract (per-row; all defaulted → existing examples hash unchanged) ---
+    expected_behavior: BenchBehavior | None = None  # None → graded as "answer" by the bench scorer
+    expected_citations: list[str] = []  # ids that must ALL appear (answer/route rows)
+    accepted_source_ids: list[str] = []  # defensible-citation superset; non-empty → ANY one passes
+    requires_citation: bool = False
+    requires_refusal: bool = False
+    requires_route: bool = False
+
+
+class BenchVerdict(BaseModel):
+    """The per-row governance verdict from the bench scorer — five gates plus residue diagnostics.
+
+    ``passed`` is the published verdict (citation ∧ refusal ∧ route ∧ ¬leak ∧ ¬private-state).
+    ``strict_passed`` additionally requires no residue (alias citation / bare answer). The receipt
+    surfaces every field so a bench failure is explainable. See ``scoring/bench.py`` for the rules.
+    """
+
+    citation_ok: bool
+    refusal_ok: bool
+    route_ok: bool
+    thinking_leak: bool
+    private_state_risk: bool
+    alias_residue: bool
+    bare_answer: bool
+    cited_source_ids: list[str]
+    passed: bool
+    strict_passed: bool
+
+
+class Corpus(BaseModel):
+    """The governed source set a bench dataset grades against (ADR; spec §4).
+
+    ``source_ids`` is the manifest of legal citation targets. v0 uses it for provenance and a
+    cheap integrity gate (a bench dataset's ``expected_citations``/``accepted_source_ids`` must
+    be drawn from a known corpus) — **not** retrieval, which is fenced to a later spec.
+    """
+
+    id: str
+    name: str
+    description: str = ""
+    source_ids: list[str] = []
 
 
 class Dataset(BaseModel):
@@ -30,6 +79,9 @@ class Dataset(BaseModel):
     name: str
     description: str = ""
     examples: list[Example]
+    # A bench dataset binds a governing Corpus by id; non-bench datasets leave this None.
+    # Provenance recorded in the receipt — NOT a config_hash input (see engine.config_hash).
+    corpus_id: str | None = None
 
 
 class Rubric(BaseModel):
@@ -104,6 +156,9 @@ class ResultRow(BaseModel):
     error: str | None = None
     judge_cost_usd: float = 0.0  # cost of the judge call for this cell (0 for non-judge)
     judge_latency_ms: int = 0  # judge latency for this cell (0 for non-judge)
+    # Per-gate governance detail for a bench-scored cell (citation/refusal/route/leak/residue).
+    # None for every non-bench cell. A RESULT, not config → never enters config_hash.
+    bench_detail: BenchVerdict | None = None
 
 
 class LeaderboardEntry(BaseModel):
@@ -125,6 +180,7 @@ class LeaderboardEntry(BaseModel):
     error_count: int = 0
     recommended: bool = False
     cost_per_quality: float | None = None  # $ per quality point (cost/avg_score); None if avg_score==0. Presentation only — never affects ranking.
+    tokens_per_second: float | None = None  # Σoutput_tokens / Σlatency_s; None when no measured latency. Presentation only — never a ranking key, never in config_hash (the 32GB-Mac-vs-128GB-GB10 generalization metric).
 
 
 class ProofBrief(BaseModel):
