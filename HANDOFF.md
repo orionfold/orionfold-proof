@@ -6,7 +6,15 @@
 > To resume: in a fresh session say **"read from handoff"** (or "continue from last
 > session"), or `/clear` and paste the prompt below.
 
-_Last updated: 2026-06-23 · **BACKLOG B3 (real-world demo datasets) is DONE + committed (`af8203d`).** The
+_Last updated: 2026-06-23 · **Dual-distribution slice 2 — CLI WIDENED is DONE + committed (`b2bf9d3`).**
+Added the core `track_record()` cross-run rollup + the `dataset import|list` / `runs list|show` /
+`track-record` CLI verbs (thin shells over the shared core). **340 BE (+21)**, ruff/pyright clean on
+changed files, `467ddd96c9a5` freeze-tests pass, headless e2e secret-free, diff-reviewer clean.
+`DEFAULT_THRESHOLDS` single-source (§6) deferred to its own slice. See ▶️ START HERE below. (worklog
+`docs/worklog/2026-06-23-cli-widen-dataset-runs-track-record.md`.)_
+
+<!-- prior status (B3 real-world demo datasets, af8203d) below — superseded -->
+<!-- _BACKLOG B3 (real-world demo datasets) is DONE + committed (`af8203d`). The
 approved spec `_SPECS/2026-06-23-real-world-demo-datasets.md` shipped: **3 new bundled synthetic datasets**
 (`support-ticket-triage`→exact, `contract-field-extraction`→contains, `buyer-need-solution-match`→similarity
 /LLM-judge) so a fresh install spans **four rubric classes** (keypoint·exact·contains·judge). All additive —
@@ -28,7 +36,7 @@ pyright (9): `receipts/export.py` + `recipes/resolution.py` errors exist on the 
 — NOT from B3; prior "pyright clean" claims were inaccurate. Worth a separate cleanup.** (worklog
 `docs/worklog/2026-06-23-b3-real-world-demo-datasets.md`.) **Next: back to deferred BACKLOG (operator picks) —
 natural next is #7 packaging·licensing·distribution (BRAINSTORM FIRST); #8 git remote+push stays LAST.** `main`
-local-only; git remote/push stay queued LAST until packaging (operator directive)._
+local-only; git remote/push stay queued LAST until packaging (operator directive)._ -->
 
 <!-- prior status (Stage 3 COMPLETE, Task 11 WS-F, 9820b5c) below — superseded -->
 <!-- _Stage 3 COMPLETE — Task 11 (WS-F DS application-consistency pass) is DONE +
@@ -90,26 +98,40 @@ regressions/invariant violations/scope creep**. (worklog `docs/worklog/2026-06-2
 guided first-run CTA) is now UNBLOCKED — build the one-click "run the demo on real models" CTA.** `main`
 local-only; git remote/push stay queued LAST until packaging (operator directive)._ -->
 
-## ▶️ START HERE NEXT SESSION — Dual-distribution pivot in progress (operator picks the next slice).
+## ▶️ START HERE NEXT SESSION — Dual-distribution: CLI widened (operator picks the next slice).
 
 **Major pivot 2026-06-23: from B4 (cross-run leaderboard) to the strategic DUAL-DISTRIBUTION MODEL.**
 The FE-only rollup reflex was at odds with Proof's CLI/package distribution. Deep-studied
 ainative.business's fieldkit→arena→field-notes loop, wrote **ADRs 0004/0005/0006** + origin spec
-(operator-approved; **Apache-2.0 confirmed**), and shipped the **first vertical slice**: a headless
-**`orionfold run`** command driving the full proof workflow through a shared core (`execute_run` /
-`execute_resolved` in `proof/runner.py`) that the **route and CLI both call** — "one core, two shells."
-**319 BE tests pass** (route baseline 105 unchanged; mock `config_hash 467ddd96c9a5` intact); real
-keyless e2e produces a secret-free receipt. (worklog `docs/worklog/2026-06-23-dual-distribution-vertical-slice.md`;
-commits `7ee28e7` ADRs → `134e9e5` api card.)
+(operator-approved; **Apache-2.0 confirmed**). Shipped **slice 1** (`134e9e5`): headless `orionfold run`
+through a shared core (`execute_run`/`execute_resolved` in `proof/runner.py`) the route + CLI both call.
 
-**Next (operator picks):** (a) **widen the CLI** — next slice of ADR-0004 §8: `dataset import|list`,
-`runs list|show`, `track-record` (the B4 rollup as a core fn) + the `DEFAULT_THRESHOLDS` single-source;
-(b) **B7 private-strategy symlink migration** — moves `_IDEAS`/`_SPECS` into private
+**Slice 2 — CLI WIDENED (DONE + committed `b2bf9d3`).** ADR-0004 §8 next slice. (a) NEW CORE FN
+**`track_record(reports, *, dataset_id=None)`** in `proof/leaderboard.py` — the B4 cross-run rollup as a
+**pure core function** (ADR-0004 §5), grouping by **`(dataset_id, rubric.kind)`** (the comparability
+rule), **pooled** pass-rate (Σpasses/Σexamples, NOT a mean of per-run rates), quick runs excluded
+(`mode=="quick"`/`rubric.kind=="none"`), reads only existing `LeaderboardEntry`/`ProofRun` fields → can't
+touch `config_hash`. New `TrackRecordGroup`/`TrackRecordEntry` models; exported from `proof.__all__`
+(+`build_leaderboard` formalized). (b) NEW CLI verbs as **thin shells** (ADR-0004 §3) over a shared
+`_with_conn()` helper (extracted from `run`'s old inline connect/migrate/close — `run` reuses it,
+behavior unchanged): **`dataset import|list`**, **`runs list|show`**, **`track-record`**. `runs show
+--format` reuses `run`'s `_FORMAT_RENDERERS` map → **byte-identical receipt, now locked by a test**.
+**`DEFAULT_THRESHOLDS` single-source (§6) DEFERRED** to its own slice (operator decision) — slice 2 is
+**BE/CLI-only, FE untouched**. Verified: **340 BE (+21: 8 track_record + 13 CLI workflow)**, ruff clean,
+pyright 0 errors on changed files (pre-existing 9 in export.py/resolution.py untouched), the 8
+`467ddd96c9a5` freeze-tests pass, headless e2e (import→list→2 runs→runs list→track-record) secret-free.
+Fresh-context diff-reviewer: **clean** (no bugs / invariant violations / scope creep). (worklog
+`docs/worklog/2026-06-23-cli-widen-dataset-runs-track-record.md`.)
+
+**Next (operator picks):** (a) **`DEFAULT_THRESHOLDS` single-source** — the deferred §6 slice: Python
+map canonical → FE reads a **generated JSON** (or codegen) instead of the hand-mirror; keep BOTH
+freeze-tests + **keypoint stays 0.8** (so `467ddd96c9a5` is safe); touches the FE build + `scoring.ts`;
+(b) **resume B4 web screen** — the "Track Record" cockpit view now that `track_record()` is a core fn it
+can render; (c) **B7 private-strategy symlink migration** — moves `_IDEAS`/`_SPECS` into private
 `~/orionfold/strategy/orionfold-proof/` + gitignored symlinks; **blocks #8 git remote** (full steps in
-backlog §B7); (c) **resume B4** now that its rollup has a core home; (d) **#7 packaging** (now downstream
-of the dual-distribution model — applies the Apache-2.0 flip + PyPI metadata + release ritual per
-ADR-0006). **#8 git remote + push stays LAST, now gated on BOTH #7 AND B7.** Do NOT auto-start — surface
-when the operator asks. `main` local-only, all work committed, clean worktree, shippable state.
+backlog §B7); (d) **#7 packaging** (Apache-2.0 flip + PyPI metadata + release ritual per ADR-0006).
+**#8 git remote + push stays LAST, gated on BOTH #7 AND B7.** Do NOT auto-start — surface when the
+operator asks. `main` local-only, all work committed, clean worktree, shippable state.
 
 **⚠️ Known pre-existing issue worth a cleanup pass (NOT from B3):** the clean tree has **9 pyright errors**
 in `src/orionfold/receipts/export.py` (3 — `str|None` return + `LeaderboardEntry|None` args) and
