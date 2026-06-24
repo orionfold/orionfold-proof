@@ -6,11 +6,34 @@
 > To resume: in a fresh session say **"read from handoff"** (or "continue from last
 > session"), or `/clear` and paste the prompt below.
 
-_Last updated: 2026-06-23 · **B6 SLICE 1 SHIPPED — the public Proof field-note export (`112776e`).**
+_Last updated: 2026-06-24 · **B6 FULLY SHIPPED — both slices done.** Slice 1 (public Layer A export,
+`112776e`) + **Slice 2 (private Layer B authoring/publish skill, `bf6ab72`)**. Layer B = the dev-only
+`.claude/skills/proof-field-note/` skill: scaffold-from-run (Layer A export) → operator authors the
+`## Why this can be trusted` narrative by hand → `emit_bundle.py` packages a website-ready bundle for the
+peer website's Astro `story` collection. **B6 is now DONE and drops off the active backlog. The natural
+next is B7 (strategy symlink — also lands the Layer B symlink in its final home) or #7 packaging.** Last
+shipped code = **B6 field-note Layer B (`bf6ab72`)** ↓._
+
+_**B6 Layer B (this session):** Brainstormed + approved a self-contained spec
+(`_SPECS/2026-06-24-proof-field-note-layer-b-skill.md`, `f228a07`), then built the skill (`bf6ab72`).
+`SKILL.md` = scaffold→author→emit workflow (trigger-rich description, B7-deferral header note — the skill
+is a **real dir now**, the symlink-into-strategy migration lands with B7). `scripts/emit_bundle.py` (stdlib
+only) = **marker guard** (refuses while `<!-- author: replace this section -->` survives → no bundle),
+slug-from-title, **secret backstop** (7 regexes mirroring the repo secrets-guard hook), **no frontmatter
+rewrite** (Layer A frontmatter is already a valid `story` superset — verified against the website's
+`content.config.ts`), bundle = `article.md` (verbatim, **inline** SVG) + `bundle.json` (provenance) +
+`hero/README.md`, emits only to gitignored `_field-notes/` (**no cross-repo writes**). `scripts/test_emit_bundle.py`
+= a self-test (3 cases; fake key assembled at runtime so no key-shaped literal). **No package change** — the
+skill only *consumes* the public CLI → mock `467ddd96c9a5`, the receipt, `RECEIPT_VERSION` untouched by
+construction. Verified: self-test green, ruff+pyright 0, **e2e on real run `run_0fb312d3a087`** (scaffold →
+refuse-before-author → author → bundle, secret-free), **366 BE unchanged** (Layer A untouched), fresh-context
+diff-reviewer **"Ship it."** (worklog `docs/worklog/2026-06-24-b6-field-note-layer-b-skill.md`.)_
+
+<!-- prior status (B6 Layer A, 112776e) below — superseded -->
+<!-- _**B6 SLICE 1 SHIPPED — the public Proof field-note export (`112776e`).**
 The approved spec (written + interviewed last session, previously the lone untracked file) was committed
 (`457baca`), then **Layer A** built: `orionfold field-note <run_id> [--out]` emits a publish-ready Markdown
-field note from a stored `ProofReport`. **B6 is no longer #1 of the backlog — slice 2 (Layer B, the private
-authoring skill) is what remains, gated on B7.** Last shipped code = **B6 field-note Layer A (`112776e`)** ↓._
+field note from a stored `ProofReport`._ -->
 
 _**B6 Layer A (this session):** New `orionfold field-note` CLI (thin shell over `build_field_note(report)`,
 graduated to `receipts.__all__`). Output = YAML frontmatter spine (§4, derived-only, **hand-rendered** for
@@ -130,27 +153,31 @@ regressions/invariant violations/scope creep**. (worklog `docs/worklog/2026-06-2
 guided first-run CTA) is now UNBLOCKED — build the one-click "run the demo on real models" CTA.** `main`
 local-only; git remote/push stay queued LAST until packaging (operator directive)._ -->
 
-## ▶️ START HERE NEXT SESSION — B6 Layer A SHIPPED; **slice 2 = Layer B (private skill), gated on B7**.
+## ▶️ START HERE NEXT SESSION — B6 FULLY SHIPPED (both slices); next = **B7 or #7 packaging** (operator picks).
 
-**This session (2026-06-23):** committed the approved B6 spec (`457baca`) then shipped **B6 Slice 1 — Layer
-A, the public Proof field-note export** (`112776e`). `orionfold field-note <run_id> [--out note.md]` turns a
-stored `ProofReport` into a publish-ready Markdown field note: YAML frontmatter spine + two inline SVG figures
-(pure-Python Pareto scatter + pass-rate bars, no browser) + the reused receipt evidence body + a narrative
-**stub the package does NOT author**. New modules `receipts/figures.py` + `receipts/field_note.py`;
-`build_field_note` graduated to `receipts.__all__`; `docs/api/receipts.md` documents it. **Receipt untouched,
-no scoring/hash path, no migration, no FE** — mock `467ddd96c9a5` untouched by construction. Verified
-end-to-end (366 BE / ruff+pyright 0 / 7 config_hash + 19 receipt-byte-identical guards / headless e2e /
-fresh-context diff-reviewer PASS on all 8 invariants). See the worklog
-`docs/worklog/2026-06-23-b6-field-note-layer-a.md`.
+**This session (2026-06-24):** brainstormed + approved a self-contained spec
+(`_SPECS/2026-06-24-proof-field-note-layer-b-skill.md`, `f228a07`), then shipped **B6 Slice 2 — Layer B, the
+private authoring/publish skill** (`bf6ab72`), completing B6. The dev-only `.claude/skills/proof-field-note/`
+skill turns a real run into a published trust narrative: `orionfold field-note` scaffolds → operator authors
+`## Why this can be trusted` by hand → `scripts/emit_bundle.py` packages a website-ready bundle
+(`_field-notes/<slug>/bundle/{article.md, bundle.json, hero/README.md}`) for the peer website's Astro `story`
+collection. **No package change** (only consumes the public CLI → mock `467ddd96c9a5`/receipt/`RECEIPT_VERSION`
+untouched by construction); emits only to gitignored `_field-notes/` (no cross-repo writes). Verified
+end-to-end (self-test 3 cases / ruff+pyright 0 / e2e on real run `run_0fb312d3a087` secret-free / 366 BE
+unchanged / fresh-context diff-reviewer **"Ship it."**). See the worklog
+`docs/worklog/2026-06-24-b6-field-note-layer-b-skill.md`.
 
-**Next — operator picks (do NOT auto-start):** the natural continuation is **B6 Slice 2 — Layer B, the
-private authoring/publish skill** (`.claude/skills/proof-field-note/`): scaffold-from-run (figures already in
-Layer A's output), open the narrative for the operator, emit a website-ready bundle for `~/orionfold/website`.
-**Gated on B7** for the symlink-into-strategy step (Layer B can be authored privately first; the symlink lands
-after B7). So the practical ordering question for the operator is **B7 first, or author Layer B in parallel**.
-Per spec §8, OUT of scope (logged, not built): the `·fmt` retrofit across leaderboard/track-record/receipt;
-the safe-slice publish surface (ADR-0005 §5); the website Astro `proofFieldNotes` collection. The full backlog
-table is below.
+**Next — operator picks (do NOT auto-start):** B6 is now DONE (both slices) and drops off the active backlog.
+The two natural continuations are **B7 — private-strategy symlink + relay** (HIGH; blocks the final git push,
+and would land the Layer B skill's symlink in its final strategy-folder home — it's a real dir today) and
+**#7 — packaging·licensing·distribution** (MED–HIGH, downstream of B6). git remote+push stays LAST, gated on
+BOTH B6→#7 AND B7. Per spec §8, OUT of scope (logged, not built): the `·fmt` retrofit across
+leaderboard/track-record/receipt; the safe-slice publish surface (ADR-0005 §5); the website Astro
+`proofFieldNotes` collection/route (lives in `~/orionfold/website`). The full backlog table is below.
+
+<!-- prior START HERE (B6 Layer A shipped) below — superseded -->
+<!-- _**This session (2026-06-23):** committed the approved B6 spec (`457baca`) then shipped **B6 Slice 1 —
+Layer A, the public Proof field-note export** (`112776e`). See `docs/worklog/2026-06-23-b6-field-note-layer-a.md`._ -->
 
 <!-- prior START HERE (CLI-widen slice 2) below — superseded by the two slices above -->
 ## (superseded) Dual-distribution: CLI widened.
@@ -409,22 +436,22 @@ remains (below); operator picks. git remote+push stays queued LAST behind packag
 
 | # | Item | Priority | State / gate |
 | --- | --- | --- | --- |
-| 1 | **B6 Slice 2 — field-note Layer B (private skill)** | **NOW / HIGH** | Slice 1 (Layer A public export) SHIPPED `112776e`. Remaining: the private authoring/publish skill (`.claude/skills/proof-field-note/`) — scaffold-from-run + operator narrative + website bundle. **Gated on B7** for the symlink-into-strategy step (can author in parallel). Spec `_SPECS/2026-06-23-proof-field-notes.md` §8. |
-| 2 | **B7 — Private-strategy symlink + relay** | **HIGH** | **Blocks #14.** `_IDEAS`/`_SPECS` confirmed still **real dirs (not symlinks)**. Own git-history-touching session. Independent of B6 → can run parallel. |
-| 3 | **#7 — Packaging · licensing · distribution** | MED–HIGH | **Downstream of B6** (B6 defines the boundary #7 packages). Apache-2.0 flip, PyPI metadata (dist `orionfold-proof`/CLI `orionfold`; reserve `orionfold`+`orionfold-arena`), `uv tool install … → orionfold up`, release ritual. Scope FIRST. |
-| 4 | **B4 — Reimagine Candidates → cross-run board** | MED–HIGH | ⏸ **PAUSED, blocked on B6.** Web screen already shipped (`33339d5`); the Arena-leaderboard reimagining is the paused part. |
-| 5 | **B5 — Make Quick Compare more whole** | MED–HIGH | Brainstorm FIRST. Overlaps B2 (#8) + B4. Mine Arena `CompareDuel.jsx`. |
-| 6 | **Cross-product models × prompts** | MED | N models × M prompts in one run. Brainstorm FIRST. |
-| 7 | **Catalog price/source accuracy pass** | MED | Verify list prices + context windows (`current-docs-check`). |
-| 8 | **B2 — Quick→Promote carries the prompt** | LOW–MED | UX seam (promote drops the ad-hoc prompt by design). May be superseded by B5#4 (inline scoring). |
-| 9 | **DS-skin polish** | LOW–MED | Shared token-driven badge/chip/bar kit (DS findings in `_IDEAS/design-system.md`); receipt proof-seal stamp. |
-| 10 | **B8 — Track Record filter ↔ run-id drift** | LOW | Minor seam from the B4 build; honest empty states. Anchors in `TrackRecordView.tsx`. |
-| 11 | **B1 — Exact rubric shows `≥ 0.8` in receipt** | LOW | Cosmetic; harmless (binary check grades identically at any threshold in (0,1]). |
-| 12 | **Stored "Recommended on 0/5" backfill** | LOW | Optional one-off; 2026-06-21 pre-gate runs only. New runs correct. |
-| 13 | **Richer sample data** | LOW | Extend `sample_data.py` if onboarding wants it. |
-| 14 | **git remote + push** | **LAST** | **Gated on BOTH B6→#7 AND B7.** Do NOT surface until those land (operator directive). No remote; `main` holds all work unpushed (incl. strategy content — why B7 precedes this). |
+| 1 | **B7 — Private-strategy symlink + relay** | **NOW / HIGH** | **Blocks #13 (git push).** `_IDEAS`/`_SPECS` confirmed still **real dirs (not symlinks)**. Own git-history-touching session. Also lands the **B6 Layer B skill's symlink** in its final strategy-folder home (the skill is a real dir today — `.claude/skills/proof-field-note/`). |
+| 2 | **#7 — Packaging · licensing · distribution** | MED–HIGH | **Downstream of B6** (B6 defines the boundary #7 packages). Apache-2.0 flip, PyPI metadata (dist `orionfold-proof`/CLI `orionfold`; reserve `orionfold`+`orionfold-arena`), `uv tool install … → orionfold up`, release ritual. Scope FIRST. |
+| 3 | **B4 — Reimagine Candidates → cross-run board** | MED–HIGH | Web screen already shipped (`33339d5`); the Arena-leaderboard reimagining is the remaining part (B6 no longer blocks it — B6 is done). |
+| 4 | **B5 — Make Quick Compare more whole** | MED–HIGH | Brainstorm FIRST. Overlaps B2 (#7) + B4. Mine Arena `CompareDuel.jsx`. |
+| 5 | **Cross-product models × prompts** | MED | N models × M prompts in one run. Brainstorm FIRST. |
+| 6 | **Catalog price/source accuracy pass** | MED | Verify list prices + context windows (`current-docs-check`). |
+| 7 | **B2 — Quick→Promote carries the prompt** | LOW–MED | UX seam (promote drops the ad-hoc prompt by design). May be superseded by B5#4 (inline scoring). |
+| 8 | **DS-skin polish** | LOW–MED | Shared token-driven badge/chip/bar kit (DS findings in `_IDEAS/design-system.md`); receipt proof-seal stamp. |
+| 9 | **B8 — Track Record filter ↔ run-id drift** | LOW | Minor seam from the B4 build; honest empty states. Anchors in `TrackRecordView.tsx`. |
+| 10 | **B1 — Exact rubric shows `≥ 0.8` in receipt** | LOW | Cosmetic; harmless (binary check grades identically at any threshold in (0,1]). |
+| 11 | **Stored "Recommended on 0/5" backfill** | LOW | Optional one-off; 2026-06-21 pre-gate runs only. New runs correct. |
+| 12 | **Richer sample data** | LOW | Extend `sample_data.py` if onboarding wants it. |
+| 13 | **git remote + push** | **LAST** | **Gated on #2 (packaging) AND #1 (B7).** Do NOT surface until those land (operator directive). No remote; `main` holds all work unpushed (incl. strategy content — why B7 precedes this). |
 
-_✅ Shipped, dropped from active: **B3** real-world demo datasets (`af8203d`)._
+_✅ Shipped, dropped from active: **B3** real-world demo datasets (`af8203d`); **B6** dual-distribution
+field notes — Layer A public export (`112776e`) + Layer B private skill (`bf6ab72`)._
 
 _Standing notes: several ad-hoc real runs (incl. "no winner") sit in `~/.orionfold/proof.db` —
 clear via Settings → data management for a pristine demo state if wanted. `_IDEAS/issues.md`,
@@ -484,8 +511,24 @@ clear via Settings → data management for a pristine demo state if wanted. `_ID
   "none"` (a quick/unscored run rolls pass-rate to 0, indistinguishable from "scored, all failed" — read the
   KIND, never draw a fake bar); the scatter omits its dashed frontier polyline when `<2` frontier points or
   no cost spread (dots still render). The package **does NOT author** the `## Why this can be trusted`
-  narrative — it emits a stub with `<!-- author: … -->` markers (Layer B / the operator fills it). **Layer B
-  (the private authoring/publish skill) is slice 2, gated on B7** — not built yet.
+  narrative — it emits a stub with `<!-- author: … -->` markers (Layer B / the operator fills it).
+- **Proof field note Layer B (B6 Slice 2, SHIPPED `bf6ab72`):** the **dev-only**
+  `.claude/skills/proof-field-note/` skill — scaffold-from-run (`orionfold field-note`) → operator authors
+  the `## Why this can be trusted` narrative by hand → `scripts/emit_bundle.py` packages a website-ready
+  bundle. **The skill edits NO `src/`** — it only *consumes* the public CLI, so mock `467ddd96c9a5`, the
+  receipt, and `RECEIPT_VERSION` are untouched **by construction**. `emit_bundle.py` is **stdlib-only**
+  (no package import). Invariants do NOT regress: (1) the **marker guard** must refuse (non-zero, no bundle)
+  while `<!-- author: replace this section -->` survives — never weaken to "trust the operator authored it";
+  (2) **no frontmatter rewrite** — Layer A's frontmatter is a valid `story`-collection superset
+  (`~/orionfold/website/src/content.config.ts`), copied verbatim (if the website ever makes `story`
+  `.strict()`, that's a website-side change, not a reason to strip keys here); (3) **figures stay inline**
+  (parent spec §3 chose inline SVG so they theme with the site — never extract to `.svg` files);
+  (4) **emit only to gitignored `_field-notes/`** — no cross-repo writes (the operator syncs to the website
+  by hand); (5) the **secret backstop** regexes mirror the repo's `secrets-guard.py` `SECRET_PATTERNS`. The
+  self-test (`scripts/test_emit_bundle.py`) runs directly (NOT pytest — outside the package suite) and
+  assembles its fake key at runtime (no key-shaped literal, since the secrets-guard hook blocks both literals
+  and `*_KEY/*_SECRET/*_TOKEN` assignments). **B7 deferral:** the skill is a **real dir** today; the
+  symlink-into-strategy migration lands with B7 (noted in the SKILL.md header).
 - **`RECEIPT_VERSION` is now 8.** The quick receipt is the protected artifact's lightweight variant:
   always labeled "QUICK CHECK · not scored proof" + promote CTA; never claims scored proof.
   `_RECEIPT_STYLE` is shared by full + quick HTML (full output must stay byte-identical — guarded by
