@@ -22,16 +22,14 @@ export function resolveAutoKind(dataset: Dataset | undefined): AutoKind {
   return hasKeypoints ? "keypoint" : "similarity";
 }
 
-// Per-kind default passing threshold — MUST mirror the backend `DEFAULT_THRESHOLDS`
-// (src/orionfold/scoring/rubric.py). Similarity is lenient (0.55 — paraphrased summaries score low
-// on lexical overlap; 0.80 wrongly reads them as "no winner"); Keypoint/Judge stay strict (0.80).
-// A backend test freezes the same values; a frontend unit asserts this map agrees.
-export type TunableKind = "similarity" | "keypoint" | "judge";
-export const DEFAULT_THRESHOLDS: Record<TunableKind, number> = {
-  similarity: 0.55,
-  keypoint: 0.8,
-  judge: 0.8,
-};
+// Per-kind default passing threshold. The canonical values live in the Python core
+// (src/orionfold/scoring/rubric.py DEFAULT_THRESHOLDS) and are codegen'd into
+// `thresholds.generated.ts` by `uv run orionfold codegen` — this re-export keeps existing import
+// sites stable. A backend test asserts the generated file matches the Python map, so the two can no
+// longer silently drift. (Similarity is lenient at 0.55; keypoint/judge stay strict at 0.80.)
+import { DEFAULT_THRESHOLDS, type TunableKind } from "./thresholds.generated";
+export { DEFAULT_THRESHOLDS };
+export type { TunableKind };
 
 // The prefilled default threshold for a method card: a persisted Settings override wins, else the
 // built-in map. `overrides` is the `thresholds` blob from GET /api/settings (already merged on the

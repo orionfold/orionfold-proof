@@ -19,7 +19,9 @@ _WHITESPACE = re.compile(r"\s+")
 # wrongly reads them as "no winner"); Keypoint/Judge stay strict (0.80). Settings sliders may
 # override these per kind; the resolved value still travels in config_hash, so a tuned threshold
 # is part of the proof's identity. Kinds without a tunable default (exact/contains/none) fall back
-# to the Rubric field default. The frontend mirrors this map in `web/.../scoring.ts`.
+# to the Rubric field default. This is the SINGLE SOURCE OF TRUTH: the frontend consumes a codegen'd
+# copy (`web/.../thresholds.generated.ts`, written by `orionfold codegen`); a test
+# (`tests/unit/test_codegen.py`) fails if that file drifts from this map.
 DEFAULT_THRESHOLDS: dict[RubricKind, float] = {
     "similarity": 0.55,
     "keypoint": 0.8,

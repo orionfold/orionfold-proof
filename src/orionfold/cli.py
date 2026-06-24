@@ -7,6 +7,7 @@
 ``orionfold dataset import|list`` — import and list datasets headlessly.
 ``orionfold runs list|show``      — inspect run history.
 ``orionfold track-record``        — cross-run standings per (dataset, rubric kind).
+``orionfold codegen``             — regenerate the frontend's shared constants from the core.
 
 Each workflow command is a thin shell over the reusable core (ADR-0004 §3): it opens a
 local DB connection, calls a pure core/repository function, and renders. No shell
@@ -91,6 +92,19 @@ def dev(
     """Run the API with auto-reload (run `pnpm --dir web dev` for the cockpit)."""
     typer.echo(f"Orionfold Proof v{__version__} (dev, reload) → http://{host}:{port}")
     _serve(host=host, port=port, reload=True)
+
+
+@app.command()
+def codegen() -> None:
+    """Regenerate the frontend's shared constants from the canonical Python core.
+
+    Writes ``web/src/features/proof/thresholds.generated.ts`` from ``DEFAULT_THRESHOLDS``.
+    A backend test asserts the committed file matches, so run this after editing the map.
+    """
+    from orionfold.codegen import write_generated_files
+
+    for path in write_generated_files():
+        typer.echo(f"Wrote {path}")
 
 
 _FORMAT_RENDERERS = {
