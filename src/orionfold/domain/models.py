@@ -82,6 +82,11 @@ class Dataset(BaseModel):
     # A bench dataset binds a governing Corpus by id; non-bench datasets leave this None.
     # Provenance recorded in the receipt — NOT a config_hash input (see engine.config_hash).
     corpus_id: str | None = None
+    # An optional governing system prompt the dataset ships with (e.g. a bench's
+    # citation/refusal/route contract). When present, the run applies it to every candidate so the
+    # dataset is turnkey. Dataset-level field is hash-inert (provenance, like corpus_id); the prompt
+    # enters config_hash only via the candidate it is applied to (engine._candidate_hash_fields).
+    system_prompt: str | None = None
 
 
 class Rubric(BaseModel):

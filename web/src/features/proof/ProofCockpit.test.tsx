@@ -69,6 +69,32 @@ describe("ProofCockpit recipes", () => {
       ),
     );
   });
+
+  it("auto-fills the Task instruction from a dataset's bundled system prompt", async () => {
+    const withPrompt = [
+      { id: "d1", name: "Plain", description: "", examples: [] },
+      {
+        id: "bench",
+        name: "Governance bench",
+        description: "",
+        examples: [],
+        corpus_id: "c1",
+        system_prompt: "You are an advisor. Finish with Citations: [source_id].",
+      },
+    ];
+    vi.spyOn(api, "getDatasets").mockResolvedValue(withPrompt as never);
+    vi.spyOn(api, "getSelection").mockResolvedValue(SELECTION as never);
+    vi.spyOn(api, "getRecipes").mockResolvedValue(RECIPES as never);
+    wrap();
+    await waitFor(() => screen.getByLabelText(/^Dataset$/i));
+    // Select the bench dataset → its governance contract lands in the Task instruction.
+    fireEvent.change(screen.getByLabelText(/^Dataset$/i), { target: { value: "bench" } });
+    await waitFor(() =>
+      expect((screen.getByLabelText(/Task instruction/i) as HTMLTextAreaElement).value).toBe(
+        "You are an advisor. Finish with Citations: [source_id].",
+      ),
+    );
+  });
 });
 
 // WS-E2: the guided first-run CTA. Shown only when ≥2 cheap cloud candidates are reachable; clicking

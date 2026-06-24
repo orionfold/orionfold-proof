@@ -59,6 +59,12 @@ MIGRATIONS: list[str] = [
     );
     ALTER TABLE datasets ADD COLUMN corpus_id TEXT;   -- nullable FK to corpora(id); NULL for non-bench
     """,
+    # Migration 7: a dataset may ship a governing system prompt (e.g. a bench's citation/refusal/
+    # route contract) so it's turnkey. Additive + nullable → no existing row changes; provenance
+    # only, never a config_hash input.
+    """
+    ALTER TABLE datasets ADD COLUMN system_prompt TEXT;   -- nullable; NULL for datasets without a contract
+    """,
 ]
 
 

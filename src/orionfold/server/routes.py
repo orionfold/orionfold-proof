@@ -181,6 +181,7 @@ class DatasetRow(BaseModel):
     source: str = ""
     check_hint: str | None = None
     corpus_id: str | None = None
+    system_prompt: str | None = None
 
 
 def _conn(request: Request) -> sqlite3.Connection:
@@ -211,6 +212,7 @@ def _to_row(d: Dataset, m) -> DatasetRow:
         source=m.source,
         check_hint=m.check_hint,
         corpus_id=d.corpus_id,
+        system_prompt=d.system_prompt,
     )
 
 

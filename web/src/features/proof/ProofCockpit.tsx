@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { BadgeCheck, LoaderCircle } from "lucide-react";
 
@@ -76,6 +76,9 @@ export function ProofCockpit({
   // the user owns it — but with nothing to re-derive from, an untouched question CLEARS on dataset
   // change rather than carrying a question authored for a different dataset (WS-C).
   const [decisionQuestionTouched, setDecisionQuestionTouched] = useState(false);
+  // Latches which dataset's bundled system prompt we've already auto-filled into the Task
+  // instruction, so the fill happens once per dataset and never clobbers an operator's own text.
+  const promptFilledFor = useRef<string | null>(null);
   const [activeRecipeId, setActiveRecipeId] = useState<string | null>(null);
   const [openFailure, setOpenFailure] = useState<ResultRow | null>(null);
   // Live progress for the streaming run: the plan from the `start` frame + a cumulative count.
@@ -100,6 +103,19 @@ export function ProofCockpit({
   const resolvedDatasetId = datasetId || datasets.data?.[0]?.id || "";
   // Task name follows the selected dataset's name until the user overrides it.
   const selectedDataset = datasets.data?.find((d) => d.id === resolvedDatasetId);
+  // A dataset can ship a governing system prompt (a bench's citation/refusal/route contract). Auto-
+  // fill the Task instruction with it ONCE per dataset arrival (Models mode only) — so selecting the
+  // bench + a model + Run reproduces the published verdict turnkey, no manual paste. Gated on an empty
+  // field so it never clobbers operator text; the operator still sees and can edit it (it lands in
+  // the receipt's config, so the contract under test stays transparent).
+  useEffect(() => {
+    if (compareBy !== "models" || !selectedDataset) return;
+    if (promptFilledFor.current === selectedDataset.id) return;
+    promptFilledFor.current = selectedDataset.id;
+    if (selectedDataset.system_prompt && modelInstruction.trim() === "") {
+      setModelInstruction(selectedDataset.system_prompt);
+    }
+  }, [selectedDataset?.id, compareBy]);
   const effectiveBrief: ProofBrief = {
     ...brief,
     task_name: taskNameTouched || !selectedDataset ? brief.task_name : selectedDataset.name,

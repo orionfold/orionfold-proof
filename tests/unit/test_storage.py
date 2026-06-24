@@ -253,3 +253,35 @@ def test_seed_bench_datasets_lists_with_corpus_and_validates():
     remove_sample_data(conn)
     survivors = {row[0].id for row in list_dataset_rows(conn)}
     assert {ds.id for ds in bench} <= survivors
+
+
+def test_bundled_bench_dataset_carries_governance_system_prompt():
+    """A bench dataset ships its governance contract as `system_prompt`, so selecting it +
+    a model + Run reproduces the published verdict turnkey (no manual Task-instruction paste).
+    The prompt round-trips through storage."""
+    from orionfold.data import bundled_bench_datasets
+    from orionfold.storage.repository import seed_bench_datasets, seed_corpora
+
+    conn = _conn()
+    seed_corpora(conn)
+    seed_bench_datasets(conn)
+    for ds in bundled_bench_datasets():
+        assert ds.system_prompt and "Citations:" in ds.system_prompt, (
+            f"{ds.id} must bundle the governance system prompt"
+        )
+        row = get_dataset(conn, ds.id)
+        assert row is not None and row.system_prompt == ds.system_prompt
+
+
+def test_dataset_system_prompt_is_not_a_config_hash_input():
+    """`system_prompt` is dataset provenance, not a run-identity input (like corpus_id) — adding it
+    must NOT move existing dataset hashes. The candidate's applied prompt is what enters the hash."""
+    from orionfold.domain.models import Candidate, Dataset, Example, Rubric
+    from orionfold.proof.engine import config_hash
+
+    examples = [Example(input_text="q", expected_text="a")]
+    cands = [Candidate(id="m", label="m", provider_id="mock_good")]
+    rubric = Rubric(kind="similarity")
+    without = Dataset(id="d", name="D", examples=examples)
+    withp = Dataset(id="d", name="D", examples=examples, system_prompt="You are an advisor. Citations: []")
+    assert config_hash(without, cands, rubric) == config_hash(withp, cands, rubric)

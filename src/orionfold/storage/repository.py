@@ -71,6 +71,7 @@ def _dataset_from_row(r: sqlite3.Row) -> Dataset:
             "description": r["description"],
             "examples": _load_examples(r["examples"]),
             "corpus_id": (r["corpus_id"] if "corpus_id" in keys else None),
+            "system_prompt": (r["system_prompt"] if "system_prompt" in keys else None),
         }
     )
 
@@ -85,14 +86,14 @@ def seed_corpora(conn: sqlite3.Connection) -> None:
 
 def list_datasets(conn: sqlite3.Connection) -> list[Dataset]:
     rows = conn.execute(
-        "SELECT id, name, description, examples, corpus_id FROM datasets ORDER BY name"
+        "SELECT id, name, description, examples, corpus_id, system_prompt FROM datasets ORDER BY name"
     ).fetchall()
     return [_dataset_from_row(r) for r in rows]
 
 
 def get_dataset(conn: sqlite3.Connection, dataset_id: str) -> Dataset | None:
     r = conn.execute(
-        "SELECT id, name, description, examples, corpus_id FROM datasets WHERE id = ?",
+        "SELECT id, name, description, examples, corpus_id, system_prompt FROM datasets WHERE id = ?",
         (dataset_id,),
     ).fetchone()
     return None if r is None else _dataset_from_row(r)
@@ -158,8 +159,8 @@ def seed_bench_datasets(conn: sqlite3.Connection) -> None:
     for dataset in bundled_bench_datasets():
         conn.execute(
             "INSERT OR IGNORE INTO datasets "
-            "(id, name, description, examples, is_sample, source, corpus_id) "
-            "VALUES (?, ?, ?, ?, 0, ?, ?)",
+            "(id, name, description, examples, is_sample, source, corpus_id, system_prompt) "
+            "VALUES (?, ?, ?, ?, 0, ?, ?, ?)",
             (
                 dataset.id,
                 dataset.name,
@@ -167,6 +168,7 @@ def seed_bench_datasets(conn: sqlite3.Connection) -> None:
                 _examples_json(dataset),
                 "Bundled with Orionfold",
                 dataset.corpus_id,
+                dataset.system_prompt,
             ),
         )
     conn.commit()
@@ -176,7 +178,7 @@ def list_dataset_rows(conn: sqlite3.Connection) -> list[tuple[Dataset, DatasetMe
     """Datasets plus display metadata — for the API; the domain model stays flag-free."""
     rows = conn.execute(
         "SELECT id, name, description, examples, is_sample, tags, created_at, source, check_hint, "
-        "corpus_id FROM datasets ORDER BY name"
+        "corpus_id, system_prompt FROM datasets ORDER BY name"
     ).fetchall()
     return [(_dataset_from_row(r), _load_meta(r)) for r in rows]
 
