@@ -108,6 +108,28 @@
 
 ## B4 · Reimagine the "Candidates" screen — naming + purpose + repurpose Arena's models leaderboard
 
+> ⏸ **PAUSED 2026-06-23 mid-brainstorm — blocked on the dual-distribution model (see B6).** A full
+> brainstorming pass resolved all five B4 cruxes (recorded below so they survive the pause), but the
+> operator then flagged that the FE-only rollup recommendation is **at odds with Proof's CLI/package
+> distribution**: engineers/researchers will plug the **package API + CLI** into their own products, so
+> cross-run-rollup logic likely belongs in the **backend/library layer**, not the React frontend. B4
+> must NOT resume until the dual-distribution architecture (B6) is reasoned into ADRs + an elaborated
+> origin spec and operator-approved. **The "where the rollup lives" decision (frontend module vs.
+> backend endpoint/library primitive) is now a B6 output, not a B4 one.**
+>
+> **B4 brainstorm decisions already locked (2026-06-23, preserve):** (1) **Comparability** — group per
+> **(dataset + rubric)**, medals within each group, never a global cross-test average (Arena's
+> per-bench grouping). (2) **Empty state** — **hybrid**: cross-run board when history exists; today's
+> available-models inventory + add-key affordance + onboarding teaser when it doesn't (never regress
+> the add-key utility). (3) **Scope** — ranked board **+ the existing Recharts `FrontierScatter`
+> scoped per group**; defer the publishable share/export surface. (4) **Integrity** — port Arena's
+> **`·fmt` "format check — not correctness" qualifier** onto `exact`/`contains` groups (extends Proof's
+> scorer-honesty line: demo-scorer-default, B1). (5) **Naming** — rename the screen to **"Track
+> Record"** (follows the new cross-run-history function; avoids reusing "Leaderboard" which already
+> names the per-run table). Data confirmed available: `GET /api/runs` returns every `ProofReport` with
+> embedded per-candidate `LeaderboardEntry[]` — rollup is deterministic map-reduce over
+> `(dataset_id, rubric.kind)`; **no new scoring/hash path** regardless of where it lives.
+
 - **Priority:** Someday / MED–HIGH (product direction, not a defect). The screen works and ships;
   the operator is **not happy** with both its **name** and its **value density** for our ICP.
 - **Surfaced:** 2026-06-23, operator product critique while walking the live cockpit.
@@ -296,3 +318,91 @@
   — `arena-app/src/components/arena/CompareDuel.jsx` (the duel) · `EvalScore.jsx` /
   `EvalPromptDrawer.jsx` (eval mode) · `lib/arena/leaderboard-format.mjs`. Public page:
   https://orionfold.com/software/arena/ (screens 08 chat, 11 head-to-head).
+
+## B6 · ⭐ Dual-distribution model + fieldkit-style dogfooding multi-loop (STRATEGIC — blocks B4)
+
+- **Priority:** **NOW / HIGHEST among open work** (operator directive 2026-06-23 — supersedes the
+  packaging backlog #7 framing and blocks B4). This is product-direction architecture, not a feature.
+- **Surfaced:** 2026-06-23, operator pivot while brainstorming B4. The FE-only rollup reflex exposed a
+  deeper truth: **Proof has two distribution audiences, and the codebase isn't yet shaped for both.**
+- **The reframe (operator's words, paraphrased).** Proof's chosen distribution is **CLI + package**
+  (`uv tool install orionfold-proof` → `orionfold up`; PyPI `orionfold-proof`). That means:
+  - **Non-technical users** (AI builders, consultants, small teams) → the **web cockpit** (the calm
+    instrument panel). One consumer.
+  - **Engineers & researchers** (early adopters) → the **CLI and the package/API endpoints**, plugging
+    Proof *into their own products and experiments*. A first-class consumer, not an afterthought.
+  - **Implication for every feature decision:** logic reflexively placed in the React frontend (e.g.
+    B4's cross-run rollup) may instead belong in the **backend/library layer** so the CLI and
+    programmatic API can reach it too. The web app is **one** consumer of a reusable core — the core is
+    the product. This inverts the recent "FE-only, no backend" default that kept the mock `config_hash`
+    safe (still a good safety property — but no longer the architectural north star).
+- **The precedent to study & adapt — ainative.business's self-propagating multi-loop.** Operator points
+  to `https://ainative.business/{fieldkit,arena,field-notes}/` and the source repo
+  `/Users/manavsehgal/Developer/ainative-business.github.io`. The loop, as described:
+  - **fieldkit** = the extracted package (primitives) — `https://ainative.business/fieldkit/`.
+  - **Arena** = a web app that **ships *inside* fieldkit's distribution AND is built *from* fieldkit
+    primitives** (dogfooding — Arena uses the package it's distributed with).
+  - **field-notes** = **mini-papers generated from running experiments** on fieldkit + Arena
+    (`https://ainative.business/field-notes/`) — and these feed **feature evolution back** into fieldkit.
+  - **Self-propagating outputs:** a **book** (from field notes), the **fieldkit package**, the **Arena
+    web app**, **models** generated using fieldkit, and **datasets/artifacts** as side-products.
+  - The operator sees **Proof evolving exactly this way**: a reusable Proof core (primitives) → the
+    cockpit + a CLI/API as co-equal consumers → experiments run *on* Proof producing field-notes-style
+    write-ups → which feed datasets, receipts, and new features back into the core.
+- **⚠ Brainstorm + ADRs FIRST (operator directive — do NOT resume B4 or build until approved).** The
+  deliverable (operator-chosen): **ADRs + an elaborated origin spec, then brainstorm with the operator.**
+  Study depth: **deep, including fieldkit's package/API design at the code level** so the ADRs can
+  prescribe Proof's package boundaries concretely. Open questions the ADRs must resolve:
+  - **Library/core boundary.** What is Proof's reusable core (run engine, scoring, providers, receipts,
+    cross-run rollup) vs. its delivery shells (FastAPI web, Typer CLI, programmatic Python API)? Today
+    much logic lives in `web/` TS modules (scoring.ts, leaderboardSort.ts, paretoFrontier.ts,
+    costLedgerMath.ts, the B4 rollup) — which of these are **duplicated client conveniences** vs. logic
+    that should be **canonical in the Python core** and merely mirrored in TS? (The A2 threshold map is
+    already a "synced BE↔FE" precedent — note the maintenance cost.)
+  - **CLI/API surface.** What commands + endpoints does a researcher need to drive Proof headlessly
+    (define a brief, import a dataset, run a matrix, score, export a receipt, query cross-run history)?
+    What's the stable public API contract? (fieldkit's CLI/entry-point design is the template.)
+  - **The dogfooding loop for Proof.** How does Proof run experiments *on itself* and emit
+    field-notes-style artifacts (proof receipts ARE the artifact — is a "field note" a curated receipt +
+    narrative)? What self-test / self-propagation mechanics port from fieldkit?
+  - **⭐ What "papers, products, artifacts" mean AT PROOF'S ABSTRACTION (operator refinement
+    2026-06-23).** Arena + fieldkit sit at the **model training/inference pipeline** level — their
+    papers/products/artifacts are natural byproducts of *that* pipeline (trained/quantized models,
+    GGUF publishing, datasets, training receipts, GPU-sizing papers) and are **DGX Spark-ONLY**. Proof
+    is a **different, more general abstraction**: prove *which AI option to trust on your own task*,
+    **cross-device / cross-platform**, NO GPU/Spark assumption. So Proof's equivalent must be **derived
+    from Proof's OWN loop**, not copied from Arena's training outputs. The brainstorm/ADRs must define
+    concretely: (a) a Proof **"field note / paper"** = likely a curated proof receipt + narrative
+    (decision + evidence, repeatable) — a *trust* write-up, not a *training* write-up; (b) a Proof
+    **"product"** = the package/CLI/cockpit themselves + possibly published cross-run track-records;
+    (c) a Proof **"artifact"** = datasets distilled from real tasks, receipts, leaderboards, the
+    `·fmt`-style integrity conventions — all **provider-/device-agnostic**. Name the **overlap with
+    Arena** (comparison, leaderboards, scorer-honesty/`·fmt`, safe-slice publishing) vs. where Proof
+    **generalizes beyond** it (any provider, any device, any task; no Spark/GPU framing).
+  - **Relationship to packaging #7.** Packaging·licensing·distribution (#7) is now **downstream of this
+    model**, not a peer backlog item — the package boundary B6 defines is *what* #7 packages. Sequence
+    B6 → #7.
+  - **⭐ Canonical distribution + licensing model (operator directive 2026-06-23 — apply fieldkit's to
+    Proof verbatim where it fits).** Study fieldkit + Arena's distribution/licensing and **adopt the
+    same** for Proof. Confirmed from fieldkit so far: **Apache-2.0** (`fieldkit/LICENSE`), **PyPI wheel**
+    (`pip install fieldkit`) + **git-tag subdirectory install** for bleeding edge
+    (`pip install "git+…@fieldkit/vX.Y.Z#subdirectory=fieldkit"`), `pyproject.toml`-driven build, a
+    maintained `CHANGELOG.md`, **lazy/optional heavy deps** (torch/safetensors lazy so inference-only
+    installs pay nothing — Proof analog: keep provider SDKs optional), a **release ritual** (offline test
+    suite → git tag → PyPI → git+PyPI install-verify, logged in `_STATUS.json`), and a **structural
+    public/private split** ("only released code is public"; `_GUIDES`/`_SPECS`/`_IDEAS` are private
+    gitignored symlinks; privacy is structural, not a per-push scrub). The ADRs must port: license choice
+    (Apache-2.0), dist channels (PyPI `orionfold-proof` + git-tag), optional-deps strategy, CHANGELOG +
+    release-verify ritual, and the public/private doc boundary. This satisfies the study half of backlog
+    #7; the *applying* half stays #7, sequenced after B6.
+- **Next step (in progress 2026-06-23):** deep study of the ainative repo → ADRs (dual-distribution
+  architecture; the dogfooding multi-loop) + elaborate `docs/opportunity.md` into the origin spec →
+  brainstorm with operator → THEN adapt Proof → THEN return to B4/backlog. **Keep extending this
+  backlog as gaps surface between the ambition, ainative.business workflows, and Proof's readiness**
+  (operator directive).
+- **Anchors:** ainative SOURCE `/Users/manavsehgal/Developer/ainative-business.github.io` (fieldkit
+  package, arena-app, field-notes, fieldkit CLI/entry-points/test harness). Public:
+  `https://ainative.business/{fieldkit,arena,field-notes}/`. PROOF — `docs/opportunity.md` (origin) ·
+  `docs/release-charter.md` · `src/orionfold/` (current core) · `web/src/` (current TS-side logic to
+  audit for "should this be canonical in the core?") · [[B4]] (blocked by this) · backlog #7 packaging
+  (downstream of this).

@@ -132,6 +132,55 @@ Your KPIs should be activation-heavy, not vanity-heavy: time to first proof run,
 
 The roadmap is straightforward. In the first **90 days**, ship P0: local engine, adapters, matrix runs, receipt export, and one or two opinionated proof templates. Success means at least **20 paid pilots or Sprints**, **100 active proof runs**, and clear evidence that users repeat proofs. In **180 days**, add Pro features: policy packs, regression testing, team sharing, and hybrid privacy controls. Success means **$20k–$40k MRR** and a stable content-to-product funnel. By **365 days**, the goal is not feature parity with Braintrust or Langfuse; it is category ownership of the phrase and workflow **“Proof Receipt.”** Success means **$1M+ ARR run rate**, a library of reusable proof templates, and enough community mindshare that new local/hybrid evaluation content naturally references your workflow. citeturn14search2turn10search1turn10search2
 
+## Origin spec — the dual-distribution model & the dogfooding loop (elaborated 2026-06-23)
+
+> This section elaborates the opportunity into the **product's operating shape**. It was added after a
+> deep study of the sibling **ainative.business** monorepo (the **fieldkit → arena → field-notes** loop)
+> and a code-level audit of Proof's own core. It is the narrative origin behind ADRs
+> [0004](adr/0004-dual-distribution-core-shells.md) (dual-distribution architecture),
+> [0005](adr/0005-proof-dogfooding-loop-and-artifacts.md) (the loop & artifact taxonomy), and
+> [0006](adr/0006-distribution-and-licensing.md) (distribution & licensing). Supporting study:
+> `_SPECS/2026-06-23-dual-distribution-findings.md`.
+
+### Two audiences, one core
+
+The executive summary's "**open-core local engine + local web cockpit + minimal hosted services**" and
+"Orionfold becomes a **trust layer rather than a compute-specific shell**" are not loose phrasing — they
+fix the product's distribution shape. Proof ships as a **CLI + Python package**
+(`uv tool install orionfold-proof` then `orionfold up`), serving **two audiences**:
+
+- **Non-technical users** (consultants, small AI teams, privacy-sensitive builders) use the **web
+  cockpit**, the calm instrument panel for deciding what to trust.
+- **Engineers & researchers** (early adopters) use the **CLI and the package/API**, plugging Proof *into
+  their own products and experiments* — a **first-class** consumer.
+
+The consequence: **the reusable core is the product**, and the web cockpit, the CLI, and the programmatic
+API are **three shells over the same core** (ADR-0004). Logic all three need — scoring, the run engine,
+receipts, the cross-run rollup — lives in the core, not in any one shell.
+
+### The dogfooding loop, at the trust abstraction
+
+ainative.business runs a **self-propagating loop**: a field-note article ends with `evidence/` working
+code, recurring patterns are lifted into the **fieldkit** package, **products** compose those modules, and
+**datasets, models, and a book** fall out as side-products. Proof adopts the loop's **shape** while
+**dropping its substrate** (ADR-0005). ainative sits at the **model-training/inference** level and is
+**DGX-Spark-only** ("fits the 128 GB envelope"); **Proof sits above training and is cross-platform**
+("runs on the providers and devices you actually have" — any local or cloud provider, any device, no GPU
+assumption).
+
+At Proof's abstraction the loop reads: **run a proof** (experiment), **the Proof Receipt is the evidence**
+(repeatable, hashed), the **Proof core** is the extracted importable primitive, **Proof itself** (package
++ CLI + cockpit) and **published track-records** are the products, and **datasets distilled from real
+tasks, receipts, and leaderboards** are the side-product artifacts. A Proof **field note** is a **curated
+Proof Receipt + an authored narrative** — the decision and why it can be trusted. The honesty disciplines
+port from Arena (the `·fmt` "format check — not correctness" qualifier; receipts that never embed
+secrets); the Spark/GPU substrate does not.
+
+This is the same funnel the validation plan already names — **Field Note + run button**, **proof
+templates**, **benchmark datasets as side-products** — now grounded in a concrete reusable core and a loop
+that feeds itself: real tasks, proof runs, receipts, field notes, distilled datasets and conventions, back
+into the core.
+
 ## Open questions and limitations
 
 Some company funding and employee figures are **not publicly disclosed** in primary sources, especially for Ollama, LM Studio, Unsloth, and Confident AI; where unavailable, this report says so rather than guessing. Search-trend data for “RAG” comes from a **Google Trends overlay tool**, which is useful directionally but not as authoritative as official Google Ads search volume. Finally, overlap across Reddit, GitHub, and vendor communities is substantial, so TAM/SAM/SOM estimates here should be treated as **decision ranges**, not precise market census figures. citeturn4search0turn8search0turn8search1turn27news48
