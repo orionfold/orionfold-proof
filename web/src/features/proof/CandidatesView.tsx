@@ -1,10 +1,17 @@
 import { useQuery } from "@tanstack/react-query";
 
-import type { SelectionGroup, SelectionModel } from "../../lib/api";
-import { getSelection } from "../../lib/api";
+import type { ProviderHealth, SelectionGroup, SelectionModel } from "../../lib/api";
+import { getProviderHealth, getSelection } from "../../lib/api";
 import { KeyEntry } from "./KeyEntry";
 import { ProviderLogo } from "./ProviderLogo";
 import { ProviderTag } from "./badges";
+import { RecheckHealthButton } from "./RecheckHealthButton";
+import {
+  HealthRemediation,
+  ProviderHealthBadge,
+  healthByProvider,
+  healthOk,
+} from "./providerHealth";
 import { CLOUD_KEY_NAMES } from "./selectionMeta";
 import { ViewNotice, ViewShell } from "./ViewShell";
 
@@ -14,11 +21,25 @@ import { ViewNotice, ViewShell } from "./ViewShell";
 // providers and an inline way to configure them instead of an unexplained gap (WS-E1).
 export function CandidatesView() {
   const selection = useQuery({ queryKey: ["selection"], queryFn: getSelection });
+  // Liveness probe, shared cache key with the Proof Run picker so a recheck in either place
+  // refreshes both. Render-first/probe-async: cards show immediately, then flag failing providers.
+  const health = useQuery({
+    queryKey: ["provider-health"],
+    queryFn: getProviderHealth,
+    staleTime: Infinity,
+  });
+  const healthMap = healthByProvider(health.data);
 
   return (
     <ViewShell
       title="Candidates"
       subtitle="The models, prompts, and providers available to prove. Mock candidates run instantly with no API key; cloud and local providers turn on once their key or host is configured — unconfigured ones show how below."
+      action={
+        <RecheckHealthButton
+          isChecking={health.isFetching}
+          onRecheck={() => void health.refetch()}
+        />
+      }
     >
       {selection.isLoading ? (
         <ViewNotice>Loading candidates…</ViewNotice>
@@ -31,7 +52,7 @@ export function CandidatesView() {
       ) : (
         <ul className="grid gap-2">
           {selection.data.providers.map((g) => (
-            <ProviderCard key={g.provider_id} group={g} />
+            <ProviderCard key={g.provider_id} group={g} health={healthMap.get(g.provider_id)} />
           ))}
         </ul>
       )}
@@ -42,17 +63,25 @@ export function CandidatesView() {
 // One catalog provider. Available providers list their models; an unconfigured cloud provider
 // explains its absence and offers the same inline KeyEntry used in run setup; an unconfigured
 // local provider points at starting its host (no key to add).
-function ProviderCard({ group }: { group: SelectionGroup }) {
+function ProviderCard({ group, health }: { group: SelectionGroup; health?: ProviderHealth }) {
   const keyName = CLOUD_KEY_NAMES[group.provider_id];
+  // Configured (key/server present) but the probe says it won't actually run.
+  const showHealthFailure = group.available && !healthOk(health);
   return (
     <li className="grid gap-2 rounded-xl border border-(--color-panel-line) bg-(--color-panel-card) px-4 py-3">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-        <ProviderLogo providerId={group.provider_id} available={group.available} label={group.label} />
+        <ProviderLogo
+          providerId={group.provider_id}
+          available={group.available && healthOk(health)}
+          label={group.label}
+        />
         <span className="font-medium text-(--color-ink)">{group.label}</span>
         <ProviderTag candidate={{ provider_id: group.provider_id, privacy: group.privacy }} />
         {!group.available ? (
           <span className="text-xs text-(--color-ink-faint)">Not configured</span>
-        ) : null}
+        ) : (
+          <ProviderHealthBadge health={health} />
+        )}
       </div>
 
       {group.available && group.models.length > 0 ? (
@@ -63,7 +92,12 @@ function ProviderCard({ group }: { group: SelectionGroup }) {
         </ul>
       ) : null}
 
-      {!group.available && keyName ? (
+      {showHealthFailure ? (
+        // Configured but failing its probe (revoked key, quota, server down) — show why + the fix.
+        <p className="pl-7">
+          <HealthRemediation health={health} />
+        </p>
+      ) : !group.available && keyName ? (
         // Unconfigured cloud — reuse the proven inline KeyEntry (writes .env.local server-side,
         // never echoes the key, invalidates ["selection"] so this card flips to available live).
         <div className="flex flex-wrap items-center gap-2 pl-7">

@@ -1,30 +1,58 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 
-import type { SelectionGroup, SelectionModel, SelectionPanel } from "../../lib/api";
+import type {
+  ProviderHealth,
+  SelectionGroup,
+  SelectionModel,
+  SelectionPanel,
+} from "../../lib/api";
 import { KeyEntry } from "./KeyEntry";
 import { ProviderLogo } from "./ProviderLogo";
+import { HealthRemediation, ProviderHealthBadge, healthOk } from "./providerHealth";
 import { CLOUD_KEY_NAMES } from "./selectionMeta";
 
 export interface CandidatePickerProps {
   panel: SelectionPanel;
   selected: string[];
   onToggle: (candidateId: string) => void;
+  // Per-provider liveness, keyed by provider_id. Absent ⇒ probe hasn't returned yet (treated as
+  // healthy so the picker renders enabled first, then disables failing providers when it lands).
+  health?: Map<string, ProviderHealth>;
+  // Optional control rendered right-aligned on the "Candidates" header row (the Recheck button).
+  headerAction?: ReactNode;
 }
 
 // Provider-grouped chips: each curated model is a toggle; toggle several on one provider to
 // compare them (the cost/latency-vs-quality proof). Unavailable providers are greyed; a
 // "+ custom" field is the escape hatch for any model string the catalog doesn't list.
-export function CandidatePicker({ panel, selected, onToggle }: CandidatePickerProps) {
+export function CandidatePicker({
+  panel,
+  selected,
+  onToggle,
+  health,
+  headerAction,
+}: CandidatePickerProps) {
   return (
     <fieldset className="grid gap-3 text-sm">
-      <legend className="text-(--color-ink-muted)">Candidates</legend>
+      {/* Title + optional Recheck control on one row; the subtitle sits below. A plain <div> is
+          the legend (not <legend>, which can't host a right-aligned action cleanly). */}
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-(--color-ink-muted)">Candidates</span>
+        {headerAction}
+      </div>
       <p className="text-xs text-(--color-ink-faint)">
         The models you're comparing. Toggle several models of one provider to weigh cost and
         latency against quality. Mock candidates run instantly, no API key.
       </p>
       <div className="grid gap-3">
         {panel.providers.map((g) => (
-          <ProviderRow key={g.provider_id} group={g} selected={selected} onToggle={onToggle} />
+          <ProviderRow
+            key={g.provider_id}
+            group={g}
+            selected={selected}
+            onToggle={onToggle}
+            health={health?.get(g.provider_id)}
+          />
         ))}
       </div>
     </fieldset>
@@ -35,36 +63,47 @@ function ProviderRow({
   group,
   selected,
   onToggle,
+  health,
 }: {
   group: SelectionGroup;
   selected: string[];
   onToggle: (id: string) => void;
+  health?: ProviderHealth;
 }) {
   // Custom-model chips the user added that aren't in the catalog list, so they still render.
   const customSelected = selected.filter(
     (id) => id.startsWith(`${group.provider_id}:`) && !group.models.some((m) => m.candidate_id === id),
   );
+  // Two independent gates: `group.available` (key present / server offered) and health (the probe
+  // confirmed it actually works). A provider must pass BOTH to be selectable, so a present-but-
+  // revoked key (available + health=auth) is hard-gated, not silently runnable.
+  const unhealthy = !healthOk(health);
+  const usable = group.available && !unhealthy;
+  // The key-present-but-unhealthy case shows the health badge + remediation; the no-key /
+  // no-server case keeps the existing add-key / start-server affordance.
+  const showHealthFailure = group.available && unhealthy;
   return (
     <div className="grid gap-2 sm:grid-cols-[8rem_minmax(0,1fr)] sm:items-start">
       <div className="flex items-center gap-1.5 pt-1.5 text-(--color-ink-muted)">
         {/* The provider's logo doubles as the availability signal (full ink when available,
-            dimmed when not); mocks have no brand and fall back to a status dot. */}
+            dimmed when not); mocks have no brand and fall back to a status dot. A passing key
+            that fails its health probe is also dimmed so the row reads as not-runnable. */}
         <ProviderLogo
           providerId={group.provider_id}
-          available={group.available}
+          available={usable}
           label={group.label}
         />
         {/* Mocks carry their full label on the chip, so the left column stays generic to avoid
             repeating the same text twice in one row. */}
         <span>{group.candidate_id != null ? "Mock" : group.label}</span>
       </div>
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         {group.candidate_id !== null && group.candidate_id !== undefined ? (
           <Chip
             label={group.label}
             value={group.candidate_id}
             checked={selected.includes(group.candidate_id)}
-            disabled={!group.available}
+            disabled={!usable}
             onToggle={onToggle}
           />
         ) : null}
@@ -73,10 +112,9 @@ function ProviderRow({
             key={m.candidate_id}
             model={m}
             checked={selected.includes(m.candidate_id)}
-            // Gate on the group AND the per-model flag: a curated HF/GGUF model that isn't
-            // pulled yet (available === false) can't be run, so it's not selectable here
-            // (hf-own-models — pull it first via CandidatesView's "Pull to enable" hint).
-            disabled={!group.available || m.available === false}
+            // Gate on the group, the per-model flag, AND provider health: a curated HF/GGUF model
+            // that isn't pulled (available === false) or a provider whose probe failed can't run.
+            disabled={!usable || m.available === false}
             onToggle={onToggle}
           />
         ))}
@@ -86,14 +124,19 @@ function ProviderRow({
             label={id.slice(group.provider_id.length + 1)}
             value={id}
             checked
-            disabled={!group.available}
+            disabled={!usable}
             onToggle={onToggle}
           />
         ))}
-        {group.supports_custom && group.available ? (
+        {group.supports_custom && usable ? (
           <CustomChip providerId={group.provider_id} providerLabel={group.label} onToggle={onToggle} />
         ) : null}
-        {!group.available && CLOUD_KEY_NAMES[group.provider_id] ? (
+        {showHealthFailure ? (
+          <>
+            <ProviderHealthBadge health={health} />
+            <HealthRemediation health={health} />
+          </>
+        ) : !group.available && CLOUD_KEY_NAMES[group.provider_id] ? (
           <div className="flex items-center gap-2">
             <span className="self-center text-xs text-(--color-ink-faint)">
               Unavailable — add a key

@@ -25,6 +25,7 @@ from orionfold.catalog import load_catalog
 from orionfold.catalog.models import ModelCatalog
 from orionfold.config.env_file import set_key_in_env_local
 from orionfold.config.keys import CLOUD_KEY_NAMES, has_key
+from orionfold.providers.health import probe_all
 from orionfold.providers.selection import SelectionPanel, selection_panel
 from orionfold.recipes.resolution import RecipesPanel, resolve_recipes
 from orionfold.data.importers import DatasetParseError, ImportFormat, ParseResult, parse_dataset
@@ -354,6 +355,44 @@ def get_recipes() -> RecipesPanel:
     needs — never a key value, never run provenance.
     """
     return resolve_recipes()
+
+
+class ProviderHealthModel(BaseModel):
+    """One provider's liveness probe result. Contains no credentials — safe to show and log."""
+
+    provider_id: str
+    status: Literal["ok", "auth", "permission", "quota", "down", "unreachable"]
+    message: str
+    remediation: str
+
+
+class ProviderHealthPanel(BaseModel):
+    """All currently-active providers' health, for graying out failing candidates in the UI."""
+
+    providers: list[ProviderHealthModel]
+
+
+@router.get("/health/providers")
+def get_provider_health() -> ProviderHealthPanel:
+    """Probe every active provider with a free, token-free request and report each one's health.
+
+    Cloud providers hit a metadata endpoint (e.g. ``GET /v1/models``) — never a generation
+    endpoint, so no tokens are spent — and the result distinguishes a working key from a
+    down / rate-limited / billing-blocked / revoked one. Local providers (Ollama, LM Studio)
+    report whether their server is reachable. Read-only; contains no key material.
+    """
+    results = probe_all()
+    return ProviderHealthPanel(
+        providers=[
+            ProviderHealthModel(
+                provider_id=r.provider_id,
+                status=r.status,
+                message=r.message,
+                remediation=r.remediation,
+            )
+            for r in results
+        ]
+    )
 
 
 @router.post("/credentials")

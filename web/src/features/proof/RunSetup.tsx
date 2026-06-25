@@ -1,6 +1,13 @@
 import type { ReactNode } from "react";
-import type { Dataset, ProofBrief, PromptVariant, SelectionPanel } from "../../lib/api";
+import type {
+  Dataset,
+  ProofBrief,
+  ProviderHealth,
+  PromptVariant,
+  SelectionPanel,
+} from "../../lib/api";
 import { CandidatePicker } from "./CandidatePicker";
+import { RecheckHealthButton } from "./RecheckHealthButton";
 import { PromptVariants } from "./PromptVariants.tsx";
 import { ScoringMethod, type Rubric } from "./ScoringMethod";
 import { SelectField } from "./SelectField";
@@ -21,6 +28,10 @@ export interface RunSetupProps {
   onViewDataset: (id: string) => void;
   selectedCandidates: string[];
   onToggleCandidate: (id: string) => void;
+  // Per-provider liveness map + recheck control (grays out failing providers in the picker).
+  health?: Map<string, ProviderHealth>;
+  isCheckingHealth?: boolean;
+  onRecheckHealth?: () => void;
   brief: ProofBrief;
   onBriefChange: (brief: ProofBrief) => void;
   onRun: () => void;
@@ -54,6 +65,9 @@ export function RunSetup(props: RunSetupProps) {
     onViewDataset,
     selectedCandidates,
     onToggleCandidate,
+    health,
+    isCheckingHealth,
+    onRecheckHealth,
     brief,
     onBriefChange,
     onRun,
@@ -181,7 +195,12 @@ export function RunSetup(props: RunSetupProps) {
                   className={inputCls + " resize-y"}
                 />
               </label>
-              <CandidatePicker panel={panel} selected={selectedCandidates} onToggle={onToggleCandidate} />
+              <CandidatePicker
+                panel={panel}
+                selected={selectedCandidates}
+                onToggle={onToggleCandidate}
+                health={health}
+              />
               {selectedCandidates.length !== 2 && (
                 <p className="text-xs text-(--color-ink-faint)">Pick exactly 2 candidates to compare.</p>
               )}
@@ -191,7 +210,18 @@ export function RunSetup(props: RunSetupProps) {
             // section (not above the whole form) and only when comparing models.
             <div className="grid gap-6">
               {recipes}
-              <CandidatePicker panel={panel} selected={selectedCandidates} onToggle={onToggleCandidate} />
+              <CandidatePicker
+                panel={panel}
+                selected={selectedCandidates}
+                onToggle={onToggleCandidate}
+                health={health}
+                headerAction={
+                  <RecheckHealthButton
+                    isChecking={isCheckingHealth}
+                    onRecheck={onRecheckHealth}
+                  />
+                }
+              />
               <label className="grid gap-1.5 text-sm">
                 <span className="text-(--color-ink-muted)">System prompt (optional)</span>
                 <textarea

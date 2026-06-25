@@ -334,6 +334,35 @@ export function getSelection(): Promise<SelectionPanel> {
   return getJson("/api/selection", selectionPanelSchema);
 }
 
+// Provider liveness: a free, token-free probe per active provider so the cockpit can gray out a
+// candidate that would fail at run time (down / quota / revoked key / local server off).
+export const ProviderHealthStatus = z.enum([
+  "ok",
+  "auth",
+  "permission",
+  "quota",
+  "down",
+  "unreachable",
+]);
+export type ProviderHealthStatus = z.infer<typeof ProviderHealthStatus>;
+
+export const providerHealthSchema = z.object({
+  provider_id: z.string(),
+  status: ProviderHealthStatus,
+  message: z.string(),
+  remediation: z.string(),
+});
+export type ProviderHealth = z.infer<typeof providerHealthSchema>;
+
+export const providerHealthPanelSchema = z.object({
+  providers: z.array(providerHealthSchema),
+});
+export type ProviderHealthPanel = z.infer<typeof providerHealthPanelSchema>;
+
+export function getProviderHealth(): Promise<ProviderHealthPanel> {
+  return getJson("/api/health/providers", providerHealthPanelSchema);
+}
+
 export const resolvedSelectorSchema = z.object({
   label: z.string(),
   candidate_id: z.string(),

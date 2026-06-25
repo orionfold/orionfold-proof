@@ -5,6 +5,7 @@ import { BadgeCheck, LoaderCircle } from "lucide-react";
 import {
   createRunStream,
   getSelection,
+  getProviderHealth,
   getDatasets,
   getRecipes,
   scoredByLabel,
@@ -33,6 +34,7 @@ import { QuickCompare } from "./QuickCompare";
 import { RecipeRow } from "./RecipeRow";
 import { RunProgress } from "./RunProgress";
 import { RunSetup } from "./RunSetup";
+import { healthByProvider } from "./providerHealth";
 import { StageStepper } from "./StageStepper";
 
 const DEFAULT_BRIEF: ProofBrief = {
@@ -60,6 +62,13 @@ export function ProofCockpit({
   const datasets = useQuery({ queryKey: ["datasets"], queryFn: getDatasets });
   const selection = useQuery({ queryKey: ["selection"], queryFn: getSelection });
   const recipes = useQuery({ queryKey: ["recipes"], queryFn: getRecipes });
+  // Provider liveness probe (free, token-free). Render-first/probe-async: the picker shows
+  // immediately, then grays out any provider whose probe fails. Cached until a manual recheck.
+  const health = useQuery({
+    queryKey: ["provider-health"],
+    queryFn: getProviderHealth,
+    staleTime: Infinity,
+  });
 
   const [datasetId, setDatasetId] = useState("");
   const [selected, setSelected] = useState<string[]>([]);
@@ -300,6 +309,9 @@ export function ProofCockpit({
           onViewDataset={onViewDataset}
           selectedCandidates={resolvedSelected}
           onToggleCandidate={toggleCandidate}
+          health={healthByProvider(health.data)}
+          isCheckingHealth={health.isFetching}
+          onRecheckHealth={() => void health.refetch()}
           brief={effectiveBrief}
           onBriefChange={handleBriefChange}
           isRunning={runMutation.isPending}
