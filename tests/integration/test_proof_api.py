@@ -166,8 +166,13 @@ def test_run_stream_emits_start_progress_and_report(client):
     assert [c["id"] for c in start["candidates"]] == ["mock_good", "mock_bad"]
 
     progress = [e for e in events if e["type"] == "progress"]
-    # One progress frame per cell, monotonically increasing, ending at total.
+    # `done` is a monotonic consumer-side counter (1..total) regardless of completion order.
     assert [e["done"] for e in progress] == list(range(1, start["total"] + 1))
+    # Candidates run concurrently → cells can complete out of order, so assert the SET of cells
+    # covers the full matrix (every candidate × every example) rather than a fixed order.
+    n = start["n_examples"]
+    expected_cells = {(cid, i) for cid in ("mock_good", "mock_bad") for i in range(n)}
+    assert {(e["candidate_id"], e["example_index"]) for e in progress} == expected_cells
 
     report = events[-1]
     assert report["type"] == "report"

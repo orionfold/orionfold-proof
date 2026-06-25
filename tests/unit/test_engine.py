@@ -7,8 +7,13 @@ import pytest
 
 from orionfold import __version__
 from orionfold.data import load_dataset
-from orionfold.domain.models import Candidate, Dataset, Example, ProofBrief, Rubric
-from orionfold.proof.engine import config_hash, run_matrix, run_proof
+from orionfold.domain.models import Candidate, Dataset, Example, ProofBrief, ProviderResult, Rubric
+from orionfold.proof.engine import (
+    config_hash,
+    run_matrix,
+    run_matrix_concurrent,
+    run_proof,
+)
 
 _CANDS = [
     Candidate(id="mock_good", label="Mock · good", provider_id="mock_good"),
@@ -249,3 +254,81 @@ def test_config_hash_excludes_mode_and_chosen_winner():
     assert run.config_hash == h
     assert run.mode == "quick"
     assert run.chosen_winner == "mock_good"
+
+
+# ─── Concurrent candidate fan-out (run_matrix_concurrent) ─────────────────────
+
+
+def test_concurrent_matrix_is_byte_identical_to_sequential():
+    # Candidates are independent + scoring is deterministic, so running them concurrently must
+    # produce the exact same rows in the exact same (input-candidate) order as the sequential run.
+    dataset = load_dataset("investment-memo-summarization")
+    seq = run_matrix(dataset, _CANDS, Rubric())
+    conc = run_matrix_concurrent(dataset, _CANDS, Rubric())
+    assert [r.model_dump() for r in conc] == [r.model_dump() for r in seq]
+
+
+def test_concurrent_run_proof_hash_and_results_match_sequential():
+    # Belt-and-suspenders: the full assembled report (config_hash + every row) is unchanged.
+    a = _report()  # _report() now flows through run_matrix_concurrent via run_proof
+    b = _report()
+    assert a.run.config_hash == b.run.config_hash
+    assert [r.model_dump() for r in a.results] == [r.model_dump() for r in b.results]
+
+
+def test_on_cell_callback_fires_once_per_cell():
+    dataset = load_dataset("investment-memo-summarization")
+    seen: list[tuple[str, int]] = []
+    lock = __import__("threading").Lock()
+
+    def record(row):
+        with lock:  # cells complete on worker threads
+            seen.append((row.candidate_id, row.example_index))
+
+    rows = run_matrix_concurrent(dataset, _CANDS, Rubric(), on_cell=record)
+    # Every cell fired the callback exactly once (set equality is order-independent by design).
+    assert sorted(seen) == sorted((r.candidate_id, r.example_index) for r in rows)
+    assert len(seen) == len(_CANDS) * len(dataset.examples)
+
+
+class _SlowProvider:
+    """A controllable provider that sleeps before answering — used to prove real overlap."""
+
+    def __init__(self, privacy: str, delay: float) -> None:
+        self.privacy = privacy
+        self._delay = delay
+
+    def generate(self, example, candidate):
+        __import__("time").sleep(self._delay)
+        return ProviderResult(output_text="ok", privacy=self.privacy, latency_ms=1)
+
+
+def test_cloud_candidates_overlap_local_candidates_serialize(monkeypatch):
+    import time
+
+    from orionfold.proof import engine
+
+    # One example per candidate so wall-clock ≈ (concurrency behavior) × one delay.
+    dataset = Dataset(id="d", name="d", examples=[Example(input_text="x", expected_text="ok")])
+    delay = 0.3
+
+    def fake_get_provider(provider_id):
+        # provider_id encodes privacy for the test: "cloudN" → cloud, "localN" → local.
+        return _SlowProvider("cloud" if provider_id.startswith("cloud") else "local", delay)
+
+    monkeypatch.setattr(engine, "get_provider", fake_get_provider)
+
+    # Three CLOUD candidates: should overlap → wall-clock ≈ one delay, well under the 3× serial sum.
+    cloud = [Candidate(id=f"c{i}", label=f"c{i}", provider_id=f"cloud{i}", privacy="cloud") for i in range(3)]
+    t0 = time.monotonic()
+    rows = run_matrix_concurrent(dataset, cloud, Rubric(kind="none"))
+    cloud_elapsed = time.monotonic() - t0
+    assert len(rows) == 3
+    assert cloud_elapsed < delay * 2, f"cloud candidates did not overlap (took {cloud_elapsed:.2f}s)"
+
+    # Two LOCAL candidates: must serialize → wall-clock ≈ 2× delay (one model resident at a time).
+    local = [Candidate(id=f"l{i}", label=f"l{i}", provider_id=f"local{i}", privacy="local") for i in range(2)]
+    t0 = time.monotonic()
+    run_matrix_concurrent(dataset, local, Rubric(kind="none"))
+    local_elapsed = time.monotonic() - t0
+    assert local_elapsed >= delay * 1.8, f"local candidates overlapped (took {local_elapsed:.2f}s)"

@@ -81,8 +81,13 @@ export function ProofCockpit({
   const promptFilledFor = useRef<string | null>(null);
   const [activeRecipeId, setActiveRecipeId] = useState<string | null>(null);
   const [openFailure, setOpenFailure] = useState<ResultRow | null>(null);
-  // Live progress for the streaming run: the plan from the `start` frame + a cumulative count.
-  const [progress, setProgress] = useState<{ start: RunStartEvent; done: number } | null>(null);
+  // Live progress for the streaming run: the plan from the `start` frame + a per-candidate
+  // completed-count map. Candidates run concurrently (cloud parallel, local serialized), so cells
+  // arrive out of order — we key completion on candidate_id/example_index, never on arrival order.
+  const [progress, setProgress] = useState<{
+    start: RunStartEvent;
+    completed: Record<string, number>;
+  } | null>(null);
   // Guided first-run CTA (WS-E2): once the user clicks "Run the demo on real models" we preselect
   // the sample + two cheap cloud candidates, then ARM an auto-run. The judge default resolves
   // asynchronously inside ScoringMethod's effect (rubric goes null → judge), so we can't fire the run
@@ -141,8 +146,16 @@ export function ProofCockpit({
   const runMutation = useMutation({
     mutationFn: (body: RunRequest) =>
       createRunStream(body, {
-        onStart: (s) => setProgress({ start: s, done: 0 }),
-        onProgress: (p) => setProgress((prev) => (prev ? { ...prev, done: p.done } : prev)),
+        onStart: (s) => setProgress({ start: s, completed: {} }),
+        onProgress: (p) =>
+          setProgress((prev) => {
+            if (!prev) return prev;
+            // Monotonic per-candidate count, order-independent: a cell at example_index k means at
+            // least k+1 of that candidate's examples are done.
+            const prior = prev.completed[p.candidate_id] ?? 0;
+            const next = Math.max(prior, p.example_index + 1);
+            return { ...prev, completed: { ...prev.completed, [p.candidate_id]: next } };
+          }),
       }),
     onSuccess: (r) => {
       onReport(r);
@@ -343,7 +356,7 @@ export function ProofCockpit({
 
         {runMutation.isPending ? (
           progress ? (
-            <RunProgress start={progress.start} done={progress.done} />
+            <RunProgress start={progress.start} completed={progress.completed} />
           ) : (
             <StartingNotice />
           )

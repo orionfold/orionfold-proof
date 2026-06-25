@@ -8,7 +8,9 @@ itself stays deterministic and clock-free).
 from __future__ import annotations
 
 import json
+import queue
 import sqlite3
+import threading
 import uuid
 from typing import Literal
 from datetime import datetime, timezone
@@ -41,10 +43,11 @@ from orionfold.domain.models import (
     ProofReport,
     ProofRun,
     PromptVariant,
+    ResultRow,
     Rubric,
     TrackRecordGroup,
 )
-from orionfold.proof.engine import build_cost_summary, config_hash, iter_matrix
+from orionfold.proof.engine import build_cost_summary, config_hash, run_matrix_concurrent
 from orionfold.proof.runner import execute_resolved
 from orionfold.proof.leaderboard import build_leaderboard, track_record
 from orionfold.scoring.judge import build_judge
@@ -530,10 +533,11 @@ def create_run_stream(request: Request, body: RunRequest) -> StreamingResponse:
     """Run a proof, streaming progress as Server-Sent Events.
 
     Frames (one JSON object per ``data:`` line):
-      - ``start``: total cells, examples-per-candidate, and the ordered candidate list. The
-        client derives the currently-running cell from ``done`` + this order (candidate-major),
-        so progress events stay tiny.
-      - ``progress``: cumulative ``done`` count plus the just-finished cell's outcome.
+      - ``start``: total cells, examples-per-candidate, and the ordered candidate list.
+      - ``progress``: a cumulative ``done`` count plus the just-finished cell's
+        ``candidate_id`` + ``example_index`` and outcome. Candidates run CONCURRENTLY (cloud
+        parallel, local serialized), so cells complete out of order — the client keys per-candidate
+        progress on ``candidate_id``/``example_index``, never on the order frames arrive.
       - ``report``: the full, persisted :class:`ProofReport` (same shape as ``POST /runs``).
     Validation runs synchronously up front so a bad request is a normal 4xx, not an SSE error.
     """
@@ -573,9 +577,32 @@ def create_run_stream(request: Request, body: RunRequest) -> StreamingResponse:
                 ],
             }
         )
-        rows = []
-        for done, row in enumerate(iter_matrix(dataset, candidates, rubric), start=1):
-            rows.append(row)
+        # Candidates run concurrently on worker threads; each completed cell is pushed onto a
+        # thread-safe queue, and this generator (the request thread) drains it into SSE frames as
+        # they arrive. A sentinel (None) marks the end. The worker also captures the assembled rows.
+        cell_queue: queue.Queue[ResultRow | None] = queue.Queue()
+        produced: dict[str, list[ResultRow]] = {}
+        failure: list[BaseException] = []
+
+        def produce() -> None:
+            try:
+                produced["rows"] = run_matrix_concurrent(
+                    dataset, candidates, rubric, on_cell=cell_queue.put
+                )
+            except BaseException as exc:  # surface to the consumer; never swallow silently
+                failure.append(exc)
+            finally:
+                cell_queue.put(None)  # sentinel: production finished (even on error)
+
+        worker = threading.Thread(target=produce, name="proof-run-stream", daemon=True)
+        worker.start()
+
+        done = 0
+        while True:
+            row = cell_queue.get()
+            if row is None:
+                break
+            done += 1
             yield _sse(
                 {
                     "type": "progress",
@@ -586,6 +613,10 @@ def create_run_stream(request: Request, body: RunRequest) -> StreamingResponse:
                     "error": row.error is not None,
                 }
             )
+        worker.join()
+        if failure:
+            raise failure[0]
+        rows = produced["rows"]
         now = datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
         run = ProofRun(
             id=f"run_{uuid.uuid4().hex[:12]}",
