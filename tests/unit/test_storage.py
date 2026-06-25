@@ -273,6 +273,63 @@ def test_bundled_bench_dataset_carries_governance_system_prompt():
         assert row is not None and row.system_prompt == ds.system_prompt
 
 
+def test_seed_bench_datasets_backfills_a_null_governance_prompt_on_an_existing_row():
+    """The turnkey bench-prompt regression: a bench row seeded BEFORE the dataset shipped its
+    governance `system_prompt` (or a dev/user DB row from before that fix) carries `system_prompt`
+    NULL. `INSERT OR IGNORE` on the stable id never updates it, so the cockpit auto-fill has nothing
+    to apply and a Run scores ~1/21 instead of the headline 18/21. Re-seeding must BACKFILL the
+    bundled prompt (and corpus binding) onto such a row, while never clobbering an operator's edit."""
+    from orionfold.data import bundled_bench_datasets
+    from orionfold.storage.repository import _examples_json, seed_bench_datasets, seed_corpora
+
+    conn = _conn()
+    seed_corpora(conn)
+    bench = bundled_bench_datasets()
+    assert bench, "expected at least one bundled bench dataset"
+
+    # Simulate the pre-fix install: the bench row exists with NULL system_prompt + NULL corpus_id,
+    # exactly the state observed in a real ~/.orionfold/proof.db.
+    for ds in bench:
+        conn.execute(
+            "INSERT INTO datasets (id, name, description, examples, is_sample, system_prompt, "
+            "corpus_id) VALUES (?, ?, ?, ?, 0, NULL, NULL)",
+            (ds.id, ds.name, ds.description, _examples_json(ds)),
+        )
+    conn.commit()
+    for ds in bench:
+        pre = get_dataset(conn, ds.id)
+        assert pre is not None and pre.system_prompt is None  # precondition: the gotcha state
+
+    seed_bench_datasets(conn)
+
+    for ds in bench:
+        row = get_dataset(conn, ds.id)
+        assert row is not None
+        assert row.system_prompt == ds.system_prompt, f"{ds.id} prompt not backfilled"
+        assert row.corpus_id == ds.corpus_id, f"{ds.id} corpus binding not backfilled"
+
+
+def test_seed_bench_datasets_never_clobbers_an_operator_edited_prompt():
+    """Backfill must only fill a NULL/empty prompt — an operator who edited the bench prompt keeps it
+    across restarts (re-seed is a no-op on a non-empty prompt, same guarantee `INSERT OR IGNORE` gave)."""
+    from orionfold.data import bundled_bench_datasets
+    from orionfold.storage.repository import seed_bench_datasets, seed_corpora
+
+    conn = _conn()
+    seed_corpora(conn)
+    seed_bench_datasets(conn)  # seed the real rows
+    edited = "OPERATOR EDIT — Citations: [override]"
+    for ds in bundled_bench_datasets():
+        conn.execute("UPDATE datasets SET system_prompt = ? WHERE id = ?", (edited, ds.id))
+    conn.commit()
+
+    seed_bench_datasets(conn)  # restart re-seed must not overwrite the edit
+
+    for ds in bundled_bench_datasets():
+        row = get_dataset(conn, ds.id)
+        assert row is not None and row.system_prompt == edited
+
+
 def test_dataset_system_prompt_is_not_a_config_hash_input():
     """`system_prompt` is dataset provenance, not a run-identity input (like corpus_id) — adding it
     must NOT move existing dataset hashes. The candidate's applied prompt is what enters the hash."""

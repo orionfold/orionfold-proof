@@ -155,7 +155,15 @@ def seed_bench_datasets(conn: sqlite3.Connection) -> None:
     the install — they survive the Settings "remove samples" action, and they don't collide with the
     guided-demo's ``find(is_sample)`` target. Run *after* :func:`seed_corpora` so the binding has a
     corpus to validate against. ``INSERT OR IGNORE`` on a stable id makes re-seeding a no-op and never
-    clobbers an operator's later edits."""
+    clobbers an operator's later edits.
+
+    Backfill: a row seeded BEFORE the bench shipped its governance ``system_prompt`` (migration 7 added
+    the column nullable; ``INSERT OR IGNORE`` never touches an existing row) carries it NULL — so the
+    cockpit's auto-fill has nothing to apply and a Run scores ~1/21 instead of the headline 18/21. The
+    follow-up ``UPDATE`` backfills the bundled ``system_prompt`` + ``corpus_id`` onto such a row, but
+    ONLY where the prompt is still NULL/empty, so an operator's edit is never overwritten. Hash-safe:
+    the dataset's ``system_prompt`` is provenance, not a ``config_hash`` input (the *candidate's*
+    applied prompt is what enters the hash)."""
     for dataset in bundled_bench_datasets():
         conn.execute(
             "INSERT OR IGNORE INTO datasets "
@@ -170,6 +178,11 @@ def seed_bench_datasets(conn: sqlite3.Connection) -> None:
                 dataset.corpus_id,
                 dataset.system_prompt,
             ),
+        )
+        conn.execute(
+            "UPDATE datasets SET system_prompt = ?, corpus_id = ? "
+            "WHERE id = ? AND (system_prompt IS NULL OR system_prompt = '')",
+            (dataset.system_prompt, dataset.corpus_id, dataset.id),
         )
     conn.commit()
 
