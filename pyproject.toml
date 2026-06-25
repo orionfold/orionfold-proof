@@ -4,8 +4,21 @@ version = "0.1.0"
 description = "Local-first Proof Receipt — prove which AI model, prompt, or workflow is worth trusting."
 readme = "README.md"
 requires-python = ">=3.12"
-license = { text = "Proprietary" }
-authors = [{ name = "Orionfold LLC" }]
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [{ name = "Orionfold LLC", email = "manav@orionfold.com" }]
+keywords = ["ai", "llm", "evaluation", "proof", "receipt", "local-first", "model-comparison", "rag"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Quality Assurance",
+]
 dependencies = [
     "fastapi>=0.115",
     "uvicorn[standard]>=0.30",
@@ -20,6 +33,12 @@ dependencies = [
     "cryptography>=43.0",       # Ed25519 verify for `orionfold unlock` (lazy-imported; import stays cheap)
 ]
 
+[project.urls]
+Homepage = "https://orionfold.com/proof/"
+Source = "https://github.com/orionfold/orionfold-proof"
+Changelog = "https://github.com/orionfold/orionfold-proof/blob/main/CHANGELOG.md"
+Issues = "https://github.com/orionfold/orionfold-proof/issues"
+
 [project.scripts]
 orionfold = "orionfold.cli:app"
 
@@ -29,6 +48,9 @@ dev = [
     "pytest-asyncio>=0.23",
     "ruff>=0.5",
     "pyright>=1.1.370",
+    # Release tooling (manual publish ritual; mirrors fieldkit's dev extra).
+    "build>=1.2",
+    "twine>=5.0",
 ]
 
 [build-system]
@@ -42,6 +64,17 @@ packages = ["src/orionfold"]
 # (see scripts/build.sh). That directory is git-ignored, so force-include it in the wheel.
 [tool.hatch.build]
 artifacts = ["src/orionfold/server/static/**"]
+
+# The sdist carries the source of record: package, tests, and the project docs PyPI links to.
+[tool.hatch.build.targets.sdist]
+include = [
+    "src/orionfold",
+    "tests",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md",
+    "pyproject.toml",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

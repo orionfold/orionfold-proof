@@ -6,6 +6,13 @@ for [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.1.0] — 2026-06-25
+
+> First public release to PyPI: `uv tool install orionfold-proof` → `orionfold up`. The local-first
+> Proof Receipt — compare AI models/prompts/workflows on your own task and export a signed, rerunnable
+> receipt. Apache-2.0 open engine; the cockpit rides embedded in the wheel (no Node at runtime). All
+> v0 scope below ships in this release.
+
 ### Added
 
 - **Meaning-aware scoring.** The receipt no longer fails a correct summary just because it is worded
