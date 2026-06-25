@@ -12,8 +12,8 @@ import { PromptVariants } from "./PromptVariants.tsx";
 import { ScoringMethod, type Rubric } from "./ScoringMethod";
 import { SelectField } from "./SelectField";
 import { Step, StepLine } from "./WorkflowStep";
+import { EvalTypeBadge } from "./EvalTypeBadge";
 import { TagChips } from "./TagChips";
-import { checkHintLabel } from "./tags";
 import { inputCls } from "./formStyles";
 import { validPromptVariants } from "./promptVariantsHelpers";
 
@@ -322,13 +322,11 @@ function DatasetSummary({
       {/* Badges (what's in the set) left-aligned; View details right-aligned, same row. */}
       <div className="mt-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
         <div className="flex flex-wrap items-center gap-1.5">
+          <EvalTypeBadge dataset={dataset} />
           <span className="of-tag">
             {count} example{count === 1 ? "" : "s"}
           </span>
           <TagChips tags={tags} />
-          {dataset.check_hint && (
-            <span className="of-tag of-tag--t5">{checkHintLabel(dataset.check_hint)}</span>
-          )}
           {dataset.system_prompt?.trim() && (
             <span
               className="of-tag of-tag--t3"

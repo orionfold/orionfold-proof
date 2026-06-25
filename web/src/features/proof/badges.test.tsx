@@ -2,6 +2,18 @@ import { render } from "@testing-library/react";
 import { expect, test } from "vitest";
 
 import { ProviderTag, StatusBadge } from "./badges";
+import { EvalTypeBadge } from "./EvalTypeBadge";
+import type { Dataset } from "../../lib/api";
+
+function dataset(over: Partial<Dataset> = {}): Dataset {
+  return {
+    id: "d",
+    name: "D",
+    description: "",
+    examples: [{ input_text: "i", expected_text: "e", keypoints: [] }],
+    ...over,
+  };
+}
 
 test("provider tag is neutral, token-driven, and not a pill (categorical identity, never a control)", () => {
   const { container } = render(
@@ -68,4 +80,35 @@ test("status badges are token-driven status colors, never literal hues or the ac
   const fail = render(<StatusBadge kind="fail">missed</StatusBadge>);
   const failEl = fail.container.querySelector("span")!;
   expect(failEl.className).toContain("text-(--color-warn)");
+});
+
+test("eval-type badge labels each kind, derived from the dataset's own fields", () => {
+  // bench wins (corpus binding); keypoints → keypoint; check-hints → exact/contains; bare → similarity.
+  expect(
+    render(<EvalTypeBadge dataset={dataset({ corpus_id: "c" })} />).container.textContent,
+  ).toContain("Governance bench");
+  expect(
+    render(
+      <EvalTypeBadge dataset={dataset({ examples: [{ input_text: "i", expected_text: "e", keypoints: ["22%"] }] })} />,
+    ).container.textContent,
+  ).toContain("Keypoint coverage");
+  expect(
+    render(<EvalTypeBadge dataset={dataset({ check_hint: "exact" })} />).container.textContent,
+  ).toContain("Exact match");
+  expect(
+    render(<EvalTypeBadge dataset={dataset({ check_hint: "substring" })} />).container.textContent,
+  ).toContain("Contains");
+  expect(render(<EvalTypeBadge dataset={dataset()} />).container.textContent).toContain("Similarity");
+});
+
+test("eval-type badge is categorical identity — neutral surface, never the accent or PASS hue", () => {
+  const el = render(
+    <EvalTypeBadge dataset={dataset({ corpus_id: "c" })} />,
+  ).container.querySelector("span")!;
+  expect(el.className).toContain("text-(--color-ink-muted)");
+  expect(el.className).not.toContain("accent");
+  expect(el.className).not.toContain("--color-ok");
+  // Receipt-stub shape, not a pill.
+  expect(el.className).toContain("rounded");
+  expect(el.className).not.toContain("rounded-full");
 });

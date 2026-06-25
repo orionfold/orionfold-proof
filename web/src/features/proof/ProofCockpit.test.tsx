@@ -146,6 +146,29 @@ describe("ProofCockpit recipes", () => {
     await new Promise((r) => setTimeout(r, 0));
     expect(field().value).toBe("MY OWN INSTRUCTION");
   });
+
+  it("preselects a dataset from 'Run proof →' and consumes the one-shot", async () => {
+    vi.spyOn(api, "getDatasets").mockResolvedValue(DATASETS as never);
+    vi.spyOn(api, "getSelection").mockResolvedValue(SELECTION as never);
+    vi.spyOn(api, "getRecipes").mockResolvedValue(RECIPES as never);
+    const onConsumed = vi.fn();
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <ProofCockpit
+          report={null}
+          onReport={vi.fn()}
+          onViewDataset={vi.fn()}
+          preselectDatasetId="d2"
+          onPreselectConsumed={onConsumed}
+        />
+      </QueryClientProvider>,
+    );
+    // The selector reflects the preselected dataset, not the default first row.
+    await waitFor(() =>
+      expect((screen.getByLabelText(/^Dataset$/i) as HTMLSelectElement).value).toBe("d2"),
+    );
+    expect(onConsumed).toHaveBeenCalled();
+  });
 });
 
 // WS-E2: the guided first-run CTA. Shown only when ≥2 cheap cloud candidates are reachable; clicking

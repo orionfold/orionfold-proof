@@ -12,7 +12,12 @@ import sqlite3
 
 from pydantic import BaseModel
 
-from orionfold.data import bundled_bench_datasets, bundled_corpora, bundled_datasets
+from orionfold.data import (
+    BUNDLED_DOMAIN_TAGS,
+    bundled_bench_datasets,
+    bundled_corpora,
+    bundled_datasets,
+)
 from orionfold.domain.models import Corpus, Dataset, Example, ProofReport
 
 
@@ -45,6 +50,24 @@ def _load_meta(r: sqlite3.Row) -> DatasetMeta:
     )
 
 
+def _backfill_domain_tags(conn: sqlite3.Connection, dataset_id: str) -> None:
+    """Backfill a bundled dataset's display domain tags onto its row, but ONLY where the row carries
+    none yet — so the Datasets screen's domain chips + coverage strip are meaningful on a fresh
+    install while an operator's own tag edit is never overwritten. Tags are display metadata only
+    (never on the domain model, never a config_hash input), so this is hash-inert. Self-heals on
+    every startup seed, mirroring the system_prompt backfill in :func:`seed_bench_datasets`."""
+    import json
+
+    tags = BUNDLED_DOMAIN_TAGS.get(dataset_id)
+    if not tags:
+        return
+    conn.execute(
+        "UPDATE datasets SET tags = ? "
+        "WHERE id = ? AND (tags IS NULL OR tags = '' OR tags = '[]')",
+        (json.dumps(tags), dataset_id),
+    )
+
+
 def seed_datasets(conn: sqlite3.Connection) -> None:
     """Insert bundled datasets if they are not present (idempotent)."""
     for dataset in bundled_datasets():
@@ -58,6 +81,7 @@ def seed_datasets(conn: sqlite3.Connection) -> None:
                 _examples_json(dataset),
             ),
         )
+        _backfill_domain_tags(conn, dataset.id)
     conn.commit()
 
 
@@ -184,6 +208,7 @@ def seed_bench_datasets(conn: sqlite3.Connection) -> None:
             "WHERE id = ? AND (system_prompt IS NULL OR system_prompt = '')",
             (dataset.system_prompt, dataset.corpus_id, dataset.id),
         )
+        _backfill_domain_tags(conn, dataset.id)
     conn.commit()
 
 

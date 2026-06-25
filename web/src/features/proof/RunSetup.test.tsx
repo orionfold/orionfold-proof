@@ -58,6 +58,11 @@ describe("RunSetup", () => {
     expect(scoring.compareDocumentPosition(runBtn) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
+  it("shows the dataset's derived eval type in the summary", () => {
+    renderRunSetup(); // default dataset has keypoints → Keypoint coverage
+    expect(screen.getByText("Keypoint coverage")).toBeInTheDocument();
+  });
+
   it("shows the prompt editor when Compare by Prompts is selected", () => {
     renderRunSetup({ compareBy: "prompts" }); // helper passes through to RunSetup props
     expect(screen.getByLabelText(/Prompt model/i)).toBeInTheDocument();

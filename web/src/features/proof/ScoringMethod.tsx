@@ -9,7 +9,13 @@ import { getSelection, getSettings, rubricSchema } from "../../lib/api";
 import type { Dataset, SelectionPanel } from "../../lib/api";
 import { MethodCard } from "./MethodCard";
 import { JudgeFilter } from "./JudgeFilter";
-import { defaultJudgeCell, prefersSampleJudge, resolveAutoKind, thresholdFor } from "./scoring";
+import {
+  defaultJudgeCell,
+  isBenchDataset,
+  prefersSampleJudge,
+  resolveAutoKind,
+  thresholdFor,
+} from "./scoring";
 import { METHOD_META } from "./selectionMeta";
 import { checkHintLabel } from "./tags";
 
@@ -25,14 +31,6 @@ function deriveMethod(value: Rubric | null): Method {
   if (value.kind === "judge") return "judge";
   if (value.kind === "bench") return "bench";
   return "auto";
-}
-
-// A bench dataset declares a governance contract — it binds a corpus or carries per-row behaviors.
-// Only then is the deterministic Governance bench a meaningful (and offered) scoring method.
-function isBenchDataset(dataset?: Dataset): boolean {
-  if (!dataset) return false;
-  if (dataset.corpus_id) return true;
-  return dataset.examples.some((e) => e.expected_behavior != null);
 }
 
 export interface ScoringMethodProps {

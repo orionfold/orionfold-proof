@@ -1,17 +1,29 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { BookText, Play } from "lucide-react";
 
 import { getDatasets, updateDataset, type Dataset } from "../../lib/api";
 import { ViewNotice, ViewShell } from "./ViewShell";
 import { DatasetImportPanel } from "./DatasetImportPanel";
+import { DatasetCoverage } from "./DatasetCoverage";
+import { EvalTypeBadge } from "./EvalTypeBadge";
+import { ExampleCard } from "./ExampleCard";
 import { TagChips } from "./TagChips";
-import { checkHintLabel } from "./tags";
+import { resolveDatasetKind } from "./scoring";
 
 // A read-only reference: the frozen example sets a proof run scores candidates against. Seeing
-// the exact inputs/expected answers is part of trusting the receipt — nothing is hidden.
-// `focusId` deep-links from the Proof Run "View details" link: the matching card opens with its
-// examples expanded and scrolls into view.
-export function DatasetsView({ focusId }: { focusId?: string | null } = {}) {
+// the exact inputs/expected answers is part of trusting the receipt — nothing is hidden. This is
+// the product's golden surface: each example renders in the shape of its own contract, and a
+// coverage strip up top shows the shape of the whole library at a glance.
+// `focusId` deep-links from the Proof Run "View details" link (open + scroll + expand); `onRunDataset`
+// is the reverse — "Run proof →" jumps to the Proof Run workspace with this dataset selected.
+export function DatasetsView({
+  focusId,
+  onRunDataset,
+}: {
+  focusId?: string | null;
+  onRunDataset?: (id: string) => void;
+} = {}) {
   const datasets = useQuery({ queryKey: ["datasets"], queryFn: getDatasets });
   const [importing, setImporting] = useState(false);
 
@@ -30,7 +42,6 @@ export function DatasetsView({ focusId }: { focusId?: string | null } = {}) {
       }
     >
       {importing && <DatasetImportPanel onClose={() => setImporting(false)} />}
-      {/* existing loading / error / empty / list block unchanged */}
       {datasets.isLoading ? (
         <ViewNotice>Loading datasets…</ViewNotice>
       ) : datasets.isError || !datasets.data ? (
@@ -41,8 +52,9 @@ export function DatasetsView({ focusId }: { focusId?: string | null } = {}) {
         <ViewNotice>No datasets yet. Import a JSONL, CSV, or Markdown set to get started.</ViewNotice>
       ) : (
         <div className="grid gap-4">
+          <DatasetCoverage datasets={datasets.data} />
           {datasets.data.map((d) => (
-            <DatasetCard key={d.id} d={d} focused={d.id === focusId} />
+            <DatasetCard key={d.id} d={d} focused={d.id === focusId} onRunDataset={onRunDataset} />
           ))}
         </div>
       )}
@@ -61,10 +73,19 @@ function sourceLabel(source: string): string {
   return source.startsWith("file:") ? source.slice(5) : source;
 }
 
-function DatasetCard({ d, focused = false }: { d: Dataset; focused?: boolean }) {
+function DatasetCard({
+  d,
+  focused = false,
+  onRunDataset,
+}: {
+  d: Dataset;
+  focused?: boolean;
+  onRunDataset?: (id: string) => void;
+}) {
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState((d.tags ?? []).join(", "));
+  const kind = resolveDatasetKind(d);
   // When deep-linked from "View details", scroll this card into view and open its examples.
   const cardRef = useRef<HTMLElement>(null);
   useEffect(() => {
@@ -115,18 +136,46 @@ function DatasetCard({ d, focused = false }: { d: Dataset; focused?: boolean }) 
 
       {d.description && <p className="mt-1 text-sm text-(--color-ink-muted)">{d.description}</p>}
 
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        <TagChips tags={d.tags ?? []} />
-        {d.check_hint ? (
-          <span className="of-tag of-tag--t5">{checkHintLabel(d.check_hint)}</span>
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <EvalTypeBadge dataset={d} />
+          <TagChips tags={d.tags ?? []} />
+          {d.corpus_id ? (
+            <span
+              className="of-tag of-tag--t7 inline-flex items-center gap-1"
+              title="Bound to a governed corpus — citations are checked against a known source set."
+            >
+              <BookText aria-hidden className="h-3 w-3 shrink-0" />
+              corpus
+            </span>
+          ) : null}
+          {d.system_prompt?.trim() ? (
+            <span
+              className="of-tag of-tag--t3"
+              title="Ships a governance system prompt (e.g. a citation/refusal contract), auto-applied when you run it."
+            >
+              governance contract
+            </span>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => setEditing((v) => !v)}
+            className="text-xs text-(--color-ink-faint) hover:text-(--color-accent)"
+          >
+            {editing ? "Cancel" : "Edit tags"}
+          </button>
+        </div>
+        {onRunDataset ? (
+          <button
+            type="button"
+            onClick={() => onRunDataset(d.id)}
+            aria-label={`Run a proof on ${d.name}`}
+            className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-(--color-accent) hover:underline"
+          >
+            <Play aria-hidden className="h-3 w-3 shrink-0" />
+            Run proof →
+          </button>
         ) : null}
-        <button
-          type="button"
-          onClick={() => setEditing((v) => !v)}
-          className="text-xs text-(--color-ink-faint) hover:text-(--color-accent)"
-        >
-          {editing ? "Cancel" : "Edit tags"}
-        </button>
       </div>
 
       {editing && (
@@ -155,22 +204,12 @@ function DatasetCard({ d, focused = false }: { d: Dataset; focused?: boolean }) 
         </summary>
         <ol className="mt-3 grid gap-3">
           {d.examples.map((ex, i) => (
-            <li key={i} className="grid gap-1 border-t border-(--color-panel-line) pt-3 text-sm">
-              <ExampleField label="Input" value={ex.input_text} />
-              <ExampleField label="Expected" value={ex.expected_text} />
+            <li key={i} className="border-t border-(--color-panel-line) pt-3 text-sm">
+              <ExampleCard kind={kind} example={ex} />
             </li>
           ))}
         </ol>
       </details>
     </section>
-  );
-}
-
-function ExampleField({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="grid gap-0.5">
-      <span className="text-xs text-(--color-ink-faint)">{label}</span>
-      <span className="whitespace-pre-wrap text-(--color-ink)">{value || "—"}</span>
-    </div>
   );
 }

@@ -5,25 +5,13 @@ import { Trophy } from "lucide-react";
 import {
   getDatasets,
   getTrackRecord,
-  type RubricKind,
   type TrackRecordEntry,
   type TrackRecordGroup,
 } from "../../lib/api";
 import { ProviderTag } from "./badges";
+import { RUBRIC_KIND_LABEL } from "./scoring";
 import { SelectField } from "./SelectField";
 import { ViewNotice, ViewShell } from "./ViewShell";
-
-// How each scored rubric kind reads in a section header. Quick/unscored ("none") never reaches
-// here — the rollup excludes it — but it's mapped for total coverage of the union.
-const RUBRIC_KIND_LABEL: Record<RubricKind, string> = {
-  exact: "Exact match",
-  contains: "Contains",
-  similarity: "Similarity",
-  keypoint: "Keypoint coverage",
-  judge: "LLM judge",
-  bench: "Governance bench",
-  none: "Unscored",
-};
 
 // The cross-run scoreboard: which candidate has earned trust over repeated comparable runs.
 // "Comparable" = same dataset, same rubric kind (each becomes a section). Pass-rate is pooled

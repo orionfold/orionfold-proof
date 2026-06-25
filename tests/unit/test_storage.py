@@ -255,6 +255,37 @@ def test_seed_bench_datasets_lists_with_corpus_and_validates():
     assert {ds.id for ds in bench} <= survivors
 
 
+def test_seed_backfills_domain_tags_onto_bundled_datasets():
+    """Bundled dataset JSONs carry no tags (domain is implicit in their names), so the seed backfills
+    display domain tags onto a fresh row — making the Datasets screen's domain chips + coverage strip
+    meaningful out of the box. Both the plain and bench seed paths backfill."""
+    from orionfold.data import BUNDLED_DOMAIN_TAGS
+    from orionfold.storage.repository import seed_bench_datasets, seed_corpora
+
+    conn = _conn()
+    seed_datasets(conn)
+    seed_corpora(conn)
+    seed_bench_datasets(conn)
+
+    metas = {row[0].id: row[1] for row in list_dataset_rows(conn)}
+    for dataset_id, tags in BUNDLED_DOMAIN_TAGS.items():
+        assert dataset_id in metas, f"{dataset_id} not seeded"
+        assert metas[dataset_id].tags == tags, f"{dataset_id} should carry domain tags {tags}"
+
+
+def test_seed_tag_backfill_never_clobbers_an_operator_edit():
+    """The backfill mirrors the system_prompt backfill: it only fills a row that has no tags yet, so
+    an operator who has edited a bundled dataset's tags keeps their edit across the next startup seed."""
+    conn = _conn()
+    seed_datasets(conn)
+    # Operator retags a bundled dataset by hand.
+    assert update_dataset_meta(conn, "support-ticket-triage", tags=["My Team", "Tier 1"]) is True
+    # A subsequent startup re-seed must NOT overwrite that edit.
+    seed_datasets(conn)
+    meta = get_dataset_meta(conn, "support-ticket-triage")
+    assert meta is not None and meta.tags == ["My Team", "Tier 1"]
+
+
 def test_bundled_bench_dataset_carries_governance_system_prompt():
     """A bench dataset ships its governance contract as `system_prompt`, so selecting it +
     a model + Run reproduces the published verdict turnkey (no manual Task-instruction paste).

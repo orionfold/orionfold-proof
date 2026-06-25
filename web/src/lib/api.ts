@@ -64,6 +64,7 @@ export const exampleSchema = z.object({
   requires_refusal: z.boolean().optional(),
   requires_route: z.boolean().optional(),
 });
+export type Example = z.infer<typeof exampleSchema>;
 
 export const corpusSchema = z.object({
   id: z.string(),

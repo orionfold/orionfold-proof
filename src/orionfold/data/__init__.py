@@ -27,6 +27,19 @@ _CORPUS_FILES = {
     "ainative-field-notes": "ainative_field_notes.json",
 }
 
+# Display-only domain tags for the bundled datasets. The dataset JSON files carry no tags (domain is
+# implicit in their names), so the seed backfills these onto a fresh row to make the Datasets screen's
+# domain chips and coverage strip meaningful out of the box. Tags are presentation metadata only
+# (never on the domain model, never a config_hash input) — and the backfill never overwrites an
+# operator's own edit. One obvious place, keyed by the same stable ids as the file registries above.
+BUNDLED_DOMAIN_TAGS: dict[str, list[str]] = {
+    "investment-memo-summarization": ["Finance"],
+    "support-ticket-triage": ["Support"],
+    "contract-field-extraction": ["Legal"],
+    "buyer-need-solution-match": ["Sales"],
+    "advisor-curveball-v0.2": ["Governance"],
+}
+
 
 def load_dataset(dataset_id: str) -> Dataset:
     """Load a bundled dataset by id (plain or bench), validated into a :class:`Dataset`."""

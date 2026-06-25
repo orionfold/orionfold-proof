@@ -180,11 +180,15 @@ export function App() {
   // A dataset to auto-expand when Datasets opens — set by "View details" on the Proof Run summary,
   // cleared on any plain rail navigation so the deep-link is one-shot.
   const [datasetFocusId, setDatasetFocusId] = useState<string | null>(null);
+  // The mirror of datasetFocusId: a dataset to preselect when the cockpit opens — set by "Run proof"
+  // on a Datasets card, consumed once by the cockpit, cleared on any plain rail navigation.
+  const [preselectDatasetId, setPreselectDatasetId] = useState<string | null>(null);
 
   // Rail navigation always clears the open receipt so Receipts reopens to its list.
   const navigate = (next: View) => {
     setReceiptInView(null);
     setDatasetFocusId(null);
+    setPreselectDatasetId(null);
     setView(next);
   };
 
@@ -193,6 +197,13 @@ export function App() {
     setReceiptInView(null);
     setDatasetFocusId(id);
     setView("datasets");
+  };
+
+  // "Run proof →" on a Datasets card: jump to the Proof Run workspace with that dataset selected.
+  const runDataset = (id: string) => {
+    setReceiptInView(null);
+    setPreselectDatasetId(id);
+    setView("proof");
   };
 
   const openInCockpit = (r: ProofReport) => {
@@ -215,9 +226,15 @@ export function App() {
       {/* Proof Run stays mounted (toggled with display, not unmounted) so an in-flight run, the
           brief, and the result survive a side trip to the other views. */}
       <div className={view === "proof" ? "contents" : "hidden"}>
-        <ProofCockpit report={report} onReport={setReport} onViewDataset={openDataset} />
+        <ProofCockpit
+          report={report}
+          onReport={setReport}
+          onViewDataset={openDataset}
+          preselectDatasetId={preselectDatasetId}
+          onPreselectConsumed={() => setPreselectDatasetId(null)}
+        />
       </div>
-      {view === "datasets" && <DatasetsView focusId={datasetFocusId} />}
+      {view === "datasets" && <DatasetsView focusId={datasetFocusId} onRunDataset={runDataset} />}
       {view === "candidates" && <CandidatesView />}
       {view === "track-record" && <TrackRecordView />}
       {view === "settings" && <SettingsView />}

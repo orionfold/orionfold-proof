@@ -1,5 +1,5 @@
 // Pure scoring-selection helpers. No React, no network — unit-tested in isolation.
-import type { Dataset, SelectionPanel, Privacy } from "../../lib/api";
+import type { Dataset, RubricKind, SelectionPanel, Privacy } from "../../lib/api";
 import { CLOUD_KEY_NAMES } from "./selectionMeta";
 
 export type AutoKind = "keypoint" | "similarity" | "exact" | "contains";
@@ -21,6 +21,40 @@ export function resolveAutoKind(dataset: Dataset | undefined): AutoKind {
   const hasKeypoints = Boolean(dataset?.examples.some((e) => (e.keypoints?.length ?? 0) > 0));
   return hasKeypoints ? "keypoint" : "similarity";
 }
+
+// A bench dataset declares a governance contract — it binds a corpus or carries per-row behaviors.
+// Only then is the deterministic Governance bench a meaningful (and offered) scoring method.
+// (Promoted here from ScoringMethod's private copy so the dataset-kind resolver, the scoring cards,
+// and the Datasets screen all read bench-ness from ONE place.)
+export function isBenchDataset(dataset?: Dataset): boolean {
+  if (!dataset) return false;
+  if (dataset.corpus_id) return true;
+  return dataset.examples.some((e) => e.expected_behavior != null);
+}
+
+// The dataset's intrinsic eval nature, derived entirely on the client from fields the API already
+// returns — no backend field, no run required. Bench wins (it's a governance contract); otherwise
+// delegate to the same `resolveAutoKind` heuristic the Auto scorer uses. "judge" is a run-time
+// scorer CHOICE for similarity/sample sets, never a stored dataset property, so it is intentionally
+// not a DatasetKind — a dataset's nature is similarity/keypoint/exact/contains/bench.
+export type DatasetKind = Extract<RubricKind, "bench" | "keypoint" | "similarity" | "exact" | "contains">;
+
+export function resolveDatasetKind(dataset: Dataset | undefined): DatasetKind {
+  if (isBenchDataset(dataset)) return "bench";
+  return resolveAutoKind(dataset);
+}
+
+// How each rubric kind reads as a label. Single source for the eval-type badge, the Track Record
+// section headers, and anywhere else a kind needs a human label. (`none` = quick/unscored.)
+export const RUBRIC_KIND_LABEL: Record<RubricKind, string> = {
+  exact: "Exact match",
+  contains: "Contains",
+  similarity: "Similarity",
+  keypoint: "Keypoint coverage",
+  judge: "LLM judge",
+  bench: "Governance bench",
+  none: "Unscored",
+};
 
 // Per-kind default passing threshold. The canonical values live in the Python core
 // (src/orionfold/scoring/rubric.py DEFAULT_THRESHOLDS) and are codegen'd into

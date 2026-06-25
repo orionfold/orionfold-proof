@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { resolveAutoKind, filterJudgeModels, defaultJudgeCell, prefersSampleJudge, cheapCloudCandidates, DEFAULT_THRESHOLDS, thresholdFor } from "./scoring";
+import { resolveAutoKind, resolveDatasetKind, isBenchDataset, filterJudgeModels, defaultJudgeCell, prefersSampleJudge, cheapCloudCandidates, DEFAULT_THRESHOLDS, thresholdFor } from "./scoring";
 import type { JudgeCell } from "./scoring";
 import type { Dataset, SelectionPanel } from "../../lib/api";
 
@@ -53,6 +53,50 @@ describe("resolveAutoKind", () => {
   });
   it("lets an explicit hint win over the keypoint heuristic", () => {
     expect(resolveAutoKind(ds([["x"]], "exact"))).toBe("exact");
+  });
+});
+
+// A bench-shaped dataset: binds a corpus and/or carries per-row governance behaviors.
+function benchDs(opts: { corpus_id?: string; behavior?: "answer" | "route" | "refuse" }): Dataset {
+  return {
+    id: "b",
+    name: "B",
+    description: "",
+    corpus_id: opts.corpus_id,
+    examples: [{ input_text: "i", expected_text: "e", keypoints: [], expected_behavior: opts.behavior }],
+  };
+}
+
+describe("isBenchDataset", () => {
+  it("is true when a corpus is bound", () => {
+    expect(isBenchDataset(benchDs({ corpus_id: "ainative-field-notes" }))).toBe(true);
+  });
+  it("is true when an example carries a governance behavior", () => {
+    expect(isBenchDataset(benchDs({ behavior: "refuse" }))).toBe(true);
+  });
+  it("is false for a plain dataset and undefined", () => {
+    expect(isBenchDataset(ds([[], []]))).toBe(false);
+    expect(isBenchDataset(undefined)).toBe(false);
+  });
+});
+
+describe("resolveDatasetKind", () => {
+  it("returns bench when a corpus is bound (wins over the heuristic)", () => {
+    expect(resolveDatasetKind(benchDs({ corpus_id: "c" }))).toBe("bench");
+  });
+  it("returns bench when an example declares a governance behavior", () => {
+    expect(resolveDatasetKind(benchDs({ behavior: "answer" }))).toBe("bench");
+  });
+  it("returns keypoint for a non-bench set with keypoints", () => {
+    expect(resolveDatasetKind(ds([[], ["22%"]]))).toBe("keypoint");
+  });
+  it("returns the check-hint kind for a non-bench set (exact / contains)", () => {
+    expect(resolveDatasetKind(ds([[], []], "exact"))).toBe("exact");
+    expect(resolveDatasetKind(ds([[], []], "substring"))).toBe("contains");
+  });
+  it("falls back to similarity for a bare dataset and undefined", () => {
+    expect(resolveDatasetKind(ds([[], []]))).toBe("similarity");
+    expect(resolveDatasetKind(undefined)).toBe("similarity");
   });
 });
 

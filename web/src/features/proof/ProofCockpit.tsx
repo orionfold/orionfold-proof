@@ -51,12 +51,19 @@ export function ProofCockpit({
   report,
   onReport,
   onViewDataset,
+  preselectDatasetId,
+  onPreselectConsumed,
 }: {
   report: ProofReport | null;
   onReport: (report: ProofReport) => void;
   // Jump to the Datasets view with a given dataset expanded (the "View details" link on the
   // Proof Run dataset summary). App owns navigation, so the cockpit only forwards the request.
   onViewDataset: (id: string) => void;
+  // The reverse of onViewDataset: "Run proof →" on a Datasets card switches to this view AND asks
+  // the cockpit to select that dataset. App sets it as a one-shot; the cockpit applies it once and
+  // calls onPreselectConsumed so a later return to Proof doesn't re-force the operator's selection.
+  preselectDatasetId?: string | null;
+  onPreselectConsumed?: () => void;
 }) {
   const queryClient = useQueryClient();
   const datasets = useQuery({ queryKey: ["datasets"], queryFn: getDatasets });
@@ -114,6 +121,17 @@ export function ProofCockpit({
   useEffect(() => {
     setOpenFailure(null);
   }, [report?.run.id]);
+
+  // "Run proof →" on a Datasets card: select that dataset here and (since Quick mode hides the
+  // dataset selector) make sure we're in a dataset-scoring mode. One-shot — consume it so a later
+  // rail return to Proof doesn't re-force the selection over the operator's own choice.
+  useEffect(() => {
+    if (!preselectDatasetId) return;
+    setDatasetId(preselectDatasetId);
+    setCompareBy((m) => (m === "quick" ? "models" : m));
+    onPreselectConsumed?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [preselectDatasetId]);
 
   // Sensible defaults once the server data lands: first dataset, and only the keyless,
   // instant candidates (the mocks — no pinned model) pre-selected. Real providers cost money
