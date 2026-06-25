@@ -1,0 +1,88 @@
+# Tag-triggered PyPI release via Trusted Publishing (OIDC) — no token, no manual twine.
+#
+# Push a `v*` tag (e.g. `git tag v0.2.0 && git push origin v0.2.0`) and this builds the
+# embedded wheel (the Vite cockpit baked in, same as scripts/build.sh) and publishes to PyPI.
+#
+# ONE-TIME SETUP on PyPI (only the project owner can do this; until it's done, the publish
+# step fails by design — the build/verify steps still run):
+#   pypi.org → your project `orionfold-proof` → Manage → Publishing → Add a trusted publisher
+#     Owner:           orionfold
+#     Repository name: orionfold-proof
+#     Workflow name:   release.yml
+#     Environment:     pypi
+#
+# The `pypi` GitHub environment scopes the OIDC identity (and lets you add a manual approval
+# gate later). The wheel is NOT pure-Python — it needs Node+pnpm (cockpit) AND Python+uv
+# (wheel), so this mirrors scripts/build.sh rather than the stock pure-Python template.
+
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build embedded wheel
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Node + pnpm to build the Vite cockpit (web/ → web/dist), pinned to the repo's toolchain.
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      # uv (and Python) to build the wheel.
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+
+      # Build the embedded artifacts exactly as the release ritual does: cockpit → embed → wheel.
+      - name: Build embedded wheel + sdist
+        run: bash scripts/build.sh
+
+      # Gate on metadata/README validity before we ever reach the publish step.
+      - name: twine check
+        run: uvx twine check dist/*
+
+      # Sanity: the tag must match the version we're about to publish (no accidental mismatched release).
+      # GITHUB_REF_NAME is read via env (never interpolated into the shell) — a tag name is
+      # attacker-influenceable text, so it must not reach `run:` through ${{ }} expansion.
+      - name: Verify tag matches package version
+        env:
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          TAG="${REF_NAME#v}"
+          VER="$(uv run python -c 'import tomllib; print(tomllib.load(open("pyproject.toml","rb"))["project"]["version"])')"
+          echo "tag=$TAG  pyproject=$VER"
+          test "$TAG" = "$VER" || { echo "::error::tag v$TAG does not match pyproject version $VER"; exit 1; }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    name: Publish to PyPI (trusted publishing)
+    needs: build
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write # REQUIRED for OIDC trusted publishing; no token/secret is used.
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - name: Publish
+        uses: pypa/gh-action-pypi-publish@release/v1
