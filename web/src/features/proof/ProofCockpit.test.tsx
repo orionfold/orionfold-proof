@@ -48,7 +48,7 @@ const RECIPES = {
 function wrap() {
   return render(
     <QueryClientProvider client={new QueryClient()}>
-      <ProofCockpit report={null} onReport={vi.fn()} />
+      <ProofCockpit report={null} onReport={vi.fn()} onViewDataset={vi.fn()} />
     </QueryClientProvider>,
   );
 }
@@ -70,7 +70,7 @@ describe("ProofCockpit recipes", () => {
     );
   });
 
-  it("auto-fills the Task instruction from a dataset's bundled system prompt", async () => {
+  it("auto-fills the System prompt from a dataset's bundled system prompt", async () => {
     const withPrompt = [
       { id: "d1", name: "Plain", description: "", examples: [] },
       {
@@ -87,13 +87,64 @@ describe("ProofCockpit recipes", () => {
     vi.spyOn(api, "getRecipes").mockResolvedValue(RECIPES as never);
     wrap();
     await waitFor(() => screen.getByLabelText(/^Dataset$/i));
-    // Select the bench dataset → its governance contract lands in the Task instruction.
+    // Select the bench dataset → its contract lands in the System prompt field.
     fireEvent.change(screen.getByLabelText(/^Dataset$/i), { target: { value: "bench" } });
     await waitFor(() =>
-      expect((screen.getByLabelText(/Task instruction/i) as HTMLTextAreaElement).value).toBe(
+      expect((screen.getByLabelText(/System prompt/i) as HTMLTextAreaElement).value).toBe(
         "You are an advisor. Finish with Citations: [source_id].",
       ),
     );
+  });
+
+  it("swaps the System prompt when switching between datasets (not stranding the prior one)", async () => {
+    const benches = [
+      { id: "a", name: "Bench A", description: "", examples: [], corpus_id: "c1", system_prompt: "PROMPT A" },
+      { id: "b", name: "Bench B", description: "", examples: [], corpus_id: "c1", system_prompt: "PROMPT B" },
+      { id: "plain", name: "Plain", description: "", examples: [] },
+    ];
+    vi.spyOn(api, "getDatasets").mockResolvedValue(benches as never);
+    vi.spyOn(api, "getSelection").mockResolvedValue(SELECTION as never);
+    vi.spyOn(api, "getRecipes").mockResolvedValue(RECIPES as never);
+    wrap();
+    await waitFor(() => screen.getByLabelText(/^Dataset$/i));
+    const field = () => screen.getByLabelText(/System prompt/i) as HTMLTextAreaElement;
+
+    // Bench A → its prompt fills the field.
+    fireEvent.change(screen.getByLabelText(/^Dataset$/i), { target: { value: "a" } });
+    await waitFor(() => expect(field().value).toBe("PROMPT A"));
+
+    // Switch to Bench B → the field must now hold B's prompt, not A's (the bug).
+    fireEvent.change(screen.getByLabelText(/^Dataset$/i), { target: { value: "b" } });
+    await waitFor(() => expect(field().value).toBe("PROMPT B"));
+
+    // Switch to a plain dataset (no prompt) → the auto-filled prompt clears.
+    fireEvent.change(screen.getByLabelText(/^Dataset$/i), { target: { value: "plain" } });
+    await waitFor(() => expect(field().value).toBe(""));
+  });
+
+  it("preserves an operator-edited System prompt across a dataset switch", async () => {
+    const benches = [
+      { id: "a", name: "Bench A", description: "", examples: [], corpus_id: "c1", system_prompt: "PROMPT A" },
+      { id: "b", name: "Bench B", description: "", examples: [], corpus_id: "c1", system_prompt: "PROMPT B" },
+    ];
+    vi.spyOn(api, "getDatasets").mockResolvedValue(benches as never);
+    vi.spyOn(api, "getSelection").mockResolvedValue(SELECTION as never);
+    vi.spyOn(api, "getRecipes").mockResolvedValue(RECIPES as never);
+    wrap();
+    await waitFor(() => screen.getByLabelText(/^Dataset$/i));
+    const field = () => screen.getByLabelText(/System prompt/i) as HTMLTextAreaElement;
+
+    fireEvent.change(screen.getByLabelText(/^Dataset$/i), { target: { value: "a" } });
+    await waitFor(() => expect(field().value).toBe("PROMPT A"));
+
+    // Operator overrides the prompt by hand.
+    fireEvent.change(field(), { target: { value: "MY OWN INSTRUCTION" } });
+    expect(field().value).toBe("MY OWN INSTRUCTION");
+
+    // Switching datasets must NOT clobber the operator's text.
+    fireEvent.change(screen.getByLabelText(/^Dataset$/i), { target: { value: "b" } });
+    await new Promise((r) => setTimeout(r, 0));
+    expect(field().value).toBe("MY OWN INSTRUCTION");
   });
 });
 

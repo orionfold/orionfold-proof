@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { getDatasets, updateDataset, type Dataset } from "../../lib/api";
@@ -9,7 +9,9 @@ import { checkHintLabel } from "./tags";
 
 // A read-only reference: the frozen example sets a proof run scores candidates against. Seeing
 // the exact inputs/expected answers is part of trusting the receipt — nothing is hidden.
-export function DatasetsView() {
+// `focusId` deep-links from the Proof Run "View details" link: the matching card opens with its
+// examples expanded and scrolls into view.
+export function DatasetsView({ focusId }: { focusId?: string | null } = {}) {
   const datasets = useQuery({ queryKey: ["datasets"], queryFn: getDatasets });
   const [importing, setImporting] = useState(false);
 
@@ -40,7 +42,7 @@ export function DatasetsView() {
       ) : (
         <div className="grid gap-4">
           {datasets.data.map((d) => (
-            <DatasetCard key={d.id} d={d} />
+            <DatasetCard key={d.id} d={d} focused={d.id === focusId} />
           ))}
         </div>
       )}
@@ -59,10 +61,15 @@ function sourceLabel(source: string): string {
   return source.startsWith("file:") ? source.slice(5) : source;
 }
 
-function DatasetCard({ d }: { d: Dataset }) {
+function DatasetCard({ d, focused = false }: { d: Dataset; focused?: boolean }) {
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState((d.tags ?? []).join(", "));
+  // When deep-linked from "View details", scroll this card into view and open its examples.
+  const cardRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (focused) cardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [focused]);
   const save = useMutation({
     mutationFn: () =>
       updateDataset(d.id, {
@@ -85,7 +92,15 @@ function DatasetCard({ d }: { d: Dataset }) {
   ].filter(Boolean);
 
   return (
-    <section className="rounded-xl border border-(--color-panel-line) bg-(--color-panel-card) p-5">
+    <section
+      ref={cardRef}
+      className={
+        "rounded-xl border bg-(--color-panel-card) p-5 " +
+        (focused
+          ? "border-(--color-accent) ring-1 ring-(--color-accent)/40"
+          : "border-(--color-panel-line)")
+      }
+    >
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h3 className="flex items-center gap-2 text-base font-medium text-(--color-ink)">
           {d.name}
@@ -134,7 +149,7 @@ function DatasetCard({ d }: { d: Dataset }) {
         </div>
       )}
 
-      <details className="mt-3">
+      <details className="mt-3" open={focused}>
         <summary className="cursor-pointer text-sm text-(--color-ink-muted) hover:text-(--color-ink)">
           Examples
         </summary>

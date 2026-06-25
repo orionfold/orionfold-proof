@@ -48,9 +48,13 @@ const DEFAULT_BRIEF: ProofBrief = {
 export function ProofCockpit({
   report,
   onReport,
+  onViewDataset,
 }: {
   report: ProofReport | null;
   onReport: (report: ProofReport) => void;
+  // Jump to the Datasets view with a given dataset expanded (the "View details" link on the
+  // Proof Run dataset summary). App owns navigation, so the cockpit only forwards the request.
+  onViewDataset: (id: string) => void;
 }) {
   const queryClient = useQueryClient();
   const datasets = useQuery({ queryKey: ["datasets"], queryFn: getDatasets });
@@ -76,9 +80,10 @@ export function ProofCockpit({
   // the user owns it — but with nothing to re-derive from, an untouched question CLEARS on dataset
   // change rather than carrying a question authored for a different dataset (WS-C).
   const [decisionQuestionTouched, setDecisionQuestionTouched] = useState(false);
-  // Latches which dataset's bundled system prompt we've already auto-filled into the Task
-  // instruction, so the fill happens once per dataset and never clobbers an operator's own text.
-  const promptFilledFor = useRef<string | null>(null);
+  // Tracks the system prompt we auto-filled into the System prompt field. Holding the value (not just
+  // a "filled?" flag) lets a dataset switch tell "still our auto-fill" from "operator edited it":
+  // we replace the former, preserve the latter. Empty string = nothing auto-filled yet.
+  const autoFilledPrompt = useRef<string>("");
   const [activeRecipeId, setActiveRecipeId] = useState<string | null>(null);
   const [openFailure, setOpenFailure] = useState<ResultRow | null>(null);
   // Live progress for the streaming run: the plan from the `start` frame + a per-candidate
@@ -108,18 +113,20 @@ export function ProofCockpit({
   const resolvedDatasetId = datasetId || datasets.data?.[0]?.id || "";
   // Task name follows the selected dataset's name until the user overrides it.
   const selectedDataset = datasets.data?.find((d) => d.id === resolvedDatasetId);
-  // A dataset can ship a governing system prompt (a bench's citation/refusal/route contract). Auto-
-  // fill the Task instruction with it ONCE per dataset arrival (Models mode only) — so selecting the
-  // bench + a model + Run reproduces the published verdict turnkey, no manual paste. Gated on an empty
-  // field so it never clobbers operator text; the operator still sees and can edit it (it lands in
-  // the receipt's config, so the contract under test stays transparent).
+  // A dataset can ship a system prompt (a bench's citation/refusal/route contract). On each dataset
+  // change in Models mode, sync the System prompt field to the new dataset's prompt — UNLESS the
+  // operator has edited the box (then we leave their text). "Edited" = the box differs from what we
+  // last auto-filled; an empty box or our own prior auto-fill is fair game to replace. This makes a
+  // dataset switch swap one bench's contract for the next instead of stranding the first one, while
+  // still never clobbering hand-written text. The prompt lands in the receipt's config, so the
+  // contract under test stays transparent.
   useEffect(() => {
     if (compareBy !== "models" || !selectedDataset) return;
-    if (promptFilledFor.current === selectedDataset.id) return;
-    promptFilledFor.current = selectedDataset.id;
-    if (selectedDataset.system_prompt && modelInstruction.trim() === "") {
-      setModelInstruction(selectedDataset.system_prompt);
-    }
+    const untouched = modelInstruction === autoFilledPrompt.current;
+    if (!untouched) return; // operator owns the field — don't touch it
+    const next = selectedDataset.system_prompt ?? "";
+    if (next !== modelInstruction) setModelInstruction(next);
+    autoFilledPrompt.current = next;
   }, [selectedDataset?.id, compareBy]);
   const effectiveBrief: ProofBrief = {
     ...brief,
@@ -290,6 +297,7 @@ export function ProofCockpit({
           panel={selection.data}
           datasetId={resolvedDatasetId}
           onDatasetChange={setDatasetId}
+          onViewDataset={onViewDataset}
           selectedCandidates={resolvedSelected}
           onToggleCandidate={toggleCandidate}
           brief={effectiveBrief}

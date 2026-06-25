@@ -80,7 +80,7 @@ export const datasetSchema = z.object({
   examples: z.array(exampleSchema),
   corpus_id: z.string().nullable().optional(),
   // A governing system prompt the dataset ships with (e.g. a bench's citation/refusal/route
-  // contract). When present, the cockpit auto-fills the Task instruction with it so the dataset
+  // contract). When present, the cockpit auto-fills the System prompt field with it so the dataset
   // is turnkey. Provenance only — never a config_hash input on the backend.
   system_prompt: z.string().nullable().optional(),
   // Seeded sample datasets are flagged so the UI can badge them and offer targeted removal.

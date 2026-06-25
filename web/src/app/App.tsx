@@ -177,11 +177,22 @@ export function App() {
   const [report, setReport] = useState<ProofReport | null>(null);
   // The receipt being previewed as an artifact (Receipts → detail view). Null = show the archive.
   const [receiptInView, setReceiptInView] = useState<ProofReport | null>(null);
+  // A dataset to auto-expand when Datasets opens — set by "View details" on the Proof Run summary,
+  // cleared on any plain rail navigation so the deep-link is one-shot.
+  const [datasetFocusId, setDatasetFocusId] = useState<string | null>(null);
 
   // Rail navigation always clears the open receipt so Receipts reopens to its list.
   const navigate = (next: View) => {
     setReceiptInView(null);
+    setDatasetFocusId(null);
     setView(next);
+  };
+
+  // "View details" on the Proof Run dataset summary: jump to Datasets with that card expanded.
+  const openDataset = (id: string) => {
+    setReceiptInView(null);
+    setDatasetFocusId(id);
+    setView("datasets");
   };
 
   const openInCockpit = (r: ProofReport) => {
@@ -204,9 +215,9 @@ export function App() {
       {/* Proof Run stays mounted (toggled with display, not unmounted) so an in-flight run, the
           brief, and the result survive a side trip to the other views. */}
       <div className={view === "proof" ? "contents" : "hidden"}>
-        <ProofCockpit report={report} onReport={setReport} />
+        <ProofCockpit report={report} onReport={setReport} onViewDataset={openDataset} />
       </div>
-      {view === "datasets" && <DatasetsView />}
+      {view === "datasets" && <DatasetsView focusId={datasetFocusId} />}
       {view === "candidates" && <CandidatesView />}
       {view === "track-record" && <TrackRecordView />}
       {view === "settings" && <SettingsView />}

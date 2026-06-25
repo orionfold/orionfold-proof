@@ -5,6 +5,8 @@ import { PromptVariants } from "./PromptVariants.tsx";
 import { ScoringMethod, type Rubric } from "./ScoringMethod";
 import { SelectField } from "./SelectField";
 import { Step, StepLine } from "./WorkflowStep";
+import { TagChips } from "./TagChips";
+import { checkHintLabel } from "./tags";
 import { inputCls } from "./formStyles";
 import { validPromptVariants } from "./promptVariantsHelpers";
 
@@ -15,6 +17,8 @@ export interface RunSetupProps {
   panel: SelectionPanel;
   datasetId: string;
   onDatasetChange: (id: string) => void;
+  // Open the Datasets view with the selected dataset expanded (the summary's "View details" link).
+  onViewDataset: (id: string) => void;
   selectedCandidates: string[];
   onToggleCandidate: (id: string) => void;
   brief: ProofBrief;
@@ -47,6 +51,7 @@ export function RunSetup(props: RunSetupProps) {
     panel,
     datasetId,
     onDatasetChange,
+    onViewDataset,
     selectedCandidates,
     onToggleCandidate,
     brief,
@@ -79,6 +84,10 @@ export function RunSetup(props: RunSetupProps) {
         : selectedCandidates.length > 0);
   // Before the very first run, give the primary action a gentle, one-glance affordance.
   const firstRun = !hasRun && !isRunning;
+
+  // The dataset under test — surfaced as a summary so the operator knows what they're running on
+  // before they run. Quick mode scores no dataset, so the summary only shows for models/prompts.
+  const selectedDataset = datasets.find((d) => d.id === datasetId);
 
   return (
     <form
@@ -137,11 +146,17 @@ export function RunSetup(props: RunSetupProps) {
             </Step>
           </div>
 
-          <span className="text-xs text-(--color-ink-faint)">
-            {compareBy === "quick"
-              ? "One prompt, two candidates, head-to-head — eyeball the outputs and pick a winner."
-              : "The frozen examples every candidate is scored on."}
-          </span>
+          {compareBy === "quick" ? (
+            <span className="text-xs text-(--color-ink-faint)">
+              One prompt, two candidates, head-to-head — eyeball the outputs and pick a winner.
+            </span>
+          ) : selectedDataset ? (
+            <DatasetSummary dataset={selectedDataset} onViewDetails={() => onViewDataset(selectedDataset.id)} />
+          ) : (
+            <span className="text-xs text-(--color-ink-faint)">
+              The frozen examples every candidate is scored on.
+            </span>
+          )}
         </div>
 
         <div>
@@ -178,9 +193,9 @@ export function RunSetup(props: RunSetupProps) {
               {recipes}
               <CandidatePicker panel={panel} selected={selectedCandidates} onToggle={onToggleCandidate} />
               <label className="grid gap-1.5 text-sm">
-                <span className="text-(--color-ink-muted)">Task instruction (optional)</span>
+                <span className="text-(--color-ink-muted)">System prompt (optional)</span>
                 <textarea
-                  aria-label="Task instruction"
+                  aria-label="System prompt"
                   value={modelInstruction}
                   onChange={(e) => onModelInstructionChange(e.target.value)}
                   rows={3}
@@ -248,4 +263,70 @@ export function RunSetup(props: RunSetupProps) {
       </div>
     </form>
   );
+}
+
+// A one-glance summary of the dataset a run will score against: what it contains, how big it is,
+// a peek at the first input's shape, and a deep-link into the full Datasets view. Shown below the
+// dataset selector so the operator knows what they're running before they run it.
+function DatasetSummary({
+  dataset,
+  onViewDetails,
+}: {
+  dataset: Dataset;
+  onViewDetails: () => void;
+}) {
+  const count = dataset.examples.length;
+  const tags = dataset.tags ?? [];
+  // The shape of the data: the first row's input, trimmed to roughly two lines (clamped in CSS).
+  const first = dataset.examples[0];
+  const sample = first ? truncate(first.input_text, 280) : "";
+
+  return (
+    <div className="rounded-lg border border-(--color-panel-line) bg-(--color-panel)/40 px-3.5 py-3 text-sm">
+      <p className="text-(--color-ink-muted)">
+        {dataset.description?.trim()
+          ? dataset.description
+          : "The frozen examples every candidate is scored on."}
+      </p>
+
+      {/* Badges (what's in the set) left-aligned; View details right-aligned, same row. */}
+      <div className="mt-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="of-tag">
+            {count} example{count === 1 ? "" : "s"}
+          </span>
+          <TagChips tags={tags} />
+          {dataset.check_hint && (
+            <span className="of-tag of-tag--t5">{checkHintLabel(dataset.check_hint)}</span>
+          )}
+          {dataset.system_prompt?.trim() && (
+            <span
+              className="of-tag of-tag--t3"
+              title="This dataset ships a system prompt (e.g. a citation/refusal contract), auto-applied to the System prompt field below."
+            >
+              system prompt
+            </span>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={onViewDetails}
+          className="shrink-0 text-xs font-medium text-(--color-accent) hover:underline"
+        >
+          View details →
+        </button>
+      </div>
+
+      {sample && (
+        <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-(--color-ink-faint)">
+          <span className="text-(--color-ink-muted)">e.g.</span> {sample}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function truncate(s: string, max: number): string {
+  const flat = s.replace(/\s+/g, " ").trim();
+  return flat.length > max ? flat.slice(0, max - 1) + "…" : flat;
 }

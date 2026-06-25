@@ -24,6 +24,7 @@ function renderRunSetup(overrides: Partial<RunSetupProps> = {}) {
     panel,
     datasetId: "d",
     onDatasetChange: () => {},
+    onViewDataset: () => {},
     selectedCandidates: ["mock_good"],
     onToggleCandidate: () => {},
     brief: { task_name: "T", decision_question: "Q", success_criteria: "" },
@@ -80,7 +81,7 @@ describe("RunSetup", () => {
       wrap(
         <RunSetup
           {...({
-            datasets, panel, datasetId: "d", onDatasetChange: () => {},
+            datasets, panel, datasetId: "d", onDatasetChange: () => {}, onViewDataset: () => {},
             selectedCandidates: ["mock_good", "mock_bad"], onToggleCandidate: () => {},
             brief: { task_name: "T", decision_question: "Q", success_criteria: "" },
             onBriefChange: () => {}, onRun: () => {}, isRunning: false, hasRun: false, error: null,
@@ -96,18 +97,18 @@ describe("RunSetup", () => {
     expect(screen.getByRole("button", { name: /Run proof/i })).toBeEnabled();
   });
 
-  it("models mode: edits the optional Task instruction", () => {
+  it("models mode: edits the optional System prompt", () => {
     const onModelInstructionChange = vi.fn();
     renderRunSetup({ compareBy: "models", onModelInstructionChange });
-    fireEvent.change(screen.getByLabelText(/Task instruction/i), {
+    fireEvent.change(screen.getByLabelText(/System prompt/i), {
       target: { value: "Reply with only the label." },
     });
     expect(onModelInstructionChange).toHaveBeenCalledWith("Reply with only the label.");
   });
 
-  it("hides the Task instruction outside Models mode", () => {
+  it("hides the System prompt outside Models mode", () => {
     renderRunSetup({ compareBy: "prompts" });
-    expect(screen.queryByLabelText(/Task instruction/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/System prompt/i)).not.toBeInTheDocument();
   });
 
   it("quick mode: shows a hint when not exactly 2 candidates and edits the prompt", () => {
