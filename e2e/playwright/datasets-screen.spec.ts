@@ -31,3 +31,31 @@ test("datasets screen: coverage strip, eval badge, governance contract, run-proo
   await expect(page.getByRole("heading", { name: "Proof Run", exact: true })).toBeVisible();
   await expect(page.getByLabel("Dataset", { exact: true })).toHaveValue(/advisor-curveball/);
 });
+
+// The smart-parse of the bench example's flattened retrieved-context, plus the Corpus browse surface
+// reached from the corpus badge — both derived, no migration.
+test("datasets screen: retrieved-context disclosure + corpus browse surface", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Datasets" }).click();
+
+  const bench = page
+    .locator("section")
+    .filter({ has: page.getByRole("heading", { name: /Advisor curveball/i }) })
+    .last();
+
+  // Expand examples → the flattened context is parsed into a Question + collapsible source cards,
+  // and at least one source is cross-linked as "Must cite".
+  await bench.getByText("Examples", { exact: true }).click();
+  await expect(bench.getByText(/Retrieved context · \d+ sources/).first()).toBeVisible();
+  await expect(bench.getByText("Must cite").first()).toBeVisible();
+
+  // The corpus badge is a button (accessible name = its "corpus" text) that opens the Corpus
+  // browse surface with derived sources.
+  await bench.getByRole("button", { name: "corpus" }).click();
+  await expect(page.getByRole("heading", { name: /field notes/i })).toBeVisible();
+  await expect(page.getByText(/sources · \d+ cited by the bench/)).toBeVisible();
+
+  // "Back to datasets" returns to the list.
+  await page.getByRole("button", { name: /Back to datasets/i }).click();
+  await expect(page.getByRole("heading", { name: "Datasets", exact: true })).toBeVisible();
+});

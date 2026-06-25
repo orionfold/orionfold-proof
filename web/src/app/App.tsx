@@ -11,6 +11,7 @@ import {
 
 import { getHealth, type Health, type ProofReport } from "../lib/api";
 import { CandidatesView } from "../features/proof/CandidatesView";
+import { CorpusView } from "../features/proof/CorpusView";
 import { DatasetsView } from "../features/proof/DatasetsView";
 import { ProofCockpit } from "../features/proof/ProofCockpit";
 import { ReceiptDetailView } from "../features/proof/ReceiptDetailView";
@@ -18,7 +19,16 @@ import { ReceiptsView } from "../features/proof/ReceiptsView";
 import { SettingsView } from "../features/proof/SettingsView";
 import { TrackRecordView } from "../features/proof/TrackRecordView";
 
-type View = "proof" | "datasets" | "candidates" | "receipts" | "track-record" | "settings";
+// "corpus" is a sub-surface of Datasets (opened from a bench card's corpus badge), so it lives in
+// the View union but NOT in NAV — it has no rail item; "Back to datasets" returns to the list.
+type View =
+  | "proof"
+  | "datasets"
+  | "corpus"
+  | "candidates"
+  | "receipts"
+  | "track-record"
+  | "settings";
 
 type Probe =
   | { state: "loading" }
@@ -183,12 +193,15 @@ export function App() {
   // The mirror of datasetFocusId: a dataset to preselect when the cockpit opens — set by "Run proof"
   // on a Datasets card, consumed once by the cockpit, cleared on any plain rail navigation.
   const [preselectDatasetId, setPreselectDatasetId] = useState<string | null>(null);
+  // The corpus to browse — set by a bench card's corpus badge; the "corpus" sub-view reads it.
+  const [corpusFocusId, setCorpusFocusId] = useState<string | null>(null);
 
   // Rail navigation always clears the open receipt so Receipts reopens to its list.
   const navigate = (next: View) => {
     setReceiptInView(null);
     setDatasetFocusId(null);
     setPreselectDatasetId(null);
+    setCorpusFocusId(null);
     setView(next);
   };
 
@@ -204,6 +217,13 @@ export function App() {
     setReceiptInView(null);
     setPreselectDatasetId(id);
     setView("proof");
+  };
+
+  // The corpus badge on a bench card: open the Corpus browse surface for that source set.
+  const openCorpus = (id: string) => {
+    setReceiptInView(null);
+    setCorpusFocusId(id);
+    setView("corpus");
   };
 
   const openInCockpit = (r: ProofReport) => {
@@ -234,7 +254,16 @@ export function App() {
           onPreselectConsumed={() => setPreselectDatasetId(null)}
         />
       </div>
-      {view === "datasets" && <DatasetsView focusId={datasetFocusId} onRunDataset={runDataset} />}
+      {view === "datasets" && (
+        <DatasetsView
+          focusId={datasetFocusId}
+          onRunDataset={runDataset}
+          onOpenCorpus={openCorpus}
+        />
+      )}
+      {view === "corpus" && corpusFocusId && (
+        <CorpusView corpusId={corpusFocusId} onBack={() => navigate("datasets")} />
+      )}
       {view === "candidates" && <CandidatesView />}
       {view === "track-record" && <TrackRecordView />}
       {view === "settings" && <SettingsView />}

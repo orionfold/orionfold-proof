@@ -20,9 +20,11 @@ import { resolveDatasetKind } from "./scoring";
 export function DatasetsView({
   focusId,
   onRunDataset,
+  onOpenCorpus,
 }: {
   focusId?: string | null;
   onRunDataset?: (id: string) => void;
+  onOpenCorpus?: (id: string) => void;
 } = {}) {
   const datasets = useQuery({ queryKey: ["datasets"], queryFn: getDatasets });
   const [importing, setImporting] = useState(false);
@@ -54,7 +56,13 @@ export function DatasetsView({
         <div className="grid gap-4">
           <DatasetCoverage datasets={datasets.data} />
           {datasets.data.map((d) => (
-            <DatasetCard key={d.id} d={d} focused={d.id === focusId} onRunDataset={onRunDataset} />
+            <DatasetCard
+              key={d.id}
+              d={d}
+              focused={d.id === focusId}
+              onRunDataset={onRunDataset}
+              onOpenCorpus={onOpenCorpus}
+            />
           ))}
         </div>
       )}
@@ -77,10 +85,12 @@ function DatasetCard({
   d,
   focused = false,
   onRunDataset,
+  onOpenCorpus,
 }: {
   d: Dataset;
   focused?: boolean;
   onRunDataset?: (id: string) => void;
+  onOpenCorpus?: (id: string) => void;
 }) {
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
@@ -141,13 +151,25 @@ function DatasetCard({
           <EvalTypeBadge dataset={d} />
           <TagChips tags={d.tags ?? []} />
           {d.corpus_id ? (
-            <span
-              className="of-tag of-tag--t7 inline-flex items-center gap-1"
-              title="Bound to a governed corpus — citations are checked against a known source set."
-            >
-              <BookText aria-hidden className="h-3 w-3 shrink-0" />
-              corpus
-            </span>
+            onOpenCorpus ? (
+              <button
+                type="button"
+                onClick={() => onOpenCorpus(d.corpus_id!)}
+                className="of-tag of-tag--t7 inline-flex items-center gap-1 hover:brightness-110"
+                title="Browse the governed corpus — citations are checked against this source set."
+              >
+                <BookText aria-hidden className="h-3 w-3 shrink-0" />
+                corpus
+              </button>
+            ) : (
+              <span
+                className="of-tag of-tag--t7 inline-flex items-center gap-1"
+                title="Bound to a governed corpus — citations are checked against a known source set."
+              >
+                <BookText aria-hidden className="h-3 w-3 shrink-0" />
+                corpus
+              </span>
+            )
           ) : null}
           {d.system_prompt?.trim() ? (
             <span

@@ -74,6 +74,18 @@ export const corpusSchema = z.object({
 });
 export type Corpus = z.infer<typeof corpusSchema>;
 
+// A corpus source ENRICHED with the title/class/excerpt derived from the bound bench examples
+// (the manifest itself stores only ids). `cited_by` counts examples that require citing this source.
+export const corpusSourceSchema = z.object({
+  id: z.string(),
+  title: z.string().default(""),
+  class: z.string().default(""),
+  label: z.string().default(""),
+  excerpt: z.string().default(""),
+  cited_by: z.number().default(0),
+});
+export type CorpusSource = z.infer<typeof corpusSourceSchema>;
+
 export const datasetSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -265,6 +277,17 @@ export function getHealth(): Promise<Health> {
 
 export function getDatasets(): Promise<Dataset[]> {
   return getJson("/api/datasets", z.array(datasetSchema));
+}
+
+export function getCorpora(): Promise<Corpus[]> {
+  return getJson("/api/corpora", z.array(corpusSchema));
+}
+
+export function getCorpusSources(corpusId: string): Promise<CorpusSource[]> {
+  return getJson(
+    `/api/corpora/${encodeURIComponent(corpusId)}/sources`,
+    z.array(corpusSourceSchema),
+  );
 }
 
 export async function previewDataset(body: {

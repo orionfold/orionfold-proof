@@ -1,6 +1,7 @@
 import {
   Check,
   MessageSquare,
+  Quote,
   ShieldX,
   Signpost,
   type LucideIcon,
@@ -9,6 +10,10 @@ import {
 import type { Example } from "../../lib/api";
 import type { DatasetKind } from "./scoring";
 import { behaviorMeta, citationIds, requirementChips } from "./exampleShape";
+import {
+  parseRetrievedContext,
+  type RetrievedSource,
+} from "./retrievedContext";
 
 // The adaptive example renderer — the golden feature. The Datasets screen exists so the operator can
 // trust the evidence a receipt is built on; that trust starts with SEEING what each example asks for.
@@ -72,6 +77,13 @@ function BenchExample({ ex }: { ex: Example }) {
       ? "border-(--color-warn)/40 bg-(--color-warn)/10 text-(--color-warn)"
       : "border-(--color-panel-line) bg-(--color-panel-card) text-(--color-ink-muted)";
 
+  // Smart-parse the flattened "retrieved public context" into question + source records when present;
+  // otherwise fall back to the plain input field (an arbitrary imported bench set has free-form text).
+  const parsed = parseRetrievedContext(ex.input_text);
+  // The ids this row must / may cite — used both for the chip row below AND to cross-link the parsed
+  // source cards ("this is the source you must cite").
+  const citedIds = new Set([...expected, ...accepted]);
+
   return (
     <div className="grid gap-2">
       <div className="flex flex-wrap items-center gap-2">
@@ -87,7 +99,14 @@ function BenchExample({ ex }: { ex: Example }) {
           </span>
         )}
       </div>
-      <Field label="Question / context" value={ex.input_text} />
+      {parsed ? (
+        <>
+          <Field label="Question" value={parsed.question} />
+          <RetrievedSources sources={parsed.sources} citedIds={citedIds} />
+        </>
+      ) : (
+        <Field label="Question / context" value={ex.input_text} />
+      )}
       {expected.length + accepted.length > 0 && (
         <div className="grid gap-0.5">
           <span className="text-xs text-(--color-ink-faint)">
@@ -107,6 +126,74 @@ function BenchExample({ ex }: { ex: Example }) {
         <Field label="Reference answer" value={ex.expected_text} />
       )}
     </div>
+  );
+}
+
+// The retrieved context as progressive disclosure: one collapsed card per source (title + class/label
+// chips + mono id), expanding to the excerpt. A source the row must cite is cross-linked — accent
+// border + a "must cite" marker — so "here's the source" lines up with the "Must cite" chips above.
+function RetrievedSources({
+  sources,
+  citedIds,
+}: {
+  sources: RetrievedSource[];
+  citedIds: Set<string>;
+}) {
+  return (
+    <div className="grid gap-1">
+      <span className="text-xs text-(--color-ink-faint)">
+        Retrieved context · {sources.length} source{sources.length === 1 ? "" : "s"}
+      </span>
+      <ol className="grid gap-1.5">
+        {sources.map((s, i) => (
+          <li key={`${s.id}-${i}`}>
+            <SourceCard source={s} cited={citedIds.has(s.id)} />
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
+
+function SourceCard({ source, cited }: { source: RetrievedSource; cited: boolean }) {
+  const hasBody = Boolean(source.excerpt);
+  // A cited source earns the one accent border here — it answers "which of these must I cite?".
+  const frameCls = cited
+    ? "border-(--color-accent)/50 bg-(--color-accent)/5"
+    : "border-(--color-panel-line) bg-(--color-panel-card)";
+  return (
+    <details className={`group rounded border ${frameCls}`}>
+      <summary
+        className={`flex cursor-pointer flex-wrap items-center gap-1.5 px-2 py-1.5 ${
+          hasBody ? "hover:bg-(--color-ink)/5" : "cursor-default"
+        }`}
+      >
+        {cited && (
+          <span
+            className="inline-flex items-center gap-1 text-[11px] font-medium text-(--color-accent)"
+            title="This is a source the answer must cite."
+          >
+            <Quote aria-hidden className="h-3 w-3 shrink-0" />
+            Must cite
+          </span>
+        )}
+        {source.title && (
+          <span className="text-(--color-ink)">{source.title}</span>
+        )}
+        <IdChip>{source.id}</IdChip>
+        {source.class && (
+          <span className="font-mono text-[11px] text-(--color-ink-faint)">{source.class}</span>
+        )}
+      </summary>
+      {hasBody && (
+        <div className="border-t border-(--color-panel-line) px-2 py-1.5">
+          {source.label && (
+            <p className="mb-1 text-xs text-(--color-ink-muted)">{source.label}</p>
+          )}
+          <p className="whitespace-pre-wrap text-xs text-(--color-ink-muted)">{source.excerpt}</p>
+        </div>
+      )}
+    </details>
   );
 }
 

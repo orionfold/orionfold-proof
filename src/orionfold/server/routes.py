@@ -35,9 +35,11 @@ from orionfold.data.extractors import (
     doc_format_for,
     extract_document,
 )
+from orionfold.corpora import enrich_corpus_sources
 from orionfold.domain.models import (
     Candidate,
     Corpus,
+    CorpusSource,
     Dataset,
     Example,
     ProofBrief,
@@ -66,11 +68,13 @@ from orionfold.storage.repository import (
     BenchBindingError,
     DuplicateDatasetError,
     clear_all_data,
+    get_corpus,
     get_dataset,
     get_dataset_meta,
     get_report,
     list_corpora,
     list_dataset_rows,
+    list_datasets,
     list_runs,
     remove_sample_data,
     save_dataset,
@@ -235,6 +239,23 @@ def get_corpora(request: Request) -> list[Corpus]:
     conn = _conn(request)
     try:
         return list_corpora(conn)
+    finally:
+        conn.close()
+
+
+@router.get("/corpora/{corpus_id}/sources")
+def get_corpus_sources(corpus_id: str, request: Request) -> list[CorpusSource]:
+    """Enriched source records for a corpus, DERIVED from the bench examples bound to it (title/
+    class/excerpt are flattened into example ``input_text``; the manifest stores only ids). Read-only
+    — nothing is persisted. 404 when the corpus id is unknown."""
+    conn = _conn(request)
+    try:
+        corpus = get_corpus(conn, corpus_id)
+        if corpus is None:
+            raise HTTPException(status_code=404, detail=f"unknown corpus: {corpus_id}")
+        bound = [d for d in list_datasets(conn) if d.corpus_id == corpus_id]
+        examples = [ex for d in bound for ex in d.examples]
+        return enrich_corpus_sources(examples, source_ids=corpus.source_ids)
     finally:
         conn.close()
 

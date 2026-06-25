@@ -72,6 +72,23 @@ class Corpus(BaseModel):
     source_ids: list[str] = []
 
 
+class CorpusSource(BaseModel):
+    """One source in a corpus, ENRICHED with the title/class/excerpt that a bench dataset flattens
+    into its example ``input_text``. This is DERIVED at read time (parsed from the bound examples),
+    not authored — the corpus manifest itself stores only ``source_ids``. ``cited_by`` counts the
+    examples whose citation gates name this source, so a browser can show "which sources matter."
+    """
+
+    id: str
+    title: str = ""
+    klass: str = Field(default="", alias="class")  # 'class' is a Python keyword; serialize as "class".
+    label: str = ""
+    excerpt: str = ""
+    cited_by: int = 0
+
+    model_config = {"populate_by_name": True}
+
+
 class Dataset(BaseModel):
     """A small, frozen set of examples (text-only in v0)."""
 

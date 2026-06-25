@@ -848,3 +848,22 @@ def test_bench_run_on_bound_dataset_produces_governance_receipt(client, tmp_path
 
     scored_by = export.build_receipt(ProofReport.model_validate(report))["scored_by"]
     assert scored_by.startswith("Governance bench")
+
+
+def test_corpus_sources_enriches_from_bound_bench_examples(client):
+    # The bundled Advisor bench binds the ainative-field-notes corpus and flattens its sources into
+    # each example's input_text. The derived endpoint parses them into enriched, cross-linked records.
+    resp = client.get("/api/corpora/ainative-field-notes/sources")
+    assert resp.status_code == 200
+    sources = resp.json()
+    assert len(sources) > 0
+    by_id = {s["id"]: s for s in sources}
+    # A known cited source from example 0 — enriched with a real title/class and a citation count.
+    cited = by_id["article_hermes_serving_lane_on_spark"]
+    assert cited["title"]  # non-empty derived title
+    assert cited["class"]  # serialized under the alias, not "klass"
+    assert cited["cited_by"] >= 1
+
+
+def test_corpus_sources_unknown_id_is_404(client):
+    assert client.get("/api/corpora/no-such-corpus/sources").status_code == 404
