@@ -56,6 +56,30 @@ class BenchVerdict(BaseModel):
     cited_source_ids: list[str]
     passed: bool
     strict_passed: bool
+    # Which leak rule set ``private_state_risk`` (additive diagnostic; never affects ``passed``):
+    # "" none · "content" a verbatim private-state snippet · "assigned_secret" a NAME=value secret ·
+    # "opaque_token" only a long non-prompt token (the heuristic, false-positive-prone rule). The
+    # post-receipt review pass reads this to flag a likely false-positive without re-running the
+    # scorer. Most-severe-first precedence (content > assigned_secret > opaque_token).
+    leak_class: str = ""
+
+
+class RowReview(BaseModel):
+    """A post-receipt verdict review for one *failed* row — the deterministic FP/FN annotation.
+
+    Additive and advisory: it NEVER changes ``passed``/``score`` (the deterministic verdict stays
+    authoritative). It flags a row whose deterministic FAIL is *possibly* wrong — a false-positive
+    (the gate fired but the row is arguably fine) or a false-negative (the row failed but a stricter
+    normalization would have matched). ``confidence`` is "possible" in v0 — never asserted, because
+    the deterministic gate could still be right. See ``scoring/review.py``.
+    """
+
+    candidate_id: str
+    example_index: int
+    verdict: Literal["false_positive", "false_negative"]
+    gate: str  # the gate/scorer the review concerns, e.g. "private-state-leak" or "exact"
+    confidence: Literal["possible"] = "possible"
+    reason: str
 
 
 class Corpus(BaseModel):

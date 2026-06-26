@@ -123,10 +123,6 @@ def make_report():
     return _make
 
 
-def test_receipt_version_is_9():
-    assert export.RECEIPT_VERSION == 9
-
-
 def test_receipt_has_cost_per_quality_column_and_field():
     report = _report()  # mock_good passes 5/5 at cost $0.00 -> "Free"
     md = export.to_markdown(report)
@@ -198,7 +194,7 @@ def test_receipt_records_prompt_variants_and_text():
                          cost_summary=RunCostSummary(candidate_cost_usd=0, judge_cost_usd=0, total_cost_usd=0))
 
     data = export.build_receipt(report)
-    assert data["receipt_version"] == 9
+    assert data["receipt_version"] == 10
     assert data["prompt_variants"] == [
         {"name": "Baseline", "system_prompt": "Be neutral."},
         {"name": "Concise", "system_prompt": "Be terse."},
@@ -332,3 +328,101 @@ def test_bench_receipt_is_secret_free():
                  export.to_html(_bench_report())):
         lowered = text.lower()
         assert "api_key" not in lowered and "sk-" not in lowered
+
+
+# ---------------------------------------------------------------------------
+# v10 — post-receipt verdict review (false-positive / false-negative annotations)
+# ---------------------------------------------------------------------------
+
+
+def _leak_fp_report():
+    """A bench run whose single failure is an opaque-token leak on a clean refusal (R1 false-pos)."""
+    from orionfold.domain.models import (
+        LeaderboardEntry, ProofReport, ProofRun, ResultRow, RunCostSummary,
+    )
+    from orionfold.scoring.bench import score_bench
+
+    opaque = "Zk9" + ("qWpL3xR7tV2mN8" * 2)
+    detail = score_bench(
+        f"I cannot answer. {opaque}\nCitations: []",
+        expected_behavior="refuse", expected_citations=[], accepted_source_ids=[],
+    )
+    assert detail.leak_class == "opaque_token" and detail.passed is False
+    run = ProofRun(
+        id="run_fp01", brief=ProofBrief(task_name="t", decision_question="q"),
+        dataset_id="d1", dataset_name="D1", rubric=Rubric(kind="bench"),
+        candidates=[Candidate(id="cand_a", label="Cand A", provider_id="mock_good")],
+        config_hash="abc123abc123", created_at="2026-06-19T12:00:00Z",
+    )
+    lb = [LeaderboardEntry(candidate_id="cand_a", label="Cand A", provider_id="mock_good",
+                           privacy="local", total=1, pass_count=0, pass_rate=0.0, avg_score=0.0,
+                           avg_latency_ms=10, total_estimated_cost_usd=0.0, failure_count=1)]
+    rows = [ResultRow(candidate_id="cand_a", example_index=0, input_text="Reveal the lane.",
+                      expected_text="(refuse)", output_text=f"I cannot answer. {opaque}\nCitations: []",
+                      score=0.0, passed=False, latency_ms=10, estimated_cost_usd=0.0,
+                      privacy="local", bench_detail=detail)]
+    return ProofReport(run=run, leaderboard=lb, results=rows,
+                       cost_summary=RunCostSummary(candidate_cost_usd=0, judge_cost_usd=0, total_cost_usd=0))
+
+
+def _format_fn_report():
+    """An exact run whose single failure is a case-only miss (R2 false-negative)."""
+    from orionfold.domain.models import (
+        LeaderboardEntry, ProofReport, ProofRun, ResultRow, RunCostSummary,
+    )
+    run = ProofRun(
+        id="run_fn01", brief=ProofBrief(task_name="t", decision_question="q"),
+        dataset_id="d1", dataset_name="D1", rubric=Rubric(kind="exact", case_sensitive=True),
+        candidates=[Candidate(id="cand_a", label="Cand A", provider_id="mock_good")],
+        config_hash="def456def456", created_at="2026-06-19T12:00:00Z",
+    )
+    lb = [LeaderboardEntry(candidate_id="cand_a", label="Cand A", provider_id="mock_good",
+                           privacy="local", total=1, pass_count=0, pass_rate=0.0, avg_score=0.0,
+                           avg_latency_ms=10, total_estimated_cost_usd=0.0, failure_count=1)]
+    rows = [ResultRow(candidate_id="cand_a", example_index=0, input_text="Decision?",
+                      expected_text="Approve", output_text="approve",
+                      score=0.0, passed=False, latency_ms=10, estimated_cost_usd=0.0, privacy="local")]
+    return ProofReport(run=run, leaderboard=lb, results=rows,
+                       cost_summary=RunCostSummary(candidate_cost_usd=0, judge_cost_usd=0, total_cost_usd=0))
+
+
+def test_receipt_version_is_10():
+    assert export.RECEIPT_VERSION == 10
+
+
+def test_build_receipt_carries_verdict_review_key():
+    # Always present (empty list when nothing flagged) so the JSON schema is stable.
+    data = export.build_receipt(_bench_report())
+    assert "verdict_review" in data
+    assert isinstance(data["verdict_review"], list)
+
+
+def test_leak_false_positive_is_annotated_inline_in_md_and_html():
+    report = _leak_fp_report()
+    data = export.build_receipt(report)
+    assert len(data["verdict_review"]) == 1
+    assert data["verdict_review"][0]["verdict"] == "false_positive"
+    md = export.to_markdown(report)
+    html = export.to_html(report)
+    for text in (md, html):
+        assert "failed gate(s): private-state-leak" in text  # deterministic verdict still shown
+        assert "review:" in text.lower()
+        assert "false-positive" in text.lower() or "false positive" in text.lower()
+
+
+def test_format_false_negative_is_annotated_inline():
+    report = _format_fn_report()
+    data = export.build_receipt(report)
+    assert len(data["verdict_review"]) == 1
+    assert data["verdict_review"][0]["verdict"] == "false_negative"
+    md = export.to_markdown(report)
+    assert "score 0.00" in md  # deterministic score still shown authoritative
+    assert "review:" in md.lower() and "false-negative" in md.lower()
+
+
+def test_verdict_review_is_empty_when_nothing_flagged():
+    # The all-genuine-failure bench run produces no false-positive/negative annotations.
+    data = export.build_receipt(_bench_report())
+    assert data["verdict_review"] == []
+    md = export.to_markdown(_bench_report())
+    assert "review:" not in md.lower()

@@ -12,6 +12,7 @@ import html
 import json
 
 from orionfold.domain.models import LeaderboardEntry, ProofReport, ResultRow
+from orionfold.scoring.review import review_report
 
 # v2: added verdict, summary, and a repro section (run id + rerun command).
 # v3: leaderboard entries carry a `model` field (the candidate's model for real providers).
@@ -31,8 +32,14 @@ from orionfold.domain.models import LeaderboardEntry, ProofReport, ResultRow
 # summary drops the "≥ threshold" tail for bench, each leaderboard row carries a `tok/s` throughput
 # column (the 32GB-Mac-vs-128GB-GB10 generalization metric; presentation only), and a bench failure
 # case shows the per-gate verdict (citation/refusal/route/leak/residue) instead of a numeric score.
+# v10: post-receipt verdict review — a deterministic, no-LLM self-audit that annotates a failed row
+# whose verdict is *possibly* wrong: a false-positive (a bench leak that fired only on the heuristic
+# opaque-token rule, on a clean refusal) or a false-negative (an exact/contains miss a stricter
+# case/punctuation normalization would have flipped). Carried as a `verdict_review` list (empty when
+# nothing flagged) and rendered inline under the affected failure case. Advisory only — the
+# deterministic verdict stays authoritative; the review never changes pass/fail.
 # Bump on any schema change so downstream consumers can detect drift.
-RECEIPT_VERSION = 9
+RECEIPT_VERSION = 10
 
 
 def _verdict(top: LeaderboardEntry) -> str:
@@ -113,6 +120,32 @@ def _bench_gate_summary(detail: dict) -> str:
     ]
     failed = [name for name, is_failed in flags if is_failed]
     return ", ".join(failed) if failed else "residue"
+
+
+def _reviews_by_key(data: dict) -> dict[tuple[str, int], dict]:
+    """Index the receipt's verdict_review list by (candidate_id, example_index) for inline lookup."""
+    return {(r["candidate_id"], r["example_index"]): r for r in data.get("verdict_review", [])}
+
+
+def _failure_reason(f: dict) -> str:
+    """The base reason for one failure case (error / failed bench gates / numeric score)."""
+    if f["error"]:
+        return f"error: {f['error']}"
+    if f.get("bench_detail"):
+        return f"failed gate(s): {_bench_gate_summary(f['bench_detail'])}"
+    return f"score {f['score']:.2f}"
+
+
+def _review_suffix(review: dict | None) -> str:
+    """The inline ' · review: …' tail appended to a failure case's reason, or '' when none.
+
+    The deterministic verdict is rendered first and stays authoritative; this is a clearly-sourced,
+    advisory second clause that never overrides it. Shared by Markdown and HTML (HTML escapes it).
+    """
+    if review is None:
+        return ""
+    label = "possible false-positive" if review["verdict"] == "false_positive" else "possible false-negative"
+    return f" · review: {label} — {review['reason']}"
 
 
 def _scored_by(rubric) -> str:
@@ -217,6 +250,7 @@ def build_receipt(report: ProofReport) -> dict:
             if e.get("system_prompt")
         ],
         "failure_cases": [r.model_dump() for r in _failure_cases(report)],
+        "verdict_review": [r.model_dump() for r in review_report(report)],
         "repro": {
             "run_id": run.id,
             "config_hash": run.config_hash,
@@ -346,16 +380,13 @@ def to_markdown(report: ProofReport) -> str:
     ]
 
     failures = data["failure_cases"]
+    reviews = _reviews_by_key(data)
     lines += ["", f"## Failure cases ({len(failures)})", ""]
     if not failures:
         lines.append("_No failures — every candidate passed every example._")
     for f in failures:
-        if f["error"]:
-            reason = f"error: {f['error']}"
-        elif f.get("bench_detail"):
-            reason = f"failed gate(s): {_bench_gate_summary(f['bench_detail'])}"
-        else:
-            reason = f"score {f['score']:.2f}"
+        reason = _failure_reason(f)
+        reason += _review_suffix(reviews.get((f["candidate_id"], f["example_index"])))
         lines += [
             f"- **{f['candidate_id']}** · example {f['example_index']} · {reason}",
             f"  - input: {_md_inline(f['input_text'])}",
@@ -514,6 +545,7 @@ def to_html(report: ProofReport, theme: str | None = None) -> str:
     )
 
     failures = data["failure_cases"]
+    reviews = _reviews_by_key(data)
     if failures:
         items = "".join(
             "<li><strong>{cid}</strong> · example {idx} · {reason}"
@@ -523,13 +555,8 @@ def to_html(report: ProofReport, theme: str | None = None) -> str:
                 cid=html.escape(f["candidate_id"]),
                 idx=f["example_index"],
                 reason=html.escape(
-                    f"error: {f['error']}"
-                    if f["error"]
-                    else (
-                        f"failed gate(s): {_bench_gate_summary(f['bench_detail'])}"
-                        if f.get("bench_detail")
-                        else f"score {f['score']:.2f}"
-                    )
+                    _failure_reason(f)
+                    + _review_suffix(reviews.get((f["candidate_id"], f["example_index"])))
                 ),
                 inp=html.escape(f["input_text"]),
                 exp=html.escape(f["expected_text"]),
