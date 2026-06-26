@@ -5,6 +5,7 @@ import { BookText, Play } from "lucide-react";
 import { getDatasets, updateDataset, type Dataset } from "../../lib/api";
 import { ViewNotice, ViewShell } from "./ViewShell";
 import { DatasetImportPanel } from "./DatasetImportPanel";
+import { CorpusList } from "./CorpusList";
 import { DatasetCoverage } from "./DatasetCoverage";
 import { EvalTypeBadge } from "./EvalTypeBadge";
 import { ExampleCard } from "./ExampleCard";
@@ -54,6 +55,7 @@ export function DatasetsView({
         <ViewNotice>No datasets yet. Import a JSONL, CSV, or Markdown set to get started.</ViewNotice>
       ) : (
         <div className="grid gap-4">
+          <CorpusList onOpenCorpus={onOpenCorpus} />
           <DatasetCoverage datasets={datasets.data} />
           {datasets.data.map((d) => (
             <DatasetCard

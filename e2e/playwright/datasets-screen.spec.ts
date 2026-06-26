@@ -59,3 +59,26 @@ test("datasets screen: retrieved-context disclosure + corpus browse surface", as
   await page.getByRole("button", { name: /Back to datasets/i }).click();
   await expect(page.getByRole("heading", { name: "Datasets", exact: true })).toBeVisible();
 });
+
+// The Corpora list at the top of the Datasets screen — a second, always-available entry point to a
+// corpus that does not depend on a bench dataset binding (the corpus badge path). This closes the
+// latent gap where an unbound/imported corpus would be invisible in the UI.
+test("datasets screen: corpora list opens the corpus browse surface directly", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Datasets" }).click();
+
+  // The Corpora section is present and lists the bundled corpus with its manifest source count.
+  const corpora = page.getByRole("heading", { name: /Corpora \(\d+\)/ });
+  await expect(corpora).toBeVisible();
+  const card = page.getByRole("button", { name: /Browse the .* corpus/ }).first();
+  await expect(card).toBeVisible();
+  await expect(card.getByText(/\d+ sources?/)).toBeVisible();
+
+  // Clicking the corpus card opens the Corpus browse surface (the same view the badge reaches).
+  await card.click();
+  await expect(page.getByText(/sources · \d+ cited by the bench/)).toBeVisible();
+
+  // "Back to datasets" returns to the list.
+  await page.getByRole("button", { name: /Back to datasets/i }).click();
+  await expect(page.getByRole("heading", { name: "Datasets", exact: true })).toBeVisible();
+});
