@@ -6,6 +6,19 @@ for [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.1.1] — 2026-06-26
+
+### Changed
+
+- **README is now a funnel surface for the flagship.** The GitHub and PyPI front door leads
+  with the brand promise ("prove which AI you can trust"), opens with `pip install
+  orionfold-proof`, puts the headline governance receipt (Advisor 4B scoring 18/21 vs an
+  8x-bigger model, config hash `50c38b0b7439`) above the fold as the credibility anchor, and
+  adds a free-vs-paid table plus two CTAs to [orionfold.com/proof](https://orionfold.com/proof/).
+  The honest task-specific caveat (the big models are smarter in general) stays in the copy.
+  Image and reference links are absolute so the README renders cleanly as the PyPI
+  long-description. No code or API change.
+
 ## [0.1.0] — 2026-06-25
 
 > First public release to PyPI: `uv tool install orionfold-proof` → `orionfold up`. The local-first

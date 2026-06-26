@@ -1,22 +1,68 @@
-# Orionfold Proof Receipt
+# Orionfold Proof
 
-> Prove what your AI can do before you trust it.
+> Prove which AI you can trust. On your own task, on your own machine, with a receipt you can rerun.
 
-A local-first, hybrid-capable **Proof Receipt** product. It runs private proof tests
-across local and cloud AI workflows, compares quality, speed, cost, failure cases, and
-privacy boundaries, then exports a repeatable Proof Receipt you can keep, rerun, or share.
+```bash
+pip install orionfold-proof
+orionfold up    # cockpit at http://localhost:8787
+```
 
-The central artifact is the **Proof Receipt**. The user is not here to watch AI run —
-they are here to decide what AI to trust.
+Orionfold Proof is a local-first tool for AI builders, consultants, and small teams who
+need to decide which model, prompt, RAG setup, or workflow is actually worth trusting. You
+point it at your own task data, run several candidates (local models via Ollama or LM
+Studio, or cloud models like OpenAI, Anthropic, Gemini, OpenRouter), score them, and it
+exports a **Proof Receipt**: a rerunnable record of which option won, at what cost, with
+which failures, stamped with a config hash so anyone can reproduce it.
+
+The engine is free and open source (Apache-2.0). We never say "trust us." We say "rerun it."
+
+**Get the full product → [orionfold.com/proof](https://orionfold.com/proof/).** Buying
+Orionfold Proof unlocks the Advisor 4B domain pack and RAG corpus so you can reproduce the
+headline receipt below in-tool, in one command.
+
+## The receipt that started this
+
+A 4B model you run locally, scored on a governance bench against an 8x-bigger frontier model:
+
+| Candidate | Score | Refusals | Fabricated answers | Cost | Speed |
+| --- | --- | --- | --- | --- | --- |
+| **Advisor 4B** (local, on an M3 Max) | **18 / 21** | 9 / 9 trick questions refused | 0 | **$0.00** | ~59 tok/s |
+| An 8x-bigger frontier model | 8 / 21 | n/a | 3 | (billed) | n/a |
+
+Config hash `50c38b0b7439`. Same inputs reproduce it byte for byte. This is a task-specific
+result, not a general-intelligence claim: the big models are far smarter overall. The point
+is that for *governance and refusal on your domain*, a small model you own can win on
+accuracy, cost, and speed at once. And you do not have to take our word for it. You rerun it.
+
+Reproduce it yourself: `pip install orionfold-proof`, then unlock the Advisor pack with a
+license from [orionfold.com/proof](https://orionfold.com/proof/) and run the bundled
+governance bench. The receipt is the proof.
+
+![The Orionfold Proof cockpit: decision band, leaderboard, failure cases, and receipt exports on one screen](https://raw.githubusercontent.com/orionfold/orionfold-proof/main/samples/screenshots/design-system-populated.png)
 
 ---
 
-## Status: Gate 7 — ship candidate
+## What you get free vs. what the license unlocks
 
-The full v0 loop works end-to-end. **Keyless out of the box:** pick the bundled sample
-dataset, run two deterministic mock candidates, see the leaderboard, inspect failure cases
-(including a surfaced provider error), and export a Proof Receipt in Markdown, HTML, and
-JSON — each stamped with a config hash, timestamp, and schema version (currently v3).
+| | Free (Apache-2.0, this repo) | Orionfold Proof license unlocks |
+| --- | --- | --- |
+| The cockpit + matrix run engine + scoring + receipt export | ✓ | ✓ |
+| Keyless deterministic mock candidates + bundled sample datasets | ✓ | ✓ |
+| Real local and cloud models (bring your own keys) | ✓ | ✓ |
+| The **Advisor 4B** domain pack (model pointer + reference receipt) | | ✓ |
+| The **RAG corpus** behind the headline governance bench | | ✓ |
+| Reproduce the **18 / 21** receipt in-tool, turnkey | | ✓ |
+
+Pricing and the buy flow live at [orionfold.com/proof](https://orionfold.com/proof/).
+
+---
+
+## Run the free engine
+
+**Keyless out of the box:** pick the bundled sample dataset, run two deterministic mock
+candidates, see the leaderboard, inspect failure cases (including a surfaced provider
+error), and export a Proof Receipt in Markdown, HTML, and JSON — each stamped with a config
+hash, timestamp, and schema version (currently v3).
 
 **Real providers when you configure them:** the same loop runs against local and cloud
 models — Ollama and LM Studio (local), plus OpenAI, OpenRouter, Google Gemini, and
@@ -25,9 +71,12 @@ their API key resolves**; the keyless mock path stays the instant default. See
 [Configure providers](#configure-providers) below.
 
 Run it: `bash scripts/build.sh && uv run orionfold up`, open the cockpit, click **Run proof**,
-then export a receipt. See a sample under [`samples/receipts/`](samples/receipts/), a
-guided walkthrough in [`docs/demo-script.md`](docs/demo-script.md), and the release history
-in [`CHANGELOG.md`](CHANGELOG.md).
+then export a receipt. See a sample under
+[`samples/receipts/`](https://github.com/orionfold/orionfold-proof/tree/main/samples/receipts),
+a guided walkthrough in
+[`docs/demo-script.md`](https://github.com/orionfold/orionfold-proof/blob/main/docs/demo-script.md),
+and the release history in
+[`CHANGELOG.md`](https://github.com/orionfold/orionfold-proof/blob/main/CHANGELOG.md).
 
 ## Quickstart
 
@@ -177,10 +226,19 @@ tests/  scripts/                  pytest (unit + integration), Playwright e2e, b
 - **Frontend:** Vite, React, TypeScript, Tailwind, shadcn/Radix, TanStack Query, Zod, React Hook Form, Recharts.
 - **Testing:** pytest, Vitest, Playwright (visual + e2e), deterministic mock providers.
 
-Install: `uv tool install orionfold-proof && orionfold up` → `http://localhost:8787`.
-Dev: `uv sync && pnpm --dir web install && uv run orionfold dev` (see Quickstart above).
+Install: `pip install orionfold-proof && orionfold up` → `http://localhost:8787`
+(or `uv tool install orionfold-proof`). Dev: `uv sync && pnpm --dir web install && uv run
+orionfold dev` (see Quickstart above).
 
-PyPI distribution name: `orionfold-proof` (CLI command `orionfold`). The brand names
-`orionfold` and `orionfold-arena` are reserved as placeholders for future products.
+PyPI distribution name: `orionfold-proof` (CLI command `orionfold`).
+
+---
+
+## Prove which AI you can trust
+
+The engine here is free and open. To reproduce the headline governance receipt in-tool, get
+the Advisor 4B pack and RAG corpus with an Orionfold Proof license.
+
+**→ [orionfold.com/proof](https://orionfold.com/proof/)**
 
 See `CLAUDE.md` for full operating guidance and `docs/opportunity.md` for the strategy.
