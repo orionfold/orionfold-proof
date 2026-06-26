@@ -26,11 +26,19 @@ _PRICES: dict[str, tuple[float, float]] = {
     "gemini-3.5-flash": (1.50, 9.00),
     "gemini-3.1-pro-preview": (2.00, 12.00),
     "gemini-2.5-flash": (0.30, 2.50),
-    # OpenRouter slugs (the model id is passed through verbatim to the API)
-    "meta-llama/llama-3.1-8b-instruct": (0.02, 0.03),
-    "meta-llama/llama-3.3-70b-instruct": (0.10, 0.32),
-    "openai/gpt-5.4-mini": (0.75, 4.50),
-    "anthropic/claude-opus-4.8": (5.00, 25.00),
+    # OpenRouter slugs (the model id is passed through verbatim to the API). NOTE: OpenRouter
+    # returns the REAL billed cost in ``usage.cost``, which now wins over this table (see
+    # openai_compatible.py + http.build_result). This table is only the fallback when a response
+    # carries no real cost; it also can never cover a user's arbitrary custom model id — that case
+    # relies entirely on the real ``usage.cost``. Curated frontier set, prices as_of 2026-06-26.
+    "z-ai/glm-4.6": (0.43, 1.74),
+    "z-ai/glm-5.2": (0.95, 3.00),
+    "deepseek/deepseek-v4-pro": (0.435, 0.87),
+    "moonshotai/kimi-k2.6": (0.66, 3.41),
+    "qwen/qwen3.5-397b-a17b": (0.385, 2.45),
+    "meta-llama/llama-4-maverick": (0.15, 0.60),
+    "x-ai/grok-4.3": (1.25, 2.50),
+    "openai/gpt-5.5": (5.00, 30.00),
 }
 
 

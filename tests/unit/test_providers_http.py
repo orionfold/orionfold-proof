@@ -142,6 +142,53 @@ def test_lmstudio_is_keyless_local(monkeypatch):
     assert result.estimated_cost_usd == 0.0
 
 
+def test_openrouter_uses_real_usage_cost_even_for_unknown_model(monkeypatch):
+    # Regression: openrouter-cost-reads-zero. OpenRouter returns the real billed cost in
+    # ``usage.cost`` (credits = USD). A CUSTOM model id is not in the static price table, so the
+    # old estimate path returned 0.0 ("free") for a genuinely billed call. The real cost must win.
+    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-or-not-real")
+    _stub_post(
+        monkeypatch,
+        json_body={
+            "choices": [{"message": {"content": "Routed."}}],
+            "usage": {"prompt_tokens": 1200, "completion_tokens": 300, "cost": 0.0123},
+        },
+    )
+    provider = OpenAICompatibleProvider(
+        id="openrouter",
+        label="OpenRouter",
+        base_url="https://openrouter.ai/api/v1",
+        default_model="z-ai/glm-4.6",
+        key_name="OPENROUTER_API_KEY",
+    )
+    # an id deliberately NOT in pricing._PRICES (the custom-model case)
+    result = provider.generate(_example(), _candidate("openrouter", "some-lab/brand-new-model"))
+    assert result.estimated_cost_usd == pytest.approx(0.0123)
+    assert result.input_tokens == 1200 and result.output_tokens == 300
+
+
+def test_openai_compatible_falls_back_to_estimate_when_no_real_cost(monkeypatch):
+    # OpenAI/LM Studio responses carry no ``usage.cost`` → the static estimate table is still used,
+    # unchanged. (gpt-4o-mini: (1000*0.15 + 500*0.60)/1e6 = 0.00045.)
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test-not-real")
+    _stub_post(
+        monkeypatch,
+        json_body={
+            "choices": [{"message": {"content": "ok"}}],
+            "usage": {"prompt_tokens": 1000, "completion_tokens": 500},
+        },
+    )
+    provider = OpenAICompatibleProvider(
+        id="openai",
+        label="OpenAI",
+        base_url="https://api.openai.com/v1",
+        default_model="gpt-4o-mini",
+        key_name="OPENAI_API_KEY",
+    )
+    result = provider.generate(_example(), _candidate("openai", "gpt-4o-mini"))
+    assert result.estimated_cost_usd == pytest.approx(0.00045)
+
+
 def test_gemini_joins_parts_and_reads_usage_metadata(monkeypatch):
     monkeypatch.setenv("GEMINI_API_KEY", "AIza-test-not-real")
     _stub_post(

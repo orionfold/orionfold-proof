@@ -158,18 +158,27 @@ def build_result(
     input_tokens: int,
     output_tokens: int,
     privacy: Privacy,
+    actual_cost_usd: float | None = None,
 ) -> ProviderResult:
     """Assemble the uniform :class:`ProviderResult` every real provider returns.
 
-    ``raw_metadata`` carries only the provider id and model — never a key. Cost is estimated
-    (``0.0`` for local/unknown models) and always labeled estimated downstream.
+    ``raw_metadata`` carries only the provider id and model — never a key. Cost is the provider's
+    **real** billed cost when it reports one (``actual_cost_usd`` — OpenRouter returns it in
+    ``usage.cost``); otherwise it falls back to the static estimate table (``0.0`` for
+    local/unknown models). This is why a custom OpenRouter model id still reports a true cost
+    rather than a misleading ``0.0`` (the estimate table can't cover arbitrary ids).
     """
+    cost = (
+        actual_cost_usd
+        if actual_cost_usd is not None
+        else estimate_cost(model, input_tokens, output_tokens)
+    )
     return ProviderResult(
         output_text=text,
         latency_ms=latency_ms,
         input_tokens=input_tokens,
         output_tokens=output_tokens,
-        estimated_cost_usd=estimate_cost(model, input_tokens, output_tokens),
+        estimated_cost_usd=cost,
         privacy=privacy,
         raw_metadata={"provider": provider_id, "model": model},
     )

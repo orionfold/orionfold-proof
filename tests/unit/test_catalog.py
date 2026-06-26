@@ -80,7 +80,7 @@ def test_provider_rejects_duplicate_model_ids():
 # registry and direct instantiation never silently diverge.
 _CURRENT_DEFAULTS = {
     "openai": "gpt-5.4-nano",
-    "openrouter": "meta-llama/llama-3.1-8b-instruct",
+    "openrouter": "z-ai/glm-4.6",
     "lmstudio": "local-model",
     "ollama": "llama3.2",
     "gemini": "gemini-3.1-flash-lite",

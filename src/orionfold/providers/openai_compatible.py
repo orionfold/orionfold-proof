@@ -71,6 +71,11 @@ class OpenAICompatibleProvider:
             raise ProviderError(f"{self.id}: response contained no choices")
         text = (choices[0].get("message") or {}).get("content") or ""
         usage = data.get("usage") or {}
+        # OpenRouter returns the real billed cost (credits = USD) in ``usage.cost`` on every
+        # response; OpenAI / LM Studio do not. Use it when present so a custom model id reports a
+        # true cost instead of falling back to the static estimate (which is 0.0 for unknown ids).
+        raw_cost = usage.get("cost")
+        actual_cost_usd = float(raw_cost) if isinstance(raw_cost, (int, float)) else None
         return build_result(
             provider_id=self.id,
             model=model,
@@ -79,4 +84,5 @@ class OpenAICompatibleProvider:
             input_tokens=int(usage.get("prompt_tokens", 0) or 0),
             output_tokens=int(usage.get("completion_tokens", 0) or 0),
             privacy=self.privacy,
+            actual_cost_usd=actual_cost_usd,
         )
