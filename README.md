@@ -14,7 +14,8 @@ Studio, or cloud models like OpenAI, Anthropic, Gemini, OpenRouter), score them,
 exports a **Proof Receipt**: a rerunnable record of which option won, at what cost, with
 which failures, stamped with a config hash so anyone can reproduce it.
 
-The engine is free and open source (Apache-2.0). We never say "trust us." We say "rerun it."
+We never say "trust us." We say "rerun it." The engine is open source (Apache-2.0) so you
+can read it, run it, and verify the proof before you buy.
 
 **Get the full product → [orionfold.com/proof](https://orionfold.com/proof/).** Buying
 Orionfold Proof unlocks the Advisor 4B domain pack and RAG corpus so you can reproduce the
@@ -42,22 +43,21 @@ governance bench. The receipt is the proof.
 
 ---
 
-## What you get free vs. what the license unlocks
+## Get Orionfold Proof
 
-| | Free (Apache-2.0, this repo) | Orionfold Proof license unlocks |
-| --- | --- | --- |
-| The cockpit + matrix run engine + scoring + receipt export | ✓ | ✓ |
-| Keyless deterministic mock candidates + bundled sample datasets | ✓ | ✓ |
-| Real local and cloud models (bring your own keys) | ✓ | ✓ |
-| The **Advisor 4B** domain pack (model pointer + reference receipt) | | ✓ |
-| The **RAG corpus** behind the headline governance bench | | ✓ |
-| Reproduce the **18 / 21** receipt in-tool, turnkey | | ✓ |
+Run your own comparisons in this repo, then get the product to reproduce the headline
+governance receipt in-tool: an Orionfold Proof license unlocks the **Advisor 4B** domain
+pack and the **RAG corpus** behind that bench, so the 18 / 21 result above runs turnkey on
+your machine, in one command.
 
-Pricing and the buy flow live at [orionfold.com/proof](https://orionfold.com/proof/).
+**→ [orionfold.com/proof](https://orionfold.com/proof/).** Pricing and the buy flow live there.
+
+> The Advisor pack, its RAG corpus, and the turnkey governance rerun ship with a license.
+> Everything in this repo runs without one.
 
 ---
 
-## Run the free engine
+## Run a comparison
 
 **Keyless out of the box:** pick the bundled sample dataset, run two deterministic mock
 candidates, see the leaderboard, inspect failure cases (including a surfaced provider
@@ -236,8 +236,8 @@ PyPI distribution name: `orionfold-proof` (CLI command `orionfold`).
 
 ## Prove which AI you can trust
 
-The engine here is free and open. To reproduce the headline governance receipt in-tool, get
-the Advisor 4B pack and RAG corpus with an Orionfold Proof license.
+You have read the engine and run your own comparisons. To reproduce the headline governance
+receipt in-tool, get the Advisor 4B pack and RAG corpus with an Orionfold Proof license.
 
 **→ [orionfold.com/proof](https://orionfold.com/proof/)**
 

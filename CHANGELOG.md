@@ -6,6 +6,18 @@ for [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.1.2] — 2026-06-26
+
+### Changed
+
+- **README reframed value-led** (per the website's `/proof/` copy alignment). Dropped the
+  free-vs-paid comparison table and demoted "open source" from a hero claim to a quiet
+  transparency note ("read it, run it, verify the proof before you buy"). The value hero
+  (prove which AI you can trust, rerun it) and the headline 18 / 21 governance receipt stay
+  as the pitch. The free/paid boundary remains stated as a factual footnote, not a selling
+  table, so the README, PyPI long-description, and orionfold.com/proof read as one voice.
+  No code or API change.
+
 ## [0.1.1] — 2026-06-26
 
 ### Changed
