@@ -14,6 +14,7 @@ import {
   parseRetrievedContext,
   type RetrievedSource,
 } from "./retrievedContext";
+import { SourceDisclosure } from "./SourceDisclosure";
 
 // The adaptive example renderer — the golden feature. The Datasets screen exists so the operator can
 // trust the evidence a receipt is built on; that trust starts with SEEING what each example asks for.
@@ -155,45 +156,42 @@ function RetrievedSources({
   );
 }
 
+// A cited source earns the accent frame — it answers "which of these must I cite?". The collapsible
+// shell + frame come from <SourceDisclosure>; this composes the bench-source semantics into its slots.
 function SourceCard({ source, cited }: { source: RetrievedSource; cited: boolean }) {
-  const hasBody = Boolean(source.excerpt);
-  // A cited source earns the one accent border here — it answers "which of these must I cite?".
-  const frameCls = cited
-    ? "border-(--color-accent)/50 bg-(--color-accent)/5"
-    : "border-(--color-panel-line) bg-(--color-panel-card)";
   return (
-    <details className={`group rounded border ${frameCls}`}>
-      <summary
-        className={`flex cursor-pointer flex-wrap items-center gap-1.5 px-2 py-1.5 ${
-          hasBody ? "hover:bg-(--color-ink)/5" : "cursor-default"
-        }`}
-      >
-        {cited && (
-          <span
-            className="inline-flex items-center gap-1 text-[11px] font-medium text-(--color-accent)"
-            title="This is a source the answer must cite."
-          >
-            <Quote aria-hidden className="h-3 w-3 shrink-0" />
-            Must cite
-          </span>
-        )}
-        {source.title && (
-          <span className="text-(--color-ink)">{source.title}</span>
-        )}
-        <IdChip>{source.id}</IdChip>
-        {source.class && (
-          <span className="font-mono text-[11px] text-(--color-ink-faint)">{source.class}</span>
-        )}
-      </summary>
-      {hasBody && (
-        <div className="border-t border-(--color-panel-line) px-2 py-1.5">
-          {source.label && (
-            <p className="mb-1 text-xs text-(--color-ink-muted)">{source.label}</p>
+    <SourceDisclosure
+      cited={cited}
+      density="compact"
+      summary={
+        <>
+          {cited && (
+            <span
+              className="inline-flex items-center gap-1 text-[11px] font-medium text-(--color-accent)"
+              title="This is a source the answer must cite."
+            >
+              <Quote aria-hidden className="h-3 w-3 shrink-0" />
+              Must cite
+            </span>
           )}
-          <p className="whitespace-pre-wrap text-xs text-(--color-ink-muted)">{source.excerpt}</p>
-        </div>
-      )}
-    </details>
+          {source.title && <span className="text-(--color-ink)">{source.title}</span>}
+          <IdChip>{source.id}</IdChip>
+          {source.class && (
+            <span className="font-mono text-[11px] text-(--color-ink-faint)">{source.class}</span>
+          )}
+        </>
+      }
+      body={
+        source.excerpt ? (
+          <>
+            {source.label && (
+              <p className="mb-1 text-xs text-(--color-ink-muted)">{source.label}</p>
+            )}
+            <p className="whitespace-pre-wrap text-xs text-(--color-ink-muted)">{source.excerpt}</p>
+          </>
+        ) : undefined
+      }
+    />
   );
 }
 

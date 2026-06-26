@@ -6,6 +6,7 @@ import {
   getCorpusSources,
   type CorpusSource,
 } from "../../lib/api";
+import { SourceDisclosure } from "./SourceDisclosure";
 import { ViewNotice, ViewShell } from "./ViewShell";
 
 // A first-class browse surface for a governed corpus — the source set a bench dataset grades its
@@ -74,43 +75,42 @@ export function CorpusView({
 }
 
 function CorpusSourceCard({ source }: { source: CorpusSource }) {
-  const hasBody = Boolean(source.excerpt || source.label);
   const cited = source.cited_by > 0;
-  const frameCls = cited
-    ? "border-(--color-accent)/50 bg-(--color-accent)/5"
-    : "border-(--color-panel-line) bg-(--color-panel-card)";
+  const hasBody = Boolean(source.excerpt || source.label);
   return (
-    <details className={`group rounded-lg border ${frameCls}`}>
-      <summary
-        className={`flex cursor-pointer flex-wrap items-center gap-2 px-3 py-2 ${
-          hasBody ? "hover:bg-(--color-ink)/5" : "cursor-default"
-        }`}
-      >
-        {source.title && <span className="text-sm text-(--color-ink)">{source.title}</span>}
-        <span className="of-tag">{source.id}</span>
-        {source.class && (
-          <span className="font-mono text-[11px] text-(--color-ink-faint)">{source.class}</span>
-        )}
-        {cited && (
-          <span
-            className="ml-auto inline-flex items-center gap-1 text-[11px] font-medium text-(--color-accent)"
-            title="Bench examples require citing this source."
-          >
-            <Quote aria-hidden className="h-3 w-3 shrink-0" />
-            cited by {source.cited_by}
-          </span>
-        )}
-      </summary>
-      {hasBody && (
-        <div className="border-t border-(--color-panel-line) px-3 py-2">
-          {source.label && (
-            <p className="mb-1 text-xs text-(--color-ink-muted)">{source.label}</p>
+    <SourceDisclosure
+      cited={cited}
+      density="comfortable"
+      summary={
+        <>
+          {source.title && <span className="text-sm text-(--color-ink)">{source.title}</span>}
+          <span className="of-tag">{source.id}</span>
+          {source.class && (
+            <span className="font-mono text-[11px] text-(--color-ink-faint)">{source.class}</span>
           )}
-          {source.excerpt && (
-            <p className="whitespace-pre-wrap text-xs text-(--color-ink-muted)">{source.excerpt}</p>
+          {cited && (
+            <span
+              className="ml-auto inline-flex items-center gap-1 text-[11px] font-medium text-(--color-accent)"
+              title="Bench examples require citing this source."
+            >
+              <Quote aria-hidden className="h-3 w-3 shrink-0" />
+              cited by {source.cited_by}
+            </span>
           )}
-        </div>
-      )}
-    </details>
+        </>
+      }
+      body={
+        hasBody ? (
+          <>
+            {source.label && (
+              <p className="mb-1 text-xs text-(--color-ink-muted)">{source.label}</p>
+            )}
+            {source.excerpt && (
+              <p className="whitespace-pre-wrap text-xs text-(--color-ink-muted)">{source.excerpt}</p>
+            )}
+          </>
+        ) : undefined
+      }
+    />
   );
 }
