@@ -879,3 +879,17 @@ def test_telemetry_host_returns_profile(client):
     # the keyless demo, but they are not a hardware runtime and would mislead the Host panel.
     assert "local_runtime" in body
     assert body["local_runtime"] not in ("mock_good", "mock_bad")
+
+
+def test_run_report_carries_host_context(client):
+    body = {
+        "dataset_id": "investment-memo-summarization",
+        "candidate_ids": ["mock_good"],
+        "brief": {"task_name": "t", "decision_question": "q", "success_criteria": ""},
+    }
+    report = client.post("/api/runs", json=body).json()
+    # A real run (CLI/route path) attaches the static host profile; presentation-only.
+    assert report["host"] is not None
+    assert report["host"]["arch"]
+    # The non-stream endpoint does no live sampling → telemetry stays None (honest absence).
+    assert report.get("telemetry") is None

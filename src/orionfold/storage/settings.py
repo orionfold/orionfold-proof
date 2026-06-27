@@ -12,6 +12,9 @@ import sqlite3
 from orionfold.scoring.rubric import DEFAULT_THRESHOLDS
 
 _SANDBOX_KEY = "sandbox_enabled"
+# Opt-in for sampling Apple Silicon GPU utilization via powermetrics (needs sudo). Default off;
+# until enabled, GPU telemetry reads "unavailable" rather than a fabricated number.
+_POWERMETRICS_KEY = "powermetrics_gpu_optin"
 # Only these kinds expose a tunable default-threshold slider in Settings.
 _THRESHOLD_KINDS = ("similarity", "keypoint", "judge")
 _THRESHOLD_KEY = "threshold_{kind}"
@@ -33,6 +36,14 @@ def get_sandbox_enabled(conn: sqlite3.Connection) -> bool:
 
 def set_sandbox_enabled(conn: sqlite3.Connection, enabled: bool) -> None:
     set_setting(conn, _SANDBOX_KEY, "true" if enabled else "false")
+
+
+def get_powermetrics_optin(conn: sqlite3.Connection) -> bool:
+    return get_setting(conn, _POWERMETRICS_KEY, "false") == "true"
+
+
+def set_powermetrics_optin(conn: sqlite3.Connection, enabled: bool) -> None:
+    set_setting(conn, _POWERMETRICS_KEY, "true" if enabled else "false")
 
 
 def get_threshold_defaults(conn: sqlite3.Connection) -> dict[str, float]:

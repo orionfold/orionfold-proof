@@ -63,7 +63,7 @@ def test_no_winner_verdict_and_reason():
         for i in range(5)
     ]
     data = build_receipt(_run([cand], results))
-    assert data["receipt_version"] == 10
+    assert data["receipt_version"] == 11
     assert data["verdict"] == "No clear winner"
     assert "No candidate passed the rubric" in data["recommendation"]
     assert "0.80" in data["recommendation"]
@@ -106,12 +106,12 @@ def test_star_appears_when_candidate_passes():
     assert "⭐" in md
 
 
-def test_version_is_four_with_a_winner():
+def test_version_is_current_with_a_winner():
     cand = _cand("good")
     results = [
         _row("good", i, score=1.0, passed=True, latency=50)
         for i in range(5)
     ]
     data = build_receipt(_run([cand], results))
-    assert data["receipt_version"] == 10
+    assert data["receipt_version"] == 11
     assert data["verdict"] != "No clear winner"

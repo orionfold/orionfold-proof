@@ -45,12 +45,37 @@ function Row({ label, value, strong }: { label: string; value: string; strong?: 
   );
 }
 
-// Live gauges, fleshed out in Task 9 — kept minimal here so the rail compiles and the type slot
-// is real. A run that is sampling shows CPU now; mem / RSS / GPU bars land with the SSE wiring.
+// Live gauges during a run: quiet token-driven bars (--color-ok healthy, --color-warn under
+// pressure). No spinners, no red alert theater — a calm instrument (UX north star).
 function LiveGauges({ sample }: { sample: TelemetrySample }) {
   return (
-    <div className="flex flex-col gap-1 border-t border-(--color-panel-line) pt-2 text-xs text-(--color-ink-muted)">
-      <span>CPU {Math.round(sample.cpu_util)}%</span>
+    <div className="flex flex-col gap-2 border-t border-(--color-panel-line) pt-3">
+      <Gauge label="CPU" pct={sample.cpu_util} value={`${Math.round(sample.cpu_util)}%`} />
+      {sample.mem_used_gb != null && (
+        <Row label="Memory (live)" value={`${sample.mem_used_gb} GB`} />
+      )}
+      {sample.process_rss_gb != null && (
+        <Row label="Runtime RSS" value={`${sample.process_rss_gb} GB`} />
+      )}
+      <Row label="GPU" value={sample.gpu_util != null ? `${Math.round(sample.gpu_util)}%` : "unavailable"} />
+    </div>
+  );
+}
+
+// A thin horizontal bar (0–100%). Healthy fill uses --color-ok; >85% switches to --color-warn to
+// signal pressure — never a hard red alarm.
+function Gauge({ label, pct, value }: { label: string; pct: number; value: string }) {
+  const clamped = Math.max(0, Math.min(100, pct));
+  const color = clamped > 85 ? "--color-warn" : "--color-ok";
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="flex items-baseline justify-between gap-3 text-sm">
+        <span className="text-(--color-ink-muted)">{label}</span>
+        <span className="font-mono text-xs text-(--color-ink)">{value}</span>
+      </div>
+      <div className="h-1 w-full overflow-hidden rounded-full bg-(--color-panel-line)">
+        <div className="h-full rounded-full" style={{ width: `${clamped}%`, background: `var(${color})` }} />
+      </div>
     </div>
   );
 }

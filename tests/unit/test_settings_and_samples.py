@@ -20,6 +20,15 @@ def test_sandbox_defaults_false_and_round_trips():
     assert settings.get_sandbox_enabled(conn) is False
 
 
+def test_powermetrics_optin_defaults_false_and_round_trips():
+    conn = _db()
+    assert settings.get_powermetrics_optin(conn) is False
+    settings.set_powermetrics_optin(conn, True)
+    assert settings.get_powermetrics_optin(conn) is True
+    settings.set_powermetrics_optin(conn, False)
+    assert settings.get_powermetrics_optin(conn) is False
+
+
 def test_threshold_defaults_fall_back_to_builtin_map():
     from orionfold.scoring.rubric import DEFAULT_THRESHOLDS
 

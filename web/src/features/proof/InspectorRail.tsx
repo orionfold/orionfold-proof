@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
 
-import { getHostProfile } from "../../lib/api";
+import { getHostProfile, subscribeTelemetry, type TelemetrySample } from "../../lib/api";
 import { HostPanel } from "./HostPanel";
 
 // The app-level right rail: a single scrollable 22rem column present on EVERY screen, so the
@@ -13,13 +14,30 @@ export function InspectorRail({ runDetail }: { runDetail: React.ReactNode }) {
     queryFn: getHostProfile,
     staleTime: Infinity,
   });
+  // Live telemetry only while a run is active (runDetail present). The stream self-closes when the
+  // run ends; we also unsubscribe on cleanup and clear the last sample so gauges don't linger.
+  const [sample, setSample] = useState<TelemetrySample | null>(null);
+  const runActive = runDetail != null;
+  useEffect(() => {
+    if (!runActive) {
+      setSample(null);
+      return;
+    }
+    // Clear gauges when the stream closes (run finished) so a completed run doesn't freeze a stale
+    // reading; the static Host profile remains.
+    const unsubscribe = subscribeTelemetry(setSample, () => setSample(null));
+    return () => {
+      unsubscribe();
+      setSample(null);
+    };
+  }, [runActive]);
   return (
     <aside
       aria-label="Inspector rail"
       className="hidden w-[22rem] flex-col overflow-y-auto bg-(--color-inspector) lg:flex"
     >
       {runDetail}
-      <HostPanel profile={profile} telemetry={null} />
+      <HostPanel profile={profile} telemetry={sample} />
     </aside>
   );
 }

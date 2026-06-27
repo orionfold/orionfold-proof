@@ -16,6 +16,7 @@ from orionfold.domain.models import Candidate, Dataset, ProofBrief, ProofReport,
 from orionfold.proof.engine import run_proof
 from orionfold.providers.registry import build_candidates
 from orionfold.scoring.rubric import default_rubric_for
+from orionfold.telemetry import detect_host_profile
 
 
 def _now() -> str:
@@ -47,6 +48,10 @@ def execute_resolved(
         rubric=rubric,
     )
     report.run.mode = mode
+    # Static host context for every real run (CLI + non-stream route). Presentation-only, never in
+    # config_hash. The streaming route attaches host + live telemetry itself; run_proof (used by
+    # receipt unit tests) stays host-free so those fixtures are unaffected.
+    report.host = detect_host_profile()
     return report
 
 

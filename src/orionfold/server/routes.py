@@ -7,6 +7,7 @@ itself stays deterministic and clock-free).
 
 from __future__ import annotations
 
+import asyncio
 import json
 import queue
 import sqlite3
@@ -15,7 +16,7 @@ import uuid
 from typing import Literal
 from datetime import datetime, timezone
 
-from collections.abc import Iterator
+from collections.abc import AsyncIterator, Iterator
 
 from fastapi import APIRouter, File, HTTPException, Request, UploadFile
 from fastapi.responses import PlainTextResponse, Response, StreamingResponse
@@ -63,7 +64,7 @@ from orionfold.providers.registry import (
     expand_prompt_variants,
 )
 from orionfold.receipts import export
-from orionfold.telemetry import detect_host_profile
+from orionfold.telemetry import RunSampler, detect_host_profile
 from orionfold.sample_data import seed_sample_data
 from orionfold.storage.db import apply_migrations, connect
 from orionfold.storage.repository import (
@@ -88,6 +89,7 @@ from orionfold.storage.repository import (
     validate_bench_binding,
 )
 from orionfold.storage.settings import (
+    get_powermetrics_optin,
     get_sandbox_enabled,
     get_threshold_defaults,
     set_sandbox_enabled,
@@ -95,6 +97,11 @@ from orionfold.storage.settings import (
 )
 
 router = APIRouter(prefix="/api")
+
+# The sampler for the run currently streaming, if any. The cockpit runs one proof at a time, so a
+# single ref suffices (no multi-run registry — YAGNI). The /telemetry/stream handler reads its
+# .latest(); it is set when a run starts and cleared in a finally when the run ends.
+_CURRENT_SAMPLER: RunSampler | None = None
 
 MAX_UPLOAD_BYTES = 5 * 1024 * 1024  # 5 MB — datasets are small; this guards memory + abuse.
 
@@ -446,6 +453,32 @@ def telemetry_host() -> HostProfile:
     return profile.model_copy(update={"local_runtime": _configured_local_runtime()})
 
 
+@router.get("/telemetry/stream")
+async def telemetry_stream() -> StreamingResponse:
+    """Emit the latest live sample ~every 500ms while a run is active; closes when idle.
+
+    Reads only the current run's sampler (OS stats); carries no secrets. Closes itself after a
+    short idle window so a client that connects between runs doesn't hang open forever.
+    """
+
+    async def gen() -> AsyncIterator[str]:
+        idle_ticks = 0
+        while idle_ticks < 4:  # ~2s of no active sampler → close
+            sample = _CURRENT_SAMPLER.latest() if _CURRENT_SAMPLER else None
+            if sample is None:
+                idle_ticks += 1
+            else:
+                idle_ticks = 0
+                yield _sse(sample)
+            await asyncio.sleep(0.5)
+
+    return StreamingResponse(
+        gen(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
 @router.post("/credentials")
 def set_credential(body: CredentialRequest) -> CredentialStatus:
     """Write one cloud provider's API key into .env.local so its candidates unlock.
@@ -642,6 +675,7 @@ def create_run_stream(request: Request, body: RunRequest) -> StreamingResponse:
             dataset, threshold_overrides, check_hint=meta.check_hint if meta else None
         )
         _validate_bench_run(conn, rubric, dataset)
+        gpu_optin = get_powermetrics_optin(conn)
     finally:
         conn.close()
     if not body.candidate_ids:
@@ -674,6 +708,14 @@ def create_run_stream(request: Request, body: RunRequest) -> StreamingResponse:
         produced: dict[str, list[ResultRow]] = {}
         failure: list[BaseException] = []
 
+        # Live hardware telemetry for this run. Best-effort + isolated (reads only OS stats), so it
+        # can never perturb run output or config_hash. Registered globally so /telemetry/stream can
+        # read the latest sample; always cleared + stopped in the finally below.
+        global _CURRENT_SAMPLER
+        sampler = RunSampler(gpu_opt_in=gpu_optin)
+        sampler.start()
+        _CURRENT_SAMPLER = sampler
+
         def produce() -> None:
             try:
                 produced["rows"] = run_matrix_concurrent(
@@ -704,6 +746,12 @@ def create_run_stream(request: Request, body: RunRequest) -> StreamingResponse:
                 }
             )
         worker.join()
+        # Stop sampling once generation is done; always clear the global ref so a failed run never
+        # strands it and the next run starts clean.
+        try:
+            telemetry = sampler.stop()
+        finally:
+            _CURRENT_SAMPLER = None
         if failure:
             raise failure[0]
         rows = produced["rows"]
@@ -724,6 +772,8 @@ def create_run_stream(request: Request, body: RunRequest) -> StreamingResponse:
             leaderboard=build_leaderboard(candidates, rows),
             results=rows,
             cost_summary=build_cost_summary(rows),
+            host=detect_host_profile(),
+            telemetry=telemetry,
         )
         write = connect(db_path)
         try:

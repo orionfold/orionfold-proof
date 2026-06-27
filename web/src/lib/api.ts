@@ -412,6 +412,31 @@ export function getHostProfile(): Promise<HostProfile> {
   return getJson("/api/telemetry/host", hostProfileSchema);
 }
 
+// Subscribe to the live telemetry SSE stream (active only during a run). `onSample` fires per
+// frame; `onClose` fires when the stream ends (the server closes it when no run is sampling) so the
+// caller can clear stale gauges. Returns an unsubscribe fn. Malformed frames are ignored.
+export function subscribeTelemetry(
+  onSample: (s: TelemetrySample) => void,
+  onClose?: () => void,
+): () => void {
+  // EventSource is absent in non-browser environments (SSR, jsdom). Degrade to a no-op rather
+  // than crash the rail — live telemetry is best-effort; the static Host card still renders.
+  if (typeof EventSource === "undefined") return () => {};
+  const es = new EventSource("/api/telemetry/stream");
+  es.onmessage = (ev) => {
+    try {
+      onSample(telemetrySampleSchema.parse(JSON.parse(ev.data)));
+    } catch {
+      // ignore a malformed/partial frame — telemetry is best-effort, never blocks the run
+    }
+  };
+  es.onerror = () => {
+    es.close(); // the stream self-closes when idle; don't reconnect-storm
+    onClose?.();
+  };
+  return () => es.close();
+}
+
 export const resolvedSelectorSchema = z.object({
   label: z.string(),
   candidate_id: z.string(),
