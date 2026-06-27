@@ -229,6 +229,23 @@ class LeaderboardEntry(BaseModel):
     tokens_per_second: float | None = None  # Σoutput_tokens / Σlatency_s; None when no measured latency. Presentation only — never a ranking key, never in config_hash (the 32GB-Mac-vs-128GB-GB10 generalization metric).
 
 
+class HostProfile(BaseModel):
+    """Static description of the machine a proof ran on.
+
+    Presentation-only — NEVER enters ``config_hash``. A Mac run and a Linux run of the
+    same model/prompt/dataset still hash identically (the proof is about the model, not
+    the machine). Every field but ``arch`` is best-effort and may be ``None`` ("unavailable").
+    """
+
+    arch: str
+    chip: str | None = None  # "Apple M3 Max"
+    cpu_cores: int | None = None
+    memory_gb: float | None = None  # unified/total
+    os_label: str | None = None  # "macOS 15.1"
+    local_runtime: str | None = None  # "Ollama" / "LM Studio" / None
+    gpu_label: str | None = None  # "Apple M3 Max GPU" / "NVIDIA RTX 4090" / None
+
+
 class ProofBrief(BaseModel):
     """Lightweight framing of the decision this proof informs (not a wizard in v0)."""
 
