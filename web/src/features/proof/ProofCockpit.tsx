@@ -21,6 +21,11 @@ import {
   type RunCostSummary,
 } from "../../lib/api";
 import { cheapCloudCandidates } from "./scoring";
+import {
+  emptyRunProgress,
+  reduceRunProgress,
+  type RunProgress as RunProgressSnapshot,
+} from "./useRunProgress";
 import { effectiveDecisionQuestion, quickDecisionHeadline } from "./briefHelpers";
 import { STARTER_VARIANTS, cleanVariants, defaultPromptModel } from "./promptVariantsHelpers";
 import { type Rubric } from "./ScoringMethod";
@@ -55,6 +60,7 @@ export function ProofCockpit({
   selectedFailure,
   onSelectFailure,
   onRunActiveChange,
+  onRunProgressChange,
 }: {
   report: ProofReport | null;
   onReport: (report: ProofReport) => void;
@@ -74,6 +80,9 @@ export function ProofCockpit({
   // Notifies App while a run is streaming, so the app-level rail can light up the live Host gauges
   // during the run. Optional so unit tests that don't exercise the rail can omit it.
   onRunActiveChange?: (active: boolean) => void;
+  // Lifts live run progress (pass-rate-so-far + candidates done/total) to App for the telemetry
+  // rail. Derived here because the cockpit owns the single run SSE; optional for unit tests.
+  onRunProgressChange?: (progress: RunProgressSnapshot | null) => void;
 }) {
   const queryClient = useQueryClient();
   const datasets = useQuery({ queryKey: ["datasets"], queryFn: getDatasets });
@@ -124,6 +133,10 @@ export function ProofCockpit({
     start: RunStartEvent;
     completed: Record<string, number>;
   } | null>(null);
+  // A parallel, derived view of the same run stream for the telemetry rail: pooled pass-rate +
+  // candidates done/total. Kept separate from `progress` (which drives this column's cell grid) so
+  // neither concern complicates the other; both are fed from the one createRunStream below.
+  const [runProgress, setRunProgress] = useState<RunProgressSnapshot | null>(null);
   // Guided first-run CTA (WS-E2): once the user clicks "Run the demo on real models" we preselect
   // the sample + two cheap cloud candidates, then ARM an auto-run. The judge default resolves
   // asynchronously inside ScoringMethod's effect (rubric goes null → judge), so we can't fire the run
@@ -195,8 +208,13 @@ export function ProofCockpit({
   const runMutation = useMutation({
     mutationFn: (body: RunRequest) =>
       createRunStream(body, {
-        onStart: (s) => setProgress({ start: s, completed: {} }),
-        onProgress: (p) =>
+        onStart: (s) => {
+          setProgress({ start: s, completed: {} });
+          // A `start` event resets the snapshot to fresh totals (reduceRunProgress spreads an empty
+          // base for start), so the prior arg is unused — pass the current value as the seed.
+          setRunProgress((prev) => reduceRunProgress(prev ?? emptyRunProgress(), s));
+        },
+        onProgress: (p) => {
           setProgress((prev) => {
             if (!prev) return prev;
             // Monotonic per-candidate count, order-independent: a cell at example_index k means at
@@ -204,15 +222,21 @@ export function ProofCockpit({
             const prior = prev.completed[p.candidate_id] ?? 0;
             const next = Math.max(prior, p.example_index + 1);
             return { ...prev, completed: { ...prev.completed, [p.candidate_id]: next } };
-          }),
+          });
+          setRunProgress((prev) => (prev ? reduceRunProgress(prev, p) : prev));
+        },
       }),
     onSuccess: (r) => {
       onReport(r);
       setProgress(null);
+      setRunProgress(null);
       // Keep the Receipts archive current without a manual refetch.
       void queryClient.invalidateQueries({ queryKey: ["runs"] });
     },
-    onError: () => setProgress(null),
+    onError: () => {
+      setProgress(null);
+      setRunProgress(null);
+    },
   });
 
   // Surface the streaming state to App so the app-level rail can subscribe to the live telemetry
@@ -221,6 +245,11 @@ export function ProofCockpit({
   useEffect(() => {
     onRunActiveChange?.(runIsPending);
   }, [runIsPending, onRunActiveChange]);
+
+  // Lift the derived run-progress snapshot to App for the telemetry rail (mirrors runActive).
+  useEffect(() => {
+    onRunProgressChange?.(runProgress);
+  }, [runProgress, onRunProgressChange]);
 
   // The guided demo targets the bundled sample (detected by `is_sample`, not a hardcoded id — the
   // sample-detection invariant) and two cheap, available cloud candidates. The CTA only shows when

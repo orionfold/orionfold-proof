@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { type ProofReport, type ResultRow } from "../lib/api";
 import { AppBar, type NavId } from "./AppBar";
 import { TelemetryRail } from "./TelemetryRail";
+import { type RunProgress } from "../features/proof/useRunProgress";
 import { Inspector } from "../features/proof/Inspector";
 import { CorpusView } from "../features/proof/CorpusView";
 import { DatasetsView } from "../features/proof/DatasetsView";
@@ -38,6 +39,9 @@ export function App() {
   // the live gauges during the run — the finished `report` only exists AFTER the run, so it can't
   // be the live signal. The rail subscribes to the telemetry stream whenever runActive is true.
   const [runActive, setRunActive] = useState(false);
+  // Live run progress (pass-rate-so-far + candidates done/total), lifted from the cockpit so the
+  // telemetry rail can show it. Null at rest. Sibling to runActive.
+  const [runProgress, setRunProgress] = useState<RunProgress | null>(null);
 
   // Whenever the cockpit's shown run changes, clear the failure selection so the Inspector never
   // shows a row from the previous report. (Lifted out of the cockpit with the selection.)
@@ -95,7 +99,12 @@ export function App() {
       </a>
 
       <AppBar view={view} onNavigate={navigate} />
-      <TelemetryRail runActive={runActive} />
+      <TelemetryRail
+        runActive={runActive}
+        runProgress={runProgress}
+        lastReport={report}
+        onOpenReceipts={() => navigate("receipts")}
+      />
 
       {/* MAIN CANVAS — single full-width region. Each screen owns its own width cap (reading vs
           working) via ViewShell / its component. flex-1 so short screens still fill the fold. */}
@@ -122,6 +131,7 @@ export function App() {
               selectedFailure={selectedFailure}
               onSelectFailure={setSelectedFailure}
               onRunActiveChange={setRunActive}
+              onRunProgressChange={setRunProgress}
             />
             {report && (
               <aside aria-label="Inspector rail" className="hidden lg:block">
