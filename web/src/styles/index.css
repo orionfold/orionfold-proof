@@ -183,6 +183,27 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* ── Pointer affordance ──────────────────────────────────────────────────────────────────────
+   Native <button> defaults to cursor:default under Tailwind's Preflight, and role-based controls
+   (tabs, segmented toggles, clickable cards) carry no cursor of their own. Give every interactive
+   element a pointer so "this is clickable" reads consistently; disabled controls show not-allowed.
+   One global rule rather than a cursor-pointer class on each control, so new controls inherit it. */
+button:not(:disabled),
+a[href],
+[role="button"]:not([aria-disabled="true"]),
+[role="tab"]:not([aria-disabled="true"]),
+label[for],
+summary,
+select:not(:disabled) {
+  cursor: pointer;
+}
+
+button:disabled,
+[role="button"][aria-disabled="true"],
+[role="tab"][aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
 /* ── Blueprint draughting field (spec §3.2) ──────────────────────────────────────────────────
    Proof's whitespace motif: a fine low-opacity grid PLUS heavier rule lines and small corner
    registration ticks — reads as "measured, drawn-to-spec," distinct from Arena's pure grid. Pure
