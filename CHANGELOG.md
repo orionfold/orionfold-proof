@@ -31,6 +31,13 @@ for [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   over existing `cost_summary` fields (same pattern as `track_record`): re-runs no scoring, touches
   no `config_hash`, no receipt byte, no migration. Un-picked quick-compare drafts are excluded, so
   the cost reconciles 1:1 with the Runs list.
+- **Receipts screen redesign (bento + folded Track Record).** Receipts now opens with a dense
+  above-the-fold bento masthead — Latest proof, Cost today (eval + judge split), Cost to date,
+  library counts, and a wide pass-rate-vs-cost trend chart — over a `[ Runs | Track Record ]`
+  toggle. Runs is a compact sortable table (verdict · pass · scored-by · cost · when · export · open)
+  with checkbox compare, replacing the old tall cards. Track Record (formerly its own tab) folds in
+  as dense 2-up dataset standings cards. Telemetry-rail cost / result cells deep-link into the
+  matching mode. Presentation-only — no scoring / receipt / hash change.
 
 ### Fixed
 

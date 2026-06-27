@@ -9,7 +9,7 @@ import { CorpusView } from "../features/proof/CorpusView";
 import { DatasetsView } from "../features/proof/DatasetsView";
 import { ProofCockpit } from "../features/proof/ProofCockpit";
 import { ReceiptDetailView } from "../features/proof/ReceiptDetailView";
-import { ReceiptsView } from "../features/proof/ReceiptsView";
+import { ReceiptsView, type ReceiptsMode } from "../features/proof/ReceiptsView";
 import { SettingsView } from "../features/proof/SettingsView";
 
 // "corpus" is a sub-surface of Datasets (opened from a bench card's corpus badge), so it lives in
@@ -42,6 +42,10 @@ export function App() {
   // Live run progress (pass-rate-so-far + candidates done/total), lifted from the cockpit so the
   // telemetry rail can show it. Null at rest. Sibling to runActive.
   const [runProgress, setRunProgress] = useState<RunProgress | null>(null);
+  // Which Receipts mode to open in. The rail drills into the right one: last-result/last-receipt →
+  // Runs (that receipt), cost/pass-rate trend → Track Record (the standings). Consumed by
+  // ReceiptsView's initialMode; reset to "runs" on a plain nav so the tab reopens to its root.
+  const [receiptsMode, setReceiptsMode] = useState<ReceiptsMode>("runs");
 
   // Whenever the cockpit's shown run changes, clear the failure selection so the Inspector never
   // shows a row from the previous report. (Lifted out of the cockpit with the selection.)
@@ -55,7 +59,16 @@ export function App() {
     setDatasetFocusId(null);
     setPreselectDatasetId(null);
     setCorpusFocusId(null);
+    setReceiptsMode("runs");
     setView(next);
+  };
+
+  // A rail cell drills into Receipts on a specific mode (Runs vs Track Record, per spec §4). Unlike
+  // a plain nav this sets the target mode first, so the toggle opens where the cell points.
+  const openReceipts = (mode: ReceiptsMode) => {
+    setReceiptInView(null);
+    setReceiptsMode(mode);
+    setView("receipts");
   };
 
   // "View details" on the Proof Run dataset summary: jump to Datasets with that card expanded.
@@ -103,7 +116,7 @@ export function App() {
         runActive={runActive}
         runProgress={runProgress}
         lastReport={report}
-        onOpenReceipts={() => navigate("receipts")}
+        onOpenReceipts={openReceipts}
       />
 
       {/* MAIN CANVAS — single full-width region. Each screen owns its own width cap (reading vs
@@ -156,7 +169,7 @@ export function App() {
               onExplore={openInCockpit}
             />
           ) : (
-            <ReceiptsView onOpenReceipt={setReceiptInView} />
+            <ReceiptsView initialMode={receiptsMode} onOpenReceipt={setReceiptInView} />
           ))}
       </div>
     </div>

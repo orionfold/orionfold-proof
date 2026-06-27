@@ -22,6 +22,7 @@ import {
   type TelemetrySample,
 } from "../lib/api";
 import { type RunProgress } from "../features/proof/useRunProgress";
+import { type ReceiptsMode } from "../features/proof/ReceiptsView";
 import { emptyTrend, pushSample, sparklinePath, type Trend } from "../features/proof/sparkline";
 
 // The three live host trends shown as sparklines. Bundled so they reset/accumulate together.
@@ -49,7 +50,9 @@ export function TelemetryRail({
   runActive: boolean;
   runProgress: RunProgress | null;
   lastReport: ProofReport | null;
-  onOpenReceipts: () => void;
+  // Drill into Receipts on a specific mode: result/receipt cells → "runs" (that archive); cost
+  // cells → "track-record" (the standings, where the cost/pass-rate trend lives, spec §4).
+  onOpenReceipts: (mode: ReceiptsMode) => void;
 }) {
   const { data: profile } = useQuery({
     queryKey: ["telemetry-host"],
@@ -178,7 +181,7 @@ export function TelemetryRail({
           label="Last result"
           value={lastResult}
           Icon={CircleCheck}
-          onClick={winner ? onOpenReceipts : undefined}
+          onClick={winner ? () => onOpenReceipts("runs") : undefined}
         />
       )}
       {/* Standing cost signals — read-only rollups over stored runs. The cells drill into Receipts
@@ -188,20 +191,20 @@ export function TelemetryRail({
         value={todayValue}
         sub={todaySub}
         Icon={Coins}
-        onClick={costToday.data ? onOpenReceipts : undefined}
+        onClick={costToday.data ? () => onOpenReceipts("track-record") : undefined}
       />
       <CellButton
         label="Cost to date"
         value={toDateValue}
         sub={toDateSub}
         Icon={Wallet}
-        onClick={costAll.data ? onOpenReceipts : undefined}
+        onClick={costAll.data ? () => onOpenReceipts("track-record") : undefined}
       />
       <CellButton
         label="Last receipt"
         value={lastReceipt}
         Icon={ReceiptText}
-        onClick={winner ? onOpenReceipts : undefined}
+        onClick={winner ? () => onOpenReceipts("runs") : undefined}
       />
       <div className="ml-auto flex items-center gap-1.5 px-4 text-xs text-(--color-ink-faint)">
         <span aria-hidden className="inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-(--color-ok)" />
