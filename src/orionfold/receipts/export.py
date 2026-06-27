@@ -39,7 +39,7 @@ from orionfold.scoring.review import review_report
 # nothing flagged) and rendered inline under the affected failure case. Advisory only — the
 # deterministic verdict stays authoritative; the review never changes pass/fail.
 # Bump on any schema change so downstream consumers can detect drift.
-RECEIPT_VERSION = 10
+RECEIPT_VERSION = 11
 
 
 def _verdict(top: LeaderboardEntry) -> str:
@@ -251,6 +251,9 @@ def build_receipt(report: ProofReport) -> dict:
         ],
         "failure_cases": [r.model_dump() for r in _failure_cases(report)],
         "verdict_review": [r.model_dump() for r in review_report(report)],
+        # Hardware context — presentation-only, never in config_hash. None when not captured.
+        "host": report.host.model_dump() if report.host else None,
+        "telemetry": report.telemetry.model_dump() if report.telemetry else None,
         "repro": {
             "run_id": run.id,
             "config_hash": run.config_hash,
@@ -266,6 +269,69 @@ def build_receipt(report: ProofReport) -> dict:
 def to_json(report: ProofReport) -> str:
     """Machine-readable receipt — the canonical structure as pretty JSON."""
     return json.dumps(build_receipt(report), indent=2, ensure_ascii=False)
+
+
+def _hardware_lines(report: ProofReport) -> list[str]:
+    """The ## Hardware stanza — context ("reproduced on hardware like X"), never proof.
+
+    Excluded from config_hash: it describes the machine, not the run identity. Returns ``[]``
+    when no host profile was captured (older runs), so the stanza only appears when real.
+    """
+    host = report.host
+    if host is None:
+        return []
+    bits = [
+        b
+        for b in (
+            host.chip or host.arch,
+            f"{host.memory_gb} GB unified" if host.memory_gb else None,
+            host.os_label,
+            host.local_runtime,
+        )
+        if b
+    ]
+    lines = [
+        "",
+        "## Hardware",
+        "",
+        f"_Reproduced on hardware like: {' · '.join(bits)}._",
+        "_This describes the machine; it does not affect the config hash._",
+        "",
+    ]
+    tel = report.telemetry
+    if tel is None or not tel.sampled:
+        lines.append("- Live telemetry: not captured for this run.")
+        return lines
+    if tel.cpu_util_max is not None:
+        lines.append(f"- CPU peak: {tel.cpu_util_max:.0f}%")
+    if tel.process_rss_gb_max is not None:
+        lines.append(f"- Runtime memory (RSS) peak: {tel.process_rss_gb_max:.1f} GB")
+    if tel.gpu_util_max is not None:
+        lines.append(f"- GPU peak: {tel.gpu_util_max:.0f}%")
+    else:
+        lines.append("- GPU: unavailable (enable GPU metrics in Settings)")
+    if tel.warmup_ms is not None:
+        lines.append(f"- First-call (incl. load): {tel.warmup_ms} ms")
+    return lines
+
+
+def _hardware_html(report: ProofReport) -> str:
+    """The ## Hardware stanza as an HTML block, mirroring ``_hardware_lines``. Empty if no host."""
+    lines = _hardware_lines(report)
+    if not lines:
+        return ""
+    # lines[1] == "## Hardware"; lines[3] = "_Reproduced…_"; lines[4] = "_…config hash._";
+    # remaining "- " bullets are the telemetry rows. Render simply and escaped.
+    repro = html.escape(lines[3].strip("_"))
+    note = html.escape(lines[4].strip("_"))
+    bullets = "".join(
+        f"<li>{html.escape(line[2:])}</li>" for line in lines if line.startswith("- ")
+    )
+    return (
+        "<h2>Hardware</h2>"
+        f"<p class='muted'>{repro}<br/>{note}</p>"
+        f"<ul class='hardware'>{bullets}</ul>"
+    )
 
 
 def _tokens_by_candidate(report: ProofReport) -> dict[str, int]:
@@ -400,6 +466,8 @@ def to_markdown(report: ProofReport) -> str:
                   f"_Same model, {len(variants)} system prompts compared._", ""]
         for v in variants:
             lines += [f"- **{_md_inline(v['name'])}:** {_md_inline(v['system_prompt'])}"]
+
+    lines += _hardware_lines(report)
 
     lines += [
         "",
@@ -615,6 +683,7 @@ def to_html(report: ProofReport, theme: str | None = None) -> str:
   <h2>Failure cases ({len(failures)})</h2>
   {failures_html}
   {variants_html}
+  {_hardware_html(report)}
   <h2>Repro</h2>
   <dl>
     <dt>Run id</dt><dd><code>{html.escape(data['repro']['run_id'])}</code></dd>

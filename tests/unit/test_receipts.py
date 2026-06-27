@@ -3,7 +3,15 @@
 import pytest
 
 from orionfold.data import load_dataset
-from orionfold.domain.models import Candidate, Dataset, Example, ProofBrief, Rubric
+from orionfold.domain.models import (
+    Candidate,
+    Dataset,
+    Example,
+    HostProfile,
+    ProofBrief,
+    Rubric,
+    TelemetrySummary,
+)
 from orionfold.proof.engine import run_proof
 from orionfold.receipts import export
 
@@ -194,7 +202,7 @@ def test_receipt_records_prompt_variants_and_text():
                          cost_summary=RunCostSummary(candidate_cost_usd=0, judge_cost_usd=0, total_cost_usd=0))
 
     data = export.build_receipt(report)
-    assert data["receipt_version"] == 10
+    assert data["receipt_version"] == 11
     assert data["prompt_variants"] == [
         {"name": "Baseline", "system_prompt": "Be neutral."},
         {"name": "Concise", "system_prompt": "Be terse."},
@@ -386,8 +394,36 @@ def _format_fn_report():
                        cost_summary=RunCostSummary(candidate_cost_usd=0, judge_cost_usd=0, total_cost_usd=0))
 
 
-def test_receipt_version_is_10():
-    assert export.RECEIPT_VERSION == 10
+def test_receipt_version_is_11():
+    assert export.RECEIPT_VERSION == 11
+
+
+def test_hardware_stanza_renders_when_host_present(make_report):
+    report = make_report()
+    report.host = HostProfile(
+        arch="arm64", chip="Apple M3 Max", memory_gb=36.0,
+        os_label="macOS 15.1", local_runtime="Ollama",
+    )
+    report.telemetry = TelemetrySummary(
+        sampled=True, n_samples=20, cpu_util_max=64.0, process_rss_gb_max=8.2,
+    )
+    md = export.to_markdown(report)
+    assert "## Hardware" in md
+    assert "Apple M3 Max" in md
+    assert "does not affect the config hash" in md.lower()
+
+
+def test_hardware_stanza_absent_when_no_host(make_report):
+    report = make_report()  # host=None by default
+    assert "## Hardware" not in export.to_markdown(report)
+
+
+def test_unsampled_telemetry_reads_as_not_captured(make_report):
+    report = make_report()
+    report.host = HostProfile(arch="arm64", chip="Apple M3 Max")
+    report.telemetry = TelemetrySummary(sampled=False)
+    md = export.to_markdown(report)
+    assert "not captured" in md.lower()
 
 
 def test_build_receipt_carries_verdict_review_key():
