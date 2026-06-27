@@ -60,6 +60,10 @@ for [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   Settings) now centers in the same `max-w-[96rem]` reading measure with matching padding, instead
   of left-jamming or spanning edge-to-edge. The blueprint draughting-grid background reads at a
   calm, just-perceptible alpha in whitespace.
+- **Settings is a full-width bento.** The Settings sections tile into a responsive grid at the
+  same width as every other view — Appearance · Runtime (the Sandbox + GPU toggles) · Default
+  scoring thresholds · Data management (Seed / Remove / Clear) — each an icon-led card, so the
+  width carries density instead of stretched single-toggle rows. Layout only; every control kept.
 
 ### Fixed
 

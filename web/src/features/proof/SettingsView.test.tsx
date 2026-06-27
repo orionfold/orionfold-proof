@@ -34,6 +34,23 @@ test("renders the three data actions and the sandbox toggle", async () => {
   expect(screen.getByRole("switch", { name: /Sandbox/i })).toBeInTheDocument();
 });
 
+// R1c: the sections are tiled into a bento grid, with Runtime split out from Data management so the
+// two runtime toggles live in their own tile. Each tile keeps its heading + every control/semantic.
+test("lays out the four bento section tiles, including a Runtime tile with both toggles", async () => {
+  renderWithQuery(<SettingsView />);
+  for (const name of [
+    "Appearance",
+    "Runtime",
+    "Default scoring thresholds",
+    "Data management",
+  ]) {
+    expect(await screen.findByRole("heading", { name })).toBeInTheDocument();
+  }
+  // The runtime toggles moved into the Runtime tile but kept their roles/labels.
+  expect(screen.getByRole("switch", { name: /Sandbox/i })).toBeInTheDocument();
+  expect(screen.getByRole("switch", { name: /GPU metrics/i })).toBeInTheDocument();
+});
+
 test("renders a default-threshold slider per method showing persisted values", async () => {
   renderWithQuery(<SettingsView />);
   const similarity = await screen.findByRole("slider", { name: /Similarity default threshold/i });

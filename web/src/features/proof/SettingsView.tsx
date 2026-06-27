@@ -1,6 +1,16 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Database, Monitor, Moon, Sun, Trash2, type LucideIcon } from "lucide-react";
+import {
+  Database,
+  FlaskConical,
+  Monitor,
+  Moon,
+  Palette,
+  SlidersHorizontal,
+  Sun,
+  Trash2,
+  type LucideIcon,
+} from "lucide-react";
 
 import {
   clearAllData,
@@ -61,17 +71,16 @@ export function SettingsView() {
       title="Settings"
       subtitle="Manage appearance, your local data, and the simulated sandbox. Everything here stays on this machine."
     >
-      <div className="mx-auto grid w-full max-w-4xl gap-6">
-        {/* Appearance */}
-        <section className="grid gap-6 rounded-xl border border-(--color-panel-line) bg-(--color-panel-card) p-6">
-          <div>
-            <h3 className="text-sm font-medium text-(--color-ink)">Appearance</h3>
-            <p className="mt-1 text-sm text-(--color-ink-muted)">
-              Choose how the cockpit looks. New installs start in dark; pick System to follow your OS.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-start justify-between gap-4 border-t border-(--color-panel-line) pt-4">
+      {/* Full-width bento (R1c): the sections tile into a responsive grid so the width carries
+          density instead of stretched single-toggle rows. Appearance + Runtime are compact tiles;
+          the threshold sliders and data actions are content-rich, so they span both columns. */}
+      <div className="grid w-full auto-rows-min grid-cols-1 gap-6 lg:grid-cols-2">
+        <SettingCard
+          icon={Palette}
+          title="Appearance"
+          description="Choose how the cockpit looks. New installs start in dark; pick System to follow your OS."
+        >
+          <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <p className="text-sm text-(--color-ink)">Theme</p>
               <p className="text-xs text-(--color-ink-faint)">
@@ -80,137 +89,171 @@ export function SettingsView() {
             </div>
             <ThemeSwitcher />
           </div>
-        </section>
+        </SettingCard>
 
-        {/* Default scoring thresholds */}
-        <section className="grid gap-6 rounded-xl border border-(--color-panel-line) bg-(--color-panel-card) p-6">
-          <div>
-            <h3 className="text-sm font-medium text-(--color-ink)">Default scoring thresholds</h3>
-            <p className="mt-1 text-sm text-(--color-ink-muted)">
-              The passing score each method prefills on a new run. The resolved value is recorded in
-              the receipt, so tuning here only changes the starting point — it never alters a saved
-              proof.
-            </p>
-          </div>
+        <SettingCard
+          icon={FlaskConical}
+          title="Runtime"
+          description="How runs behave on this machine — the simulated sandbox and GPU sampling."
+        >
+          <Toggle
+            label="Sandbox"
+            description="Show simulated Mock models in the picker for keyless trial runs. Off by default — mock runs are not a real evaluation."
+            checked={on}
+            disabled={settings.isLoading || sandbox.isPending}
+            onToggle={() => sandbox.mutate(!on)}
+          />
+          <Toggle
+            label="GPU metrics"
+            description={
+              <>
+                Sample Apple Silicon GPU utilization during a run via powermetrics, which needs
+                passwordless <code>sudo</code> (run <code>sudo powermetrics</code> once in a
+                terminal, or configure sudoers). Without it, GPU stays "unavailable" — this toggle
+                never prompts for a password. Off by default. Everything stays on this machine.
+              </>
+            }
+            checked={gpuOn}
+            disabled={settings.isLoading || gpuTelemetry.isPending}
+            onToggle={() => gpuTelemetry.mutate(!gpuOn)}
+          />
+        </SettingCard>
+
+        <SettingCard
+          className="lg:col-span-2"
+          icon={SlidersHorizontal}
+          title="Default scoring thresholds"
+          description="The passing score each method prefills on a new run. The resolved value is recorded in the receipt, so tuning here only changes the starting point — it never alters a saved proof."
+        >
           <ThresholdSliders
             value={settings.data?.thresholds}
             disabled={settings.isLoading || thresholds.isPending}
             onCommit={(t) => thresholds.mutate(t)}
           />
-        </section>
+        </SettingCard>
 
-        {/* Data management */}
-        <section className="grid gap-6 rounded-xl border border-(--color-panel-line) bg-(--color-panel-card) p-6">
-        <div>
-          <h3 className="text-sm font-medium text-(--color-ink)">Data management</h3>
-          <p className="mt-1 text-sm text-(--color-ink-muted)">
-            Reset or populate this install. Sample data is generated by the simulated mocks and is
-            clearly flagged.
-          </p>
-        </div>
-
-        {/* Sandbox toggle */}
-        <div className="flex items-start justify-between gap-4 border-t border-(--color-panel-line) pt-4">
-          <div>
-            <p className="text-sm text-(--color-ink)">Sandbox</p>
-            <p className="text-xs text-(--color-ink-faint)">
-              Show simulated Mock models in the picker for keyless trial runs. Off by default — mock
-              runs are not a real evaluation.
-            </p>
-          </div>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={on}
-            aria-label="Sandbox"
-            disabled={settings.isLoading || sandbox.isPending}
-            onClick={() => sandbox.mutate(!on)}
-            className={
-              "relative h-6 w-11 shrink-0 rounded-full transition-colors " +
-              (on ? "bg-(--color-accent)" : "bg-(--color-panel-line-strong)")
-            }
-          >
-            <span
-              className={
-                "absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all " +
-                (on ? "left-[1.375rem]" : "left-0.5")
+        <SettingCard
+          className="lg:col-span-2"
+          icon={Database}
+          title="Data management"
+          description="Reset or populate this install. Sample data is generated by the simulated mocks and is clearly flagged."
+        >
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <ActionRow
+              label="Seed sample data"
+              description="Add sample datasets and finished Proof Receipts so the product isn't empty. Re-running replaces the previous samples."
+              actionLabel="Seed sample data"
+              icon={<Database aria-hidden className="h-4 w-4" />}
+              pending={seed.isPending}
+              onConfirm={() => seed.mutate()}
+              done={
+                seed.isSuccess
+                  ? `Seeded ${pluralize(seed.data?.datasets, "dataset")}, ${pluralize(seed.data?.receipts, "receipt")}.`
+                  : null
               }
             />
-          </button>
-        </div>
-
-        {/* GPU telemetry opt-in */}
-        <div className="flex items-start justify-between gap-4 border-t border-(--color-panel-line) pt-4">
-          <div>
-            <p className="text-sm text-(--color-ink)">GPU metrics</p>
-            <p className="text-xs text-(--color-ink-faint)">
-              Sample Apple Silicon GPU utilization during a run via powermetrics, which needs
-              passwordless <code>sudo</code> (run <code>sudo powermetrics</code> once in a terminal,
-              or configure sudoers). Without it, GPU stays "unavailable" — this toggle never prompts
-              for a password. Off by default. Everything stays on this machine.
-            </p>
-          </div>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={gpuOn}
-            aria-label="GPU metrics"
-            disabled={settings.isLoading || gpuTelemetry.isPending}
-            onClick={() => gpuTelemetry.mutate(!gpuOn)}
-            className={
-              "relative h-6 w-11 shrink-0 rounded-full transition-colors " +
-              (gpuOn ? "bg-(--color-accent)" : "bg-(--color-panel-line-strong)")
-            }
-          >
-            <span
-              className={
-                "absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all " +
-                (gpuOn ? "left-[1.375rem]" : "left-0.5")
-              }
+            <ActionRow
+              label="Remove sample data"
+              description="Delete only the seeded sample datasets and receipts. Your own datasets and receipts are kept."
+              actionLabel="Remove sample data"
+              pending={removeSamples.isPending}
+              onConfirm={() => removeSamples.mutate()}
+              done={removeSamples.isSuccess ? "Sample data removed." : null}
             />
-          </button>
-        </div>
-
-        {/* Seed */}
-        <ActionRow
-          label="Seed sample data"
-          description="Add sample datasets and finished Proof Receipts so the product isn't empty. Re-running replaces the previous samples."
-          actionLabel="Seed sample data"
-          icon={<Database aria-hidden className="h-4 w-4" />}
-          pending={seed.isPending}
-          onConfirm={() => seed.mutate()}
-          done={
-            seed.isSuccess
-              ? `Seeded ${pluralize(seed.data?.datasets, "dataset")}, ${pluralize(seed.data?.receipts, "receipt")}.`
-              : null
-          }
-        />
-
-        {/* Remove samples */}
-        <ActionRow
-          label="Remove sample data"
-          description="Delete only the seeded sample datasets and receipts. Your own datasets and receipts are kept."
-          actionLabel="Remove sample data"
-          pending={removeSamples.isPending}
-          onConfirm={() => removeSamples.mutate()}
-          done={removeSamples.isSuccess ? "Sample data removed." : null}
-        />
-
-        {/* Clear all — destructive */}
-        <ActionRow
-          label="Clear all data"
-          description="Permanently delete ALL datasets and receipts on this install (samples and your own). Settings are kept. This cannot be undone."
-          actionLabel="Clear all data"
-          confirmLabel="Confirm clear"
-          destructive
-          icon={<Trash2 aria-hidden className="h-4 w-4" />}
-          pending={clearAll.isPending}
-          onConfirm={() => clearAll.mutate()}
-          done={clearAll.isSuccess ? "All data cleared." : null}
-        />
-        </section>
+            <ActionRow
+              label="Clear all data"
+              description="Permanently delete ALL datasets and receipts on this install (samples and your own). Settings are kept. This cannot be undone."
+              actionLabel="Clear all data"
+              confirmLabel="Confirm clear"
+              destructive
+              icon={<Trash2 aria-hidden className="h-4 w-4" />}
+              pending={clearAll.isPending}
+              onConfirm={() => clearAll.mutate()}
+              done={clearAll.isSuccess ? "All data cleared." : null}
+            />
+          </div>
+        </SettingCard>
       </div>
     </ViewShell>
+  );
+}
+
+// A bento tile: an icon-led header (title + description) over the section's controls. Keeps every
+// Settings section visually consistent at the new full width (R1c). The icon follows the DS — a
+// quiet ink glyph, not a control, so it never takes the cyan accent.
+function SettingCard({
+  icon: Icon,
+  title,
+  description,
+  className = "",
+  children,
+}: {
+  icon: LucideIcon;
+  title: string;
+  description: string;
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <section
+      className={
+        "flex flex-col gap-5 rounded-xl border border-(--color-panel-line) bg-(--color-panel-card) p-6 " +
+        className
+      }
+    >
+      <div>
+        <h3 className="flex items-center gap-2 text-sm font-medium text-(--color-ink)">
+          <Icon aria-hidden className="h-4 w-4 shrink-0 text-(--color-ink-muted)" />
+          {title}
+        </h3>
+        <p className="mt-1 text-sm text-(--color-ink-muted)">{description}</p>
+      </div>
+      <div className="flex flex-col gap-5 border-t border-(--color-panel-line) pt-4">{children}</div>
+    </section>
+  );
+}
+
+// The Sandbox + GPU toggles share one switch shape (label/description left, switch right). Extracted
+// so the two settings can't drift apart and a third toggle is a one-liner.
+function Toggle({
+  label,
+  description,
+  checked,
+  disabled,
+  onToggle,
+}: {
+  label: string;
+  description: ReactNode;
+  checked: boolean;
+  disabled: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <div className="flex items-start justify-between gap-4">
+      <div>
+        <p className="text-sm text-(--color-ink)">{label}</p>
+        <p className="text-xs text-(--color-ink-faint)">{description}</p>
+      </div>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        aria-label={label}
+        disabled={disabled}
+        onClick={onToggle}
+        className={
+          "relative h-6 w-11 shrink-0 rounded-full transition-colors " +
+          (checked ? "bg-(--color-accent)" : "bg-(--color-panel-line-strong)")
+        }
+      >
+        <span
+          className={
+            "absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all " +
+            (checked ? "left-[1.375rem]" : "left-0.5")
+          }
+        />
+      </button>
+    </div>
   );
 }
 
