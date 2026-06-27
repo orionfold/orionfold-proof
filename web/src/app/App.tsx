@@ -1,10 +1,9 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
-import { type ProofReport, type ResultRow } from "../lib/api";
+import { type ProofReport } from "../lib/api";
 import { AppBar, type NavId } from "./AppBar";
 import { TelemetryRail } from "./TelemetryRail";
 import { type RunProgress } from "../features/proof/useRunProgress";
-import { Inspector } from "../features/proof/Inspector";
 import { CorpusView } from "../features/proof/CorpusView";
 import { DatasetsView } from "../features/proof/DatasetsView";
 import { ProofCockpit } from "../features/proof/ProofCockpit";
@@ -32,9 +31,6 @@ export function App() {
   const [preselectDatasetId, setPreselectDatasetId] = useState<string | null>(null);
   // The corpus to browse — set by a bench card's corpus badge; the "corpus" sub-view reads it.
   const [corpusFocusId, setCorpusFocusId] = useState<string | null>(null);
-  // The selected failure case. Lifted here (out of the cockpit) so the Prove-canvas Inspector and
-  // the cockpit's FailureCases list share one selection. Cleared when the run changes.
-  const [selectedFailure, setSelectedFailure] = useState<ResultRow | null>(null);
   // True WHILE a proof run is streaming. Lifted from the cockpit so the telemetry rail can light up
   // the live gauges during the run — the finished `report` only exists AFTER the run, so it can't
   // be the live signal. The rail subscribes to the telemetry stream whenever runActive is true.
@@ -46,12 +42,6 @@ export function App() {
   // Runs (that receipt), cost/pass-rate trend → Track Record (the standings). Consumed by
   // ReceiptsView's initialMode; reset to "runs" on a plain nav so the tab reopens to its root.
   const [receiptsMode, setReceiptsMode] = useState<ReceiptsMode>("runs");
-
-  // Whenever the cockpit's shown run changes, clear the failure selection so the Inspector never
-  // shows a row from the previous report. (Lifted out of the cockpit with the selection.)
-  useEffect(() => {
-    setSelectedFailure(null);
-  }, [report?.run.id]);
 
   // Nav always clears the open receipt + one-shot deep-links so each tab reopens to its own root.
   const navigate = (next: View) => {
@@ -98,6 +88,14 @@ export function App() {
     setView("proof");
   };
 
+  // The reverse of openInCockpit: "View full receipt →" on a finished Prove run opens that run's
+  // L3 detail page (config hash, hardware, leaderboard, cost, failure detail, exports) — the record
+  // the right Inspector used to show in place. Switches to the Receipts tab with the run open.
+  const openReceiptDetail = (r: ProofReport) => {
+    setReceiptInView(r);
+    setView("receipts");
+  };
+
   return (
     // Arena shape: a vertical stack — app bar / telemetry rail / full-width canvas / footer. The
     // blueprint draughting field (spec §3.2) shows only in whitespace; dense surfaces paint over it.
@@ -123,35 +121,20 @@ export function App() {
           working) via ViewShell / its component. flex-1 so short screens still fill the fold. */}
       <div className="flex flex-1 flex-col">
         {/* Prove stays mounted (toggled with display, not unmounted) so an in-flight run, the brief,
-            and the result survive a side trip to other views. While a report exists it shares the
-            canvas with the run-detail Inspector (the old right-rail content, kept on Prove until the
-            L3 receipt-detail screen absorbs it in Slice 5). */}
+            and the result survive a side trip to other views. The run's config, hardware, and
+            failure-case detail (once the right Inspector's content) now live on the L3 receipt-detail
+            screen (Slice 5), so Prove is a single full-width working canvas like every other view. */}
         <div className={view === "proof" ? "contents" : "hidden"}>
-          {/* The Inspector's 22rem column only exists once a run exists — otherwise Prove would
-              reserve (and strand) an empty column, leaving dead space on the right. With no report
-              Prove is a single full-width working canvas like every other screen. */}
-          <div
-            className={
-              "grid min-h-full grid-cols-1 " + (report ? "lg:grid-cols-[minmax(0,1fr)_22rem]" : "")
-            }
-          >
-            <ProofCockpit
-              report={report}
-              onReport={setReport}
-              onViewDataset={openDataset}
-              preselectDatasetId={preselectDatasetId}
-              onPreselectConsumed={() => setPreselectDatasetId(null)}
-              selectedFailure={selectedFailure}
-              onSelectFailure={setSelectedFailure}
-              onRunActiveChange={setRunActive}
-              onRunProgressChange={setRunProgress}
-            />
-            {report && (
-              <aside aria-label="Inspector rail" className="hidden lg:block">
-                <Inspector report={report} selected={selectedFailure} />
-              </aside>
-            )}
-          </div>
+          <ProofCockpit
+            report={report}
+            onReport={setReport}
+            onViewDataset={openDataset}
+            onViewReceipt={openReceiptDetail}
+            preselectDatasetId={preselectDatasetId}
+            onPreselectConsumed={() => setPreselectDatasetId(null)}
+            onRunActiveChange={setRunActive}
+            onRunProgressChange={setRunProgress}
+          />
         </div>
 
         {view === "datasets" && (

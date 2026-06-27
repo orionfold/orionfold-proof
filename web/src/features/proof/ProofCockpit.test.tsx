@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { ProofCockpit } from "./ProofCockpit";
 import * as api from "../../lib/api";
+import { SAMPLE_REPORT } from "../../test/fixtures";
 
 const DATASETS = [
   { id: "d1", name: "Sample", description: "", examples: [] },
@@ -255,6 +256,122 @@ describe("ProofCockpit guided first-run CTA (WS-E2)", () => {
       expect(screen.getByRole("button", { name: /Run the demo proof on real models/i })).toBeEnabled(),
     );
     expect(run).not.toHaveBeenCalled();
+  });
+});
+
+describe("ProofCockpit → full receipt (Slice 5)", () => {
+  it("opens the finished run's L3 receipt detail from the results CTA", async () => {
+    vi.spyOn(api, "getDatasets").mockResolvedValue(DATASETS as never);
+    vi.spyOn(api, "getSelection").mockResolvedValue(SELECTION as never);
+    vi.spyOn(api, "getRecipes").mockResolvedValue(RECIPES as never);
+    const onViewReceipt = vi.fn();
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <ProofCockpit
+          report={SAMPLE_REPORT}
+          onReport={vi.fn()}
+          onViewDataset={vi.fn()}
+          onViewReceipt={onViewReceipt}
+        />
+      </QueryClientProvider>,
+    );
+    const cta = await screen.findByRole("button", { name: /View full receipt/i });
+    fireEvent.click(cta);
+    expect(onViewReceipt).toHaveBeenCalledWith(SAMPLE_REPORT);
+  });
+
+  it("omits the receipt CTA when no onViewReceipt handler is wired", async () => {
+    vi.spyOn(api, "getDatasets").mockResolvedValue(DATASETS as never);
+    vi.spyOn(api, "getSelection").mockResolvedValue(SELECTION as never);
+    vi.spyOn(api, "getRecipes").mockResolvedValue(RECIPES as never);
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <ProofCockpit report={SAMPLE_REPORT} onReport={vi.fn()} onViewDataset={vi.fn()} />
+      </QueryClientProvider>,
+    );
+    await waitFor(() => screen.getAllByText(/Mock · good/).length > 0);
+    expect(screen.queryByRole("button", { name: /View full receipt/i })).toBeNull();
+  });
+});
+
+describe("ProofCockpit dataset change resets stale run state", () => {
+  // Bug: loading a bench run, then switching to a non-bench dataset, kept the stale `bench` rubric
+  // and ran it — tripping the backend corpus-binding gate. A dataset change must re-derive the
+  // rubric (and clear the loaded report) so a bench rubric never lands on a non-bench dataset.
+  const BENCH_AND_PLAIN = [
+    {
+      id: "advisor-bench",
+      name: "Advisor bench",
+      description: "",
+      examples: [],
+      corpus_id: "ainative-field-notes",
+      system_prompt: "You are an advisor.",
+    },
+    { id: "plain", name: "Plain set", description: "", examples: [] },
+  ];
+  // A "mock" provider group → the cockpit auto-selects its models, so canRun is satisfied without
+  // driving the candidate picker (this test is about the rubric, not candidate selection).
+  const MOCK_SELECTION = {
+    providers: [
+      {
+        provider_id: "mock",
+        label: "Sandbox",
+        privacy: "local" as const,
+        available: true,
+        supports_custom: false,
+        candidate_id: null,
+        models: [
+          { candidate_id: "mock_good", model: "mock_good", display_name: "Mock · good", tier: "economy" as const, cost_class: "free" as const, context_window: null, latest: false, recommended: true },
+        ],
+      },
+    ],
+  };
+
+  it("re-derives the rubric off bench when switching to a non-bench dataset", async () => {
+    vi.spyOn(api, "getDatasets").mockResolvedValue(BENCH_AND_PLAIN as never);
+    vi.spyOn(api, "getSelection").mockResolvedValue(MOCK_SELECTION as never);
+    vi.spyOn(api, "getRecipes").mockResolvedValue(RECIPES as never);
+    const run = vi
+      .spyOn(api, "createRunStream")
+      .mockResolvedValue({ run: { id: "r1", mode: "full" } } as never);
+    wrap();
+
+    // The bench dataset is first → its Governance-bench latch fires (rubric becomes bench). The
+    // bench scoring card (a button) renders ONLY for a bench dataset, so it confirms the latch.
+    await waitFor(() => screen.getByLabelText(/^Dataset$/i));
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /Governance bench —/i })).toBeInTheDocument(),
+    );
+
+    // Switch to the plain (non-bench) dataset → the bench card (and rubric) should drop away.
+    fireEvent.change(screen.getByLabelText(/^Dataset$/i), { target: { value: "plain" } });
+    await waitFor(() =>
+      expect(screen.queryByRole("button", { name: /Governance bench —/i })).toBeNull(),
+    );
+
+    // Run — the request must NOT carry the stale bench rubric for a corpus-less dataset.
+    await waitFor(() => screen.getByRole("button", { name: /Run proof|Rerun proof/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Run proof|Rerun proof/i }));
+    await waitFor(() => expect(run).toHaveBeenCalledTimes(1));
+    const body = run.mock.calls[0][0] as api.RunRequest;
+    expect(body.dataset_id).toBe("plain");
+    expect(body.rubric?.kind).not.toBe("bench");
+  });
+
+  it("clears the loaded report when the dataset changes (fresh setup → 'Run proof')", async () => {
+    vi.spyOn(api, "getDatasets").mockResolvedValue(BENCH_AND_PLAIN as never);
+    vi.spyOn(api, "getSelection").mockResolvedValue(SELECTION as never);
+    vi.spyOn(api, "getRecipes").mockResolvedValue(RECIPES as never);
+    const onReport = vi.fn();
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <ProofCockpit report={SAMPLE_REPORT} onReport={onReport} onViewDataset={vi.fn()} />
+      </QueryClientProvider>,
+    );
+    await waitFor(() => screen.getByLabelText(/^Dataset$/i));
+    // Changing the dataset is a fresh setup — the cockpit asks App to clear the loaded result.
+    fireEvent.change(screen.getByLabelText(/^Dataset$/i), { target: { value: "plain" } });
+    await waitFor(() => expect(onReport).toHaveBeenCalledWith(null));
   });
 });
 

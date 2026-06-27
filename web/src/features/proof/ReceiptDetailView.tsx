@@ -1,7 +1,14 @@
+import { useState } from "react";
 import { ArrowLeft, Download, ExternalLink } from "lucide-react";
 
-import { receiptPreviewUrl, receiptUrl, type ProofReport } from "../../lib/api";
+import { receiptPreviewUrl, receiptUrl, type ProofReport, type ResultRow } from "../../lib/api";
 import { useTheme } from "../../lib/theme";
+import { StatusBadge } from "./badges";
+import { CostLedger } from "./CostLedger";
+import { FailureCases } from "./FailureCases";
+import { FrontierScatter } from "./FrontierScatter";
+import { Leaderboard } from "./Leaderboard";
+import { RunConfig } from "./RunConfig";
 
 const FORMATS: { fmt: "md" | "html" | "json"; label: string }[] = [
   { fmt: "md", label: "Markdown" },
@@ -9,9 +16,11 @@ const FORMATS: { fmt: "md" | "html" | "json"; label: string }[] = [
   { fmt: "json", label: "JSON" },
 ];
 
-// The receipt artifact, rendered exactly as it exports. The cockpit shows the interactive run;
-// this shows the deliverable a user would hand a client. The iframe is fully sandboxed (no
-// scripts, opaque origin) — the HTML is already escaped server-side, so this is defense-in-depth.
+// The deepest IA level (L3): one run's full record. It leads with the receipt artifact rendered
+// exactly as it exports (the deliverable a user hands a client), then carries the interactive
+// record the old right Inspector used to show — config + hardware provenance, the leaderboard /
+// frontier / cost ledger, and a browsable failure-case detail. With this complete, the Prove
+// canvas no longer needs a side panel (Slice 5).
 export function ReceiptDetailView({
   report,
   onBack,
@@ -24,6 +33,12 @@ export function ReceiptDetailView({
   const { resolved } = useTheme();
   const { run } = report;
   const heading = run.brief.decision_question || run.brief.task_name;
+  // The detail view owns its own failure selection — it's a standalone screen, so there's no App
+  // lift to coordinate the way the side panel needed (the side panel sat beside the cockpit's list).
+  const [selectedFailure, setSelectedFailure] = useState<ResultRow | null>(null);
+  // A quick-compare run has no scored leaderboard, so the standings/frontier/failure blocks don't
+  // apply — the artifact + config still tell the story.
+  const isScored = run.mode !== "quick" && report.leaderboard.length > 0;
 
   return (
     <main aria-label="Proof Receipt" className="flex flex-col gap-6 px-6 py-8 lg:px-10">
@@ -77,6 +92,62 @@ export function ReceiptDetailView({
           </a>
         ))}
       </section>
+
+      {/* The interactive record below the artifact — the full detail the old right Inspector and
+          the Prove-canvas results tree carried, now rehomed to the run's own page. */}
+      <div className="grid gap-8 border-t border-(--color-panel-line) pt-8">
+        <RunConfig report={report} />
+        {isScored && (
+          <>
+            <Leaderboard entries={report.leaderboard} />
+            <FrontierScatter entries={report.leaderboard} />
+            <CostLedger report={report} />
+            <FailureCases
+              report={report}
+              selected={selectedFailure}
+              onSelect={setSelectedFailure}
+            />
+            <SelectedFailure selected={selectedFailure} />
+          </>
+        )}
+      </div>
     </main>
+  );
+}
+
+// The expanded detail for the chosen failure row — input, expected, output, error. Rehomed from
+// the old right Inspector's SelectedFailure pane: the FailureCases list lifts a selection but only
+// renders a truncated row, so the full text needs a home here in the standalone detail view.
+function SelectedFailure({ selected }: { selected: ResultRow | null }) {
+  if (!selected) return null;
+  return (
+    <section className="grid gap-3">
+      <h3 className="text-sm font-medium text-(--color-ink)">Failure detail</h3>
+      <dl className="grid gap-2 text-sm">
+        <div className="flex items-center gap-2">
+          <span className="text-(--color-ink-faint)">Example {selected.example_index + 1}</span>
+          {selected.error ? (
+            <StatusBadge kind="error">error</StatusBadge>
+          ) : (
+            <StatusBadge kind="fail">score {(selected.score ?? 0).toFixed(2)}</StatusBadge>
+          )}
+        </div>
+        <Detail label="Input" value={selected.input_text} />
+        <Detail label="Expected" value={selected.expected_text} />
+        <Detail label="Output" value={selected.output_text || "—"} />
+        {selected.error && <Detail label="Error" value={selected.error} tone="error" />}
+      </dl>
+    </section>
+  );
+}
+
+function Detail({ label, value, tone }: { label: string; value: string; tone?: "error" }) {
+  return (
+    <div className="grid gap-0.5">
+      <span className="text-xs text-(--color-ink-faint)">{label}</span>
+      <span className={tone === "error" ? "text-(--color-danger)" : "text-(--color-ink)"}>
+        {value}
+      </span>
+    </div>
   );
 }

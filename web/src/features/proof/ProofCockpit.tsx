@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { BadgeCheck, LoaderCircle } from "lucide-react";
+import { ArrowRight, BadgeCheck, LoaderCircle } from "lucide-react";
 
 import {
   createRunStream,
@@ -47,14 +47,16 @@ const DEFAULT_BRIEF: ProofBrief = {
   success_criteria: "",
 };
 
-// Orchestrates the core loop across two panes: the main workspace (setup → decision →
-// leaderboard → failure cases) and the right inspector (config, receipt, selected failure).
-// Server state (datasets, candidates) comes through TanStack Query; the run is a mutation.
-// `report` is controlled by App so a past run opened from Receipts hydrates the same cockpit.
+// Orchestrates the core loop in one full-width workspace: setup → decision → leaderboard →
+// frontier → cost → failure cases. The run's config/hardware/failure detail (once a right
+// Inspector) now live on the L3 receipt-detail screen (Slice 5). Server state (datasets,
+// candidates) comes through TanStack Query; the run is a mutation. `report` is controlled by App
+// so a past run opened from Receipts hydrates the same cockpit.
 export function ProofCockpit({
   report,
   onReport,
   onViewDataset,
+  onViewReceipt,
   preselectDatasetId,
   onPreselectConsumed,
   selectedFailure,
@@ -63,18 +65,22 @@ export function ProofCockpit({
   onRunProgressChange,
 }: {
   report: ProofReport | null;
-  onReport: (report: ProofReport) => void;
+  // Accepts null so a fresh setup (e.g. changing the dataset) can clear the loaded result.
+  onReport: (report: ProofReport | null) => void;
   // Jump to the Datasets view with a given dataset expanded (the "View details" link on the
   // Proof Run dataset summary). App owns navigation, so the cockpit only forwards the request.
   onViewDataset: (id: string) => void;
+  // Open the finished run's full L3 receipt-detail page (config hash, hardware, leaderboard, cost,
+  // failure detail, exports) — the record the old right Inspector showed in place. App navigates.
+  onViewReceipt?: (report: ProofReport) => void;
   // The reverse of onViewDataset: "Run proof →" on a Datasets card switches to this view AND asks
   // the cockpit to select that dataset. App sets it as a one-shot; the cockpit applies it once and
   // calls onPreselectConsumed so a later return to Proof doesn't re-force the operator's selection.
   preselectDatasetId?: string | null;
   onPreselectConsumed?: () => void;
-  // The selected failure case is lifted to App so the run-detail Inspector (now in the shared
-  // app-level rail) and the FailureCases list in this column stay in sync. Controlled by App;
-  // optional so unit tests that don't exercise failure selection can omit it (falls back to local).
+  // Failure-case selection. The Prove canvas browses failures in-place (local state below); these
+  // optional hooks remain for a parent that wants to observe/control the selection. App no longer
+  // passes them (the deep failure detail lives on the L3 receipt-detail screen since Slice 5).
   selectedFailure?: ResultRow | null;
   onSelectFailure?: (row: ResultRow | null) => void;
   // Notifies App while a run is streaming, so the app-level rail can light up the live Host gauges
@@ -120,9 +126,8 @@ export function ProofCockpit({
   // we replace the former, preserve the latter. Empty string = nothing auto-filled yet.
   const autoFilledPrompt = useRef<string>("");
   const [activeRecipeId, setActiveRecipeId] = useState<string | null>(null);
-  // Failure-case selection is owned by App (so the rail's run-detail Inspector and this column's
-  // FailureCases list share one source of truth). Falls back to local state when App doesn't
-  // control it (unit tests). Aliased to the prior local names below.
+  // Failure-case selection. Defaults to local state (App no longer lifts it — see the prop
+  // comment); a controlling parent can still override via the optional props. Aliased below.
   const [localFailure, setLocalFailure] = useState<ResultRow | null>(null);
   const openFailure = selectedFailure ?? localFailure;
   const setOpenFailure = onSelectFailure ?? setLocalFailure;
@@ -317,6 +322,20 @@ export function ProofCockpit({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [demoArmed, runMutation.isPending, sampleDataset?.id, resolvedDatasetId, rubric]);
 
+  // Selecting a different dataset is a FRESH setup, not a tweak of the loaded run. Re-derive the
+  // rubric (null → ScoringMethod's latches pick the new dataset's default) so a stale bench/judge
+  // rubric never lands on a dataset it doesn't fit — the bug where a bench rubric followed a loaded
+  // run onto a non-bench dataset and tripped the corpus-binding gate. Clear the loaded report too,
+  // so the button reverts to "Run proof" and the screen isn't showing a result for the old dataset.
+  // No-op on a same-id "change" so we never wipe state the operator is mid-edit on.
+  const changeDataset = (id: string) => {
+    if (id === resolvedDatasetId) return;
+    setDatasetId(id);
+    setRubric(null);
+    setActiveRecipeId(null);
+    if (report) onReport(null);
+  };
+
   const toggleCandidate = (id: string) => {
     setActiveRecipeId(null);
     const base = resolvedSelected;
@@ -360,8 +379,8 @@ export function ProofCockpit({
           programmatic focus without becoming a tab stop. */}
       {/* Centered wide reading measure (mx-auto + max-w-[96rem]) so the working canvas sits in the
           middle of the now-railless full-width region instead of jamming against the left edge with
-          dead space on the right. Matches ViewShell's cap (spec §3.1). When a run exists the App
-          grid hands this a (1fr) column beside the 22rem Inspector, and the cap applies within it. */}
+          dead space on the right. Matches ViewShell's cap (spec §3.1). The canvas is full-width on
+          every screen now — the run's deep detail lives on the L3 receipt page (Slice 5). */}
       <main id="main-content" tabIndex={-1} className="mx-auto flex w-full max-w-[96rem] flex-col gap-8 px-6 py-8 lg:px-10 focus:outline-none">
         <header className="flex flex-col gap-3">
           <div className="flex flex-col gap-1">
@@ -378,7 +397,7 @@ export function ProofCockpit({
           datasets={datasets.data}
           panel={selection.data}
           datasetId={resolvedDatasetId}
-          onDatasetChange={setDatasetId}
+          onDatasetChange={changeDataset}
           onViewDataset={onViewDataset}
           selectedCandidates={resolvedSelected}
           onToggleCandidate={toggleCandidate}
@@ -470,6 +489,18 @@ export function ProofCockpit({
             </div>
           ) : (
             <div className="flex flex-col gap-8 motion-safe:animate-reveal">
+              {onViewReceipt && (
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => onViewReceipt(report)}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-(--color-panel-line) px-3 py-1.5 text-sm text-(--color-ink) transition-colors hover:border-(--color-accent)/50"
+                  >
+                    View full receipt
+                    <ArrowRight aria-hidden className="h-3.5 w-3.5 shrink-0" />
+                  </button>
+                </div>
+              )}
               <DecisionSummary
                 brief={report.run.brief}
                 leaderboard={report.leaderboard}

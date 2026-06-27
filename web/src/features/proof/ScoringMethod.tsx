@@ -76,6 +76,15 @@ export function ScoringMethod({ value, onChange, dataset }: ScoringMethodProps) 
     }
   }
 
+  // Keep the local `method` honest with the controlled `value`. `value` is owned by the parent, which
+  // can change it without going through `selectMethod` — e.g. resetting the rubric to null on a
+  // dataset switch (a fresh setup). Without this sync the highlighted card + the bench helper line
+  // would stay on the prior method (the "Scored by the Governance bench" line lingering after the
+  // dataset is no longer a bench). Deriving from `value` is idempotent for `selectMethod`'s own calls.
+  useEffect(() => {
+    setMethod(deriveMethod(value));
+  }, [value]);
+
   // The bundled summarization demo grades free-form paraphrase, which lexical Similarity/Keypoint
   // reads as "no winner" at any threshold. So when the sample dataset loads and a real judge has
   // resolved, default the Configure step to the LLM judge instead of Auto — once per dataset arrival,
