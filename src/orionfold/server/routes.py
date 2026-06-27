@@ -448,12 +448,17 @@ def _configured_local_runtime() -> str | None:
     return None
 
 
+def _labeled_host_profile() -> HostProfile:
+    """The cached static profile with the reachable local runtime labeled (a fresh copy each call,
+    so the cache stays unmutated). Used by the host endpoint AND the run capture so the receipt's
+    hardware stanza names the serving runtime."""
+    return detect_host_profile().model_copy(update={"local_runtime": _configured_local_runtime()})
+
+
 @router.get("/telemetry/host")
 def telemetry_host() -> HostProfile:
     """Static host profile, with the configured local runtime labeled. Read-only, no secrets."""
-    profile = detect_host_profile()
-    # Don't mutate the cached object — return a copy with the live runtime label filled.
-    return profile.model_copy(update={"local_runtime": _configured_local_runtime()})
+    return _labeled_host_profile()
 
 
 @router.get("/telemetry/stream")
@@ -778,7 +783,7 @@ def create_run_stream(request: Request, body: RunRequest) -> StreamingResponse:
             leaderboard=build_leaderboard(candidates, rows),
             results=rows,
             cost_summary=build_cost_summary(rows),
-            host=detect_host_profile(),
+            host=_labeled_host_profile(),
             telemetry=telemetry,
         )
         write = connect(db_path)
