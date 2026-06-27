@@ -52,6 +52,10 @@ for [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   eval/judge cost ledger, and the failure cases with an inline input/expected/output/error pane. The
   Prove canvas is now a single full-width working surface (the transitional right-side Inspector is
   gone), with a "View full receipt →" one-click into the detail screen. Presentation-only.
+- **Receipt detail is now tabbed.** The L3 detail view splits its record across tabs — Receipt
+  (the artifact, maximized to fill the fold) · Run config · Leaderboard · Cost · Failure cases — so
+  no single panel needs a long scroll; the receipt export links (Markdown / HTML / JSON) ride the
+  tab row. Analysis tabs show only for a scored run. Presentation-only.
 - **Consistent screen layout.** Every view (Prove · Datasets · Receipts · the receipt detail ·
   Settings) now centers in the same `max-w-[96rem]` reading measure with matching padding, instead
   of left-jamming or spanning edge-to-edge. The blueprint draughting-grid background reads at a

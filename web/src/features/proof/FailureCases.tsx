@@ -52,11 +52,23 @@ export function FailureCases({
   const shown = failures.filter((f) => f.candidate_id === active);
 
   return (
-    <section aria-label="Failure cases" className="w-full">
+    <section aria-label="Failure cases" className="w-full min-w-0">
       <h2 className="mb-3 text-sm font-medium uppercase tracking-wide text-(--color-ink-muted)">
         Failure cases ({failures.length})
       </h2>
-      <div className="mb-4 flex flex-wrap gap-2">
+      <ul className="flex min-w-0 flex-col gap-2">
+        {shown.map((row) => (
+          <FailureRow
+            key={rowKey(row)}
+            row={row}
+            isSelected={selected != null && rowKey(selected) === rowKey(row)}
+            onSelect={() => onSelect(row)}
+          />
+        ))}
+      </ul>
+      {/* The candidate filter sits below the cases — the operator wants the failing examples to
+          lead, with the per-candidate pills as a follow-on control under the list. */}
+      <div className="mt-4 flex flex-wrap gap-2">
         {candidateIds.map((id) => {
           const count = failures.filter((f) => f.candidate_id === id).length;
           const isActive = id === active;
@@ -78,16 +90,6 @@ export function FailureCases({
           );
         })}
       </div>
-      <ul className="flex flex-col gap-2">
-        {shown.map((row) => (
-          <FailureRow
-            key={rowKey(row)}
-            row={row}
-            isSelected={selected != null && rowKey(selected) === rowKey(row)}
-            onSelect={() => onSelect(row)}
-          />
-        ))}
-      </ul>
     </section>
   );
 }
@@ -117,7 +119,12 @@ function FailureRow({
         <span className="shrink-0 text-(--color-ink-faint)">Example {row.example_index + 1}</span>
         <span className="min-w-0 flex-1 truncate text-(--color-ink-muted)">{row.input_text}</span>
         {row.error ? (
-          <StatusBadge kind="error">error: {row.error}</StatusBadge>
+          // The error string can be long (a full provider stack message). Cap + truncate it here
+          // so it can't force the row past the container width; the full text shows in the detail
+          // pane on select. min-w-0 lets the inner span actually clip inside the shrink-0 badge.
+          <StatusBadge kind="error">
+            <span className="block max-w-[16rem] min-w-0 truncate">error: {row.error}</span>
+          </StatusBadge>
         ) : row.bench_detail ? (
           <span className="flex shrink-0 flex-wrap items-center justify-end gap-1">
             {failedBenchGates(row.bench_detail).map((gate) => (

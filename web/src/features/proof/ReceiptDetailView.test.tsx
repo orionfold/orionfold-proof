@@ -5,8 +5,16 @@ import { ReceiptDetailView } from "./ReceiptDetailView";
 import { SAMPLE_REPORT } from "../../test/fixtures";
 import { type ProofReport, type ResultRow } from "../../lib/api";
 
-test("renders the receipt artifact in a sandboxed iframe with downloads", () => {
+// R1b: the L3 detail view is a TABBED IA — Receipt · Run config · Leaderboard · Cost · Failure
+// cases — so no single panel needs the long vertical scroll the old one-page scroll had. The
+// Receipt tab is the default; the analysis tabs (Leaderboard/Cost/Failures) only exist for a
+// scored run. The receipt artifact stays a sandboxed iframe (security unchanged), just maximized.
+
+test("opens on the Receipt tab: sandboxed iframe + downloads", () => {
   render(<ReceiptDetailView report={SAMPLE_REPORT} onBack={() => {}} onExplore={() => {}} />);
+
+  // Receipt tab is selected by default.
+  expect(screen.getByRole("tab", { name: /Receipt/ })).toHaveAttribute("aria-selected", "true");
 
   const frame = screen.getByTitle("Proof Receipt preview");
   expect(frame.getAttribute("src")).toContain("/api/runs/run_abc123def456/receipt.html?inline=1");
@@ -45,27 +53,35 @@ test("fires onExplore and onBack from the nav buttons", () => {
   expect(onBack).toHaveBeenCalled();
 });
 
-// Slice 5: the L3 detail view absorbs the old right Inspector. It now carries the full record —
-// config + hardware, the leaderboard/frontier/cost for a scored run, and the failure cases — so
-// nothing the side panel showed is lost when it's deleted.
-
-test("shows the run-config provenance the old Inspector carried", () => {
+// The tabs split the record so each panel fits the fold. The full set for a scored run:
+test("a scored run exposes Receipt, Run config, Leaderboard, Cost and Failure cases tabs", () => {
   render(<ReceiptDetailView report={SAMPLE_REPORT} onBack={() => {}} onExplore={() => {}} />);
 
-  // Run config stanza with the repro spine.
+  for (const name of [/Receipt/, /Run config/, /Leaderboard/, /Cost/, /Failure cases/]) {
+    expect(screen.getByRole("tab", { name })).toBeInTheDocument();
+  }
+});
+
+test("Run config tab shows the repro spine the old Inspector carried", () => {
+  render(<ReceiptDetailView report={SAMPLE_REPORT} onBack={() => {}} onExplore={() => {}} />);
+
+  fireEvent.click(screen.getByRole("tab", { name: /Run config/ }));
   expect(screen.getByRole("heading", { name: "Run config" })).toBeInTheDocument();
-  // Config hash appears in the stanza (the header also references it; both is fine).
   expect(screen.getAllByText("a1b2c3d4e5f6").length).toBeGreaterThan(0);
   expect(screen.getByText("Dataset")).toBeInTheDocument();
   expect(screen.getByText("Rubric")).toBeInTheDocument();
 });
 
-test("renders the leaderboard, frontier and cost for a scored run", () => {
+test("Leaderboard tab names the recommended candidate (and Cost tab is its own panel)", () => {
   render(<ReceiptDetailView report={SAMPLE_REPORT} onBack={() => {}} onExplore={() => {}} />);
 
-  // The leaderboard names the recommended candidate; the failure-cases section is present.
+  fireEvent.click(screen.getByRole("tab", { name: /Leaderboard/ }));
   expect(screen.getAllByText("Mock · good").length).toBeGreaterThan(0);
-  expect(screen.getByRole("region", { name: /Failure cases/i })).toBeInTheDocument();
+
+  // Cost lives on its own tab now (the operator split it off the leaderboard tab so neither
+  // panel needs a vertical scroll).
+  fireEvent.click(screen.getByRole("tab", { name: /Cost/ }));
+  expect(screen.getByRole("region", { name: /Run cost/i })).toBeInTheDocument();
 });
 
 const QUICK_REPORT: ProofReport = {
@@ -74,14 +90,16 @@ const QUICK_REPORT: ProofReport = {
   leaderboard: [],
 };
 
-test("omits the leaderboard block for a quick-compare run (no scoring)", () => {
+test("a quick-compare run omits the analysis tabs (no scoring)", () => {
   render(<ReceiptDetailView report={QUICK_REPORT} onBack={() => {}} onExplore={() => {}} />);
 
-  // The receipt artifact + config still render, but there's no Failure cases region to mine when
-  // there's no scored leaderboard.
-  expect(screen.getByTitle("Proof Receipt preview")).toBeInTheDocument();
-  expect(screen.getByRole("heading", { name: "Run config" })).toBeInTheDocument();
-  expect(screen.queryByRole("region", { name: /Failure cases/i })).not.toBeInTheDocument();
+  // The receipt artifact + run config still apply, but there's no leaderboard/cost/failures to
+  // mine when the run wasn't scored.
+  expect(screen.getByRole("tab", { name: /Receipt/ })).toBeInTheDocument();
+  expect(screen.getByRole("tab", { name: /Run config/ })).toBeInTheDocument();
+  expect(screen.queryByRole("tab", { name: /Leaderboard/ })).not.toBeInTheDocument();
+  expect(screen.queryByRole("tab", { name: /^Cost/ })).not.toBeInTheDocument();
+  expect(screen.queryByRole("tab", { name: /Failure cases/ })).not.toBeInTheDocument();
 });
 
 const FAILED_ROW: ResultRow = {
@@ -107,11 +125,12 @@ const REPORT_WITH_FAILURE: ProofReport = {
   results: [FAILED_ROW],
 };
 
-test("selecting a failure case reveals its input/expected/output detail", () => {
+test("the Failure cases tab reveals a selected case's input/expected/output detail", () => {
   render(<ReceiptDetailView report={REPORT_WITH_FAILURE} onBack={() => {}} onExplore={() => {}} />);
 
-  // The failure-case browser is interactive in the standalone detail view — clicking a row shows
-  // its detail (the detail view owns the selection locally; no App lift needed).
+  fireEvent.click(screen.getByRole("tab", { name: /Failure cases/ }));
+  // The failure-case browser is interactive — clicking a row shows its detail (the detail view
+  // owns the selection locally; no App lift needed).
   fireEvent.click(screen.getByText(/Summarize Q3 memo/));
   expect(screen.getByText("revenue up 12%")).toBeInTheDocument();
   expect(screen.getByText("revenue flat")).toBeInTheDocument();
@@ -134,6 +153,7 @@ const UNSAMPLED_REPORT: ProofReport = {
 test("hardware stanza is honest when the run was not sampled (no peaks)", () => {
   render(<ReceiptDetailView report={UNSAMPLED_REPORT} onBack={() => {}} onExplore={() => {}} />);
 
+  fireEvent.click(screen.getByRole("tab", { name: /Run config/ }));
   expect(screen.getByText("Hardware")).toBeInTheDocument();
   expect(screen.getByText(/Apple M3 Max · Ollama/)).toBeInTheDocument();
   // No telemetry → no "CPU peak" line.

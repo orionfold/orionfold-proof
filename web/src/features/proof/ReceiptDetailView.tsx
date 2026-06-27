@@ -1,5 +1,14 @@
 import { useState } from "react";
-import { ArrowLeft, Download, ExternalLink } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowLeft,
+  DollarSign,
+  Download,
+  ExternalLink,
+  FileCheck,
+  Settings2,
+  Trophy,
+} from "lucide-react";
 
 import { receiptPreviewUrl, receiptUrl, type ProofReport, type ResultRow } from "../../lib/api";
 import { useTheme } from "../../lib/theme";
@@ -16,11 +25,22 @@ const FORMATS: { fmt: "md" | "html" | "json"; label: string }[] = [
   { fmt: "json", label: "JSON" },
 ];
 
-// The deepest IA level (L3): one run's full record. It leads with the receipt artifact rendered
-// exactly as it exports (the deliverable a user hands a client), then carries the interactive
-// record the old right Inspector used to show — config + hardware provenance, the leaderboard /
-// frontier / cost ledger, and a browsable failure-case detail. With this complete, the Prove
-// canvas no longer needs a side panel (Slice 5).
+type DetailTab = "receipt" | "config" | "leaderboard" | "cost" | "failures";
+
+const TABS: { id: DetailTab; label: string; icon: typeof FileCheck; scoredOnly?: boolean }[] = [
+  { id: "receipt", label: "Receipt", icon: FileCheck },
+  { id: "config", label: "Run config", icon: Settings2 },
+  { id: "leaderboard", label: "Leaderboard", icon: Trophy, scoredOnly: true },
+  { id: "cost", label: "Cost", icon: DollarSign, scoredOnly: true },
+  { id: "failures", label: "Failure cases", icon: AlertTriangle, scoredOnly: true },
+];
+
+// The deepest IA level (L3): one run's full record, as a TABBED detail view (R1b). The receipt
+// artifact leads on its own tab — rendered exactly as it exports (the deliverable a user hands a
+// client), maximized to fill the fold. The interactive record the old right Inspector carried —
+// config + hardware provenance, the leaderboard / frontier, the cost ledger, and the failure-case
+// browser — splits across the remaining tabs so no single panel needs the long vertical scroll the
+// one-page version had. Analysis tabs (Leaderboard/Cost/Failures) apply only to a scored run.
 export function ReceiptDetailView({
   report,
   onBack,
@@ -36,9 +56,14 @@ export function ReceiptDetailView({
   // The detail view owns its own failure selection — it's a standalone screen, so there's no App
   // lift to coordinate the way the side panel needed (the side panel sat beside the cockpit's list).
   const [selectedFailure, setSelectedFailure] = useState<ResultRow | null>(null);
-  // A quick-compare run has no scored leaderboard, so the standings/frontier/failure blocks don't
-  // apply — the artifact + config still tell the story.
+  const [tab, setTab] = useState<DetailTab>("receipt");
+  // A quick-compare run has no scored leaderboard, so the standings/frontier/cost/failure tabs
+  // don't apply — the artifact + config still tell the story.
   const isScored = run.mode !== "quick" && report.leaderboard.length > 0;
+  const tabs = TABS.filter((t) => isScored || !t.scoredOnly);
+  // Guard against a stale active tab if the report ever flips scored→quick (e.g. a different run
+  // loads). The receipt tab always exists, so it's the safe fallback.
+  const active = tabs.some((t) => t.id === tab) ? tab : "receipt";
 
   return (
     <main
@@ -67,53 +92,96 @@ export function ReceiptDetailView({
       <header className="flex flex-col gap-1">
         <h2 className="text-xl font-semibold tracking-tight text-(--color-ink)">{heading}</h2>
         <p className="max-w-prose text-sm text-(--color-ink-muted)">
-          The receipt you'd share — rendered exactly as it exports. Config hash{" "}
+          One run's full record. Config hash{" "}
           <code className="text-(--color-ink)">{run.config_hash}</code>.
         </p>
       </header>
 
-      <iframe
-        title="Proof Receipt preview"
-        src={receiptPreviewUrl(run.id, resolved)}
-        sandbox=""
-        className="min-h-[60vh] w-full rounded-xl border border-(--color-panel-line) bg-(--color-panel-card)"
-      />
-
-      <section className="flex flex-wrap items-center gap-2">
-        <span className="flex items-center gap-1 text-xs text-(--color-ink-faint)">
-          <Download aria-hidden className="h-3 w-3 shrink-0" />
-          Download
-        </span>
-        {FORMATS.map(({ fmt, label }) => (
-          <a
-            key={fmt}
-            href={receiptUrl(run.id, fmt)}
-            download
-            className="rounded-md border border-(--color-panel-line) px-2.5 py-1 text-sm text-(--color-ink) transition-colors hover:border-(--color-accent)/50"
-          >
-            {label}
-          </a>
-        ))}
-      </section>
-
-      {/* The interactive record below the artifact — the full detail the old right Inspector and
-          the Prove-canvas results tree carried, now rehomed to the run's own page. */}
-      <div className="grid gap-8 border-t border-(--color-panel-line) pt-8">
-        <RunConfig report={report} />
-        {isScored && (
-          <>
-            <Leaderboard entries={report.leaderboard} />
-            <FrontierScatter entries={report.leaderboard} />
-            <CostLedger report={report} />
-            <FailureCases
-              report={report}
-              selected={selectedFailure}
-              onSelect={setSelectedFailure}
-            />
-            <SelectedFailure selected={selectedFailure} />
-          </>
-        )}
+      {/* Tab strip + downloads share one row — tabs left (a control, so the active tab takes the
+          cyan accent), the receipt export links right (they download the whole receipt regardless
+          of the active tab, so they stay reachable from every section). */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div
+          role="tablist"
+          aria-label="Receipt detail sections"
+          className="inline-flex w-fit flex-wrap items-center gap-1 rounded-lg border border-(--color-panel-line) bg-(--color-panel-card) p-1"
+        >
+          {tabs.map((t) => {
+            const isActive = t.id === active;
+            const Icon = t.icon;
+            return (
+              <button
+                key={t.id}
+                type="button"
+                role="tab"
+                aria-selected={isActive}
+                onClick={() => setTab(t.id)}
+                className={
+                  "inline-flex h-8 items-center gap-1.5 rounded-md px-3 text-sm font-medium transition-colors " +
+                  (isActive
+                    ? "bg-(--color-accent) text-(--color-accent-ink)"
+                    : "text-(--color-ink-muted) hover:bg-(--color-rail) hover:text-(--color-ink)")
+                }
+              >
+                <Icon aria-hidden className="h-4 w-4 shrink-0" />
+                {t.label}
+              </button>
+            );
+          })}
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="flex items-center gap-1 text-xs text-(--color-ink-faint)">
+            <Download aria-hidden className="h-3 w-3 shrink-0" />
+            Download
+          </span>
+          {FORMATS.map(({ fmt, label }) => (
+            <a
+              key={fmt}
+              href={receiptUrl(run.id, fmt)}
+              download
+              className="rounded-md border border-(--color-panel-line) px-2.5 py-1 text-sm text-(--color-ink) transition-colors hover:border-(--color-accent)/50"
+            >
+              {label}
+            </a>
+          ))}
+        </div>
       </div>
+
+      {active === "receipt" && (
+        <section className="flex flex-col gap-3">
+          {/* Maximized so the receipt fills the fold — the doc is a sandboxed standalone HTML
+              artifact (no scripts, opaque origin: a deliberate security boundary), so it can't
+              report its own height; we size it to the viewport instead of a short fixed box.
+              Splitting the heavy analysis out to other tabs keeps this the only tall panel. */}
+          <iframe
+            title="Proof Receipt preview"
+            src={receiptPreviewUrl(run.id, resolved)}
+            sandbox=""
+            className="h-[calc(100vh-15rem)] min-h-[40rem] w-full rounded-xl border border-(--color-panel-line) bg-(--color-panel-card)"
+          />
+        </section>
+      )}
+
+      {active === "config" && <RunConfig report={report} />}
+
+      {active === "leaderboard" && isScored && (
+        <section className="grid gap-8">
+          <Leaderboard entries={report.leaderboard} />
+          <FrontierScatter entries={report.leaderboard} />
+        </section>
+      )}
+
+      {active === "cost" && isScored && <CostLedger report={report} />}
+
+      {active === "failures" && isScored && (
+        // min-w-0 so the failure rows clip to the container instead of expanding the column to fit
+        // their long input text (grid/flex children default to min-width:auto, which defeats the
+        // rows' own `truncate`).
+        <section className="grid min-w-0 gap-6">
+          <FailureCases report={report} selected={selectedFailure} onSelect={setSelectedFailure} />
+          <SelectedFailure selected={selectedFailure} />
+        </section>
+      )}
     </main>
   );
 }
