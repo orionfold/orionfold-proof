@@ -6,6 +6,45 @@ for [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **Host telemetry — Proof now shows the hardware a proof ran on.** A best-effort, cross-platform
+  host profile (chip / cores / unified memory / OS / GPU label / serving runtime) drives an
+  always-on Host signal, and a new `## Hardware` receipt stanza records "reproduced on hardware
+  like X" in Markdown / HTML / JSON. The hardware context is **excluded from `config_hash`** — the
+  same model / prompt / dataset hashes identically on a Mac or a Linux box. Honest about absence:
+  no host → no stanza, unsampled → "not captured", GPU "unavailable" without the opt-in.
+- **Live run telemetry.** A background sampler reads CPU / unified-memory / serving-RSS / GPU
+  during a run and streams them over `GET /api/telemetry/stream`; the cockpit gauges go live while
+  the hardware is under load and return to rest when the run ends. Reads OS stats only — never
+  touches provider threads or `config_hash`.
+- **Apple-Silicon GPU utilization (opt-in).** A Settings toggle (default off, consent-gated
+  `sudo -n powermetrics`) surfaces real GPU residency during a run.
+- **Arena-shape cockpit redesign (in progress).** A compact top app bar (Prove · Datasets ·
+  Receipts · Settings, with iconography) + a full-width, always-on horizontal telemetry rail +
+  full-width canvas, replacing the old three-column grid. The rail is a standing instrument cluster
+  on every screen: host CPU / GPU / memory trends (this-run-vs-last, SVG sparklines), warm runtime,
+  live run progress (pass-rate-so-far + candidates done), and cost.
+- **Cost rollup (read-only, hash-inert).** A new `GET /api/cost-summary?window=today|all`
+  aggregates persisted per-run costs into a windowed **eval + judge split** plus a cost / pass-rate
+  trend series — driving the rail's "Cost today" (split) and "Cost to date" cells. A pure rollup
+  over existing `cost_summary` fields (same pattern as `track_record`): re-runs no scoring, touches
+  no `config_hash`, no receipt byte, no migration. Un-picked quick-compare drafts are excluded, so
+  the cost reconciles 1:1 with the Runs list.
+
+### Fixed
+
+- **GPU opt-in now reads real utilization on macOS Sequoia.** The `powermetrics` parser only
+  matched the old `GPU active` / `GPU Busy` labels; Sequoia (15.x) emits
+  `GPU HW active residency: NN.NN% (...)`. The parser now matches all three label forms.
+- **Live gauges fire mid-run.** The rail gated "run active" on the finished report (which only
+  exists *after* a run), so the gauges never lit up during one. A real `runActive` signal is lifted
+  from the in-flight mutation, so the gauges light exactly while the hardware is under load.
+- **Serving-RSS sums the runtime's process tree.** Ollama is a client/server split — the model
+  weights live in an `ollama runner` child, not the name-matched shim — so a multi-GB model
+  under-reported as ~0.1 GB. RSS now walks the parent→child process tree from each name-matched
+  seed and sums it, with a plausibility floor that reports honest absence over a misleading number.
+
 ## [0.1.3] — 2026-06-26
 
 ### Fixed

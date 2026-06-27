@@ -41,6 +41,7 @@ from orionfold.domain.models import (
     Candidate,
     Corpus,
     CorpusSource,
+    CostRollup,
     Dataset,
     Example,
     HostProfile,
@@ -52,6 +53,7 @@ from orionfold.domain.models import (
     Rubric,
     TrackRecordGroup,
 )
+from orionfold.proof.cost_rollup import cost_rollup
 from orionfold.proof.engine import build_cost_summary, config_hash, run_matrix_concurrent
 from orionfold.proof.runner import execute_resolved
 from orionfold.proof.leaderboard import build_leaderboard, track_record
@@ -821,6 +823,22 @@ def get_track_record(request: Request, dataset_id: str | None = None) -> list[Tr
     conn = _conn(request)
     try:
         return track_record(list_runs(conn), dataset_id=dataset_id)
+    finally:
+        conn.close()
+
+
+@router.get("/cost-summary")
+def get_cost_summary(request: Request, window: Literal["today", "all"] = "today") -> CostRollup:
+    """Cumulative spend across stored runs — eval/judge split + a cost/pass-rate trend series.
+
+    Read-only rollup over persisted ``cost_summary`` fields (same hash-inert pattern as
+    ``track_record``): re-runs no scoring, touches no ``config_hash`` or receipt byte.
+    ``window=today`` keeps runs created on the current UTC date; ``window=all`` is cumulative.
+    Drafts (un-picked quick-compare runs) are excluded by the core fn.
+    """
+    conn = _conn(request)
+    try:
+        return cost_rollup(list_runs(conn), window=window)
     finally:
         conn.close()
 

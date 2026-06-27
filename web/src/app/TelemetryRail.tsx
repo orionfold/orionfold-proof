@@ -14,8 +14,10 @@ import {
 } from "lucide-react";
 
 import {
+  getCostSummary,
   getHostProfile,
   subscribeTelemetry,
+  type CostRollup,
   type ProofReport,
   type TelemetrySample,
 } from "../lib/api";
@@ -35,8 +37,9 @@ function emptyTrends(): Trends {
 // The standing instrument cluster — a full-width, single-row horizontal rail on every screen
 // (spec §4). At rest it shows host identity calmly; during a run the live cells light up (CPU
 // sparkline, run progress), driven by the telemetry SSE + the lifted run-progress snapshot. Cost
-// cells stay "—" until Slice 3 (the cost rollup endpoint). Honest throughout: missing data reads
-// "unavailable" / "at rest" / "—", never a fabricated zero.
+// cells read from the cost-summary rollup (today split eval+judge, cumulative to-date). Honest
+// throughout: missing data reads "unavailable" / "at rest" / "—", never a fabricated zero — but a
+// loaded $0.00 is shown as $0.00 (a real all-local spend), distinct from "—" while loading.
 export function TelemetryRail({
   runActive,
   runProgress,
@@ -54,6 +57,18 @@ export function TelemetryRail({
     staleTime: Infinity,
   });
 
+  // Cumulative spend rollups (today / to-date) — a read-only aggregate over stored runs. Refetched
+  // when a run finishes (the runActive→false transition below), since a new stored run is the only
+  // thing that moves these numbers.
+  const costToday = useQuery({
+    queryKey: ["cost-summary", "today"],
+    queryFn: () => getCostSummary("today"),
+  });
+  const costAll = useQuery({
+    queryKey: ["cost-summary", "all"],
+    queryFn: () => getCostSummary("all"),
+  });
+
   const [sample, setSample] = useState<TelemetrySample | null>(null);
   // Per-metric trends (CPU / GPU / memory), accumulated across a run's samples (peak-over-bucket →
   // SVG sparkline). Refs so the SSE callback always sees the latest without re-subscribing;
@@ -64,11 +79,16 @@ export function TelemetryRail({
   const trendsRef = useRef<Trends>(emptyTrends());
   const [trends, setTrends] = useState<Trends>(emptyTrends());
 
+  const refetchCostToday = costToday.refetch;
+  const refetchCostAll = costAll.refetch;
   useEffect(() => {
     if (!runActive) {
       // Run ended (or never started): drop the live sample so readouts return to "at rest", but
       // LEAVE the trends frozen as the last-run record. The Sparkline renders them dimmed.
       setSample(null);
+      // A finished run is now stored — refresh the cost rollups so the rail reflects the new spend.
+      void refetchCostToday();
+      void refetchCostAll();
       return;
     }
     // A new run starts: clear the prior run's trends so the fresh line draws from empty.
@@ -88,7 +108,7 @@ export function TelemetryRail({
       unsubscribe();
       setSample(null);
     };
-  }, [runActive]);
+  }, [runActive, refetchCostToday, refetchCostAll]);
 
   const live = sample != null;
   const cpu = live ? `${Math.round(sample!.cpu_util)}%` : profile ? "at rest" : "—";
@@ -110,6 +130,16 @@ export function TelemetryRail({
       ? "running…"
       : "—";
   const lastReceipt = winner ? winner.label : "—";
+
+  // Cost rollups → cell readouts. A loaded-but-zero rollup honestly reads $0.00 (a real,
+  // all-local spend), distinct from "—" while the fetch is still in flight. Today's cell carries
+  // the eval+judge split underneath the total.
+  const todayValue = costToday.data ? formatUsd(costToday.data.total_cost_usd) : "—";
+  const todaySub = costToday.data ? costSplitSub(costToday.data) : undefined;
+  const toDateValue = costAll.data ? formatUsd(costAll.data.total_cost_usd) : "—";
+  const toDateSub = costAll.data
+    ? `${costAll.data.run_count} run${costAll.data.run_count === 1 ? "" : "s"}`
+    : undefined;
 
   // Live run progress overrides the last-result cell while a run streams.
   const progressValue = runProgress
@@ -151,9 +181,22 @@ export function TelemetryRail({
           onClick={winner ? onOpenReceipts : undefined}
         />
       )}
-      {/* Standing cost signals — filled in Slice 3 (cost rollup endpoint). */}
-      <Cell label="Cost today" value="—" Icon={Coins} />
-      <Cell label="Cost to date" value="—" Icon={Wallet} />
+      {/* Standing cost signals — read-only rollups over stored runs. The cells drill into Receipts
+          (where the cost/pass-rate trend tiles live, spec §4). Today's cell splits eval+judge. */}
+      <CellButton
+        label="Cost today"
+        value={todayValue}
+        sub={todaySub}
+        Icon={Coins}
+        onClick={costToday.data ? onOpenReceipts : undefined}
+      />
+      <CellButton
+        label="Cost to date"
+        value={toDateValue}
+        sub={toDateSub}
+        Icon={Wallet}
+        onClick={costAll.data ? onOpenReceipts : undefined}
+      />
       <CellButton
         label="Last receipt"
         value={lastReceipt}
@@ -237,15 +280,17 @@ function Cell({
 function CellButton({
   label,
   value,
+  sub,
   Icon,
   onClick,
 }: {
   label: string;
   value: string;
+  sub?: string;
   Icon?: LucideIcon;
   onClick?: () => void;
 }) {
-  if (!onClick) return <Cell label={label} value={value} Icon={Icon} />;
+  if (!onClick) return <Cell label={label} value={value} sub={sub} Icon={Icon} />;
   return (
     <button
       type="button"
@@ -257,7 +302,25 @@ function CellButton({
         {Icon && <Icon aria-hidden className="h-3 w-3 shrink-0" />}
         {label}
       </span>
-      <span className="truncate font-mono text-sm tabular-nums text-(--color-ink)">{value}</span>
+      <span className="flex items-baseline gap-1.5">
+        <span className="truncate font-mono text-sm tabular-nums text-(--color-ink)">{value}</span>
+        {sub && <span className="font-mono text-[0.65rem] tabular-nums text-(--color-ink-faint)">{sub}</span>}
+      </span>
     </button>
   );
+}
+
+// USD formatting for the rail's cost cells. Small spends ($0–$10) get cents (a $0.02 judge cost
+// must not round to $0); larger spends drop to whole dollars to stay compact in the bezel.
+function formatUsd(usd: number): string {
+  if (usd === 0) return "$0.00";
+  if (usd < 10) return `$${usd.toFixed(2)}`;
+  return `$${Math.round(usd)}`;
+}
+
+// The eval+judge split shown beneath today's total — e.g. "0.34 + 0.02". Omitted when there's no
+// judge spend (deterministic scoring), keeping the common case calm.
+function costSplitSub(roll: CostRollup): string | undefined {
+  if (roll.judge_cost_usd === 0) return undefined;
+  return `${roll.eval_cost_usd.toFixed(2)} + ${roll.judge_cost_usd.toFixed(2)}`;
 }

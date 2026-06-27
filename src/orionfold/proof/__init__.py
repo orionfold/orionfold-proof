@@ -11,6 +11,7 @@ from orionfold.proof.engine import (
     run_matrix,
     run_proof,
 )
+from orionfold.proof.cost_rollup import cost_rollup
 from orionfold.proof.leaderboard import build_leaderboard, track_record
 from orionfold.proof.runner import execute_resolved, execute_run
 
@@ -24,4 +25,5 @@ __all__ = [
     "build_cost_summary",
     "build_leaderboard",
     "track_record",
+    "cost_rollup",
 ]

@@ -799,6 +799,45 @@ def test_track_record_filter_and_quick_exclusion(client):
     assert client.get("/api/track-record", params={"dataset_id": "nope"}).json() == []
 
 
+def test_cost_summary_rolls_stored_runs_into_an_eval_judge_split(client):
+    # No stored runs yet → an honest zero rollup, not an error.
+    empty = client.get("/api/cost-summary", params={"window": "all"}).json()
+    assert empty["run_count"] == 0
+    assert empty["total_cost_usd"] == 0.0
+    assert empty["trend"] == []
+
+    # Two scored runs (both created "now") roll up. Mocks are free, so the split is 0/0 — what we
+    # assert is the structure and that both runs are counted with an oldest-first trend.
+    r1 = _make_full_run(client)
+    r2 = _make_full_run(client)
+
+    today = client.get("/api/cost-summary", params={"window": "today"}).json()
+    assert today["window"] == "today"
+    assert today["run_count"] == 2  # both created today
+    # total == eval + judge always holds.
+    assert today["total_cost_usd"] == pytest.approx(
+        today["eval_cost_usd"] + today["judge_cost_usd"]
+    )
+    # Trend carries one point per run, oldest-first, each with a pooled pass-rate.
+    trend_ids = [p["run_id"] for p in today["trend"]]
+    assert set(trend_ids) == {r1["run"]["id"], r2["run"]["id"]}
+    assert today["trend"] == sorted(today["trend"], key=lambda p: (p["created_at"], p["run_id"]))
+    assert all(0.0 <= p["pass_rate"] <= 1.0 for p in today["trend"])
+
+    # window=all is cumulative; with only today's runs it matches the today rollup's run_count.
+    all_window = client.get("/api/cost-summary", params={"window": "all"}).json()
+    assert all_window["window"] == "all"
+    assert all_window["run_count"] == 2
+
+
+def test_cost_summary_excludes_unpicked_quick_drafts(client):
+    # A quick-compare draft with no pick is not a receipt — its spend must not inflate the rail.
+    _make_full_run(client)
+    _make_quick_run(client)  # no winner recorded
+    roll = client.get("/api/cost-summary", params={"window": "all"}).json()
+    assert roll["run_count"] == 1  # only the full run counts
+
+
 # ─── v9: Corpus route + bench-run binding validation ──────────────────────────────────
 
 

@@ -250,6 +250,28 @@ export const runCostSummarySchema = z.object({
 });
 export type RunCostSummary = z.infer<typeof runCostSummarySchema>;
 
+// Cumulative cost across stored runs in a window (today / all), split eval vs judge, plus a
+// cost/pass-rate trend series — the rail's "Cost today"/"Cost to date" cells + Receipts trend
+// tiles. A read-only rollup over persisted cost fields; touches no scoring/config_hash. The trend
+// is oldest-first so a Recharts line reads left→right. Drafts (un-picked quick runs) are excluded.
+export const costTrendPointSchema = z.object({
+  run_id: z.string(),
+  created_at: z.string(),
+  total_cost_usd: z.number(),
+  pass_rate: z.number(),
+});
+export type CostTrendPoint = z.infer<typeof costTrendPointSchema>;
+
+export const costRollupSchema = z.object({
+  window: z.enum(["today", "all"]),
+  run_count: z.number(),
+  eval_cost_usd: z.number(),
+  judge_cost_usd: z.number(),
+  total_cost_usd: z.number(),
+  trend: z.array(costTrendPointSchema),
+});
+export type CostRollup = z.infer<typeof costRollupSchema>;
+
 // Static description of the machine a proof ran on (the always-on Host panel + the receipt's
 // Hardware stanza). Presentation-only; never part of the proof identity. Defined here because the
 // report schema below references it; the live per-sample shape stays near the SSE helpers.
@@ -525,6 +547,12 @@ export function getTrackRecord(datasetId?: string): Promise<TrackRecordGroup[]> 
     ? `/api/track-record?dataset_id=${encodeURIComponent(datasetId)}`
     : "/api/track-record";
   return getJson(url, z.array(trackRecordGroupSchema));
+}
+
+// Cumulative cost rollup over stored runs — window "today" (current UTC date) or "all". Eval/judge
+// split + a cost/pass-rate trend series. Read-only; excludes un-picked quick-compare drafts.
+export function getCostSummary(window: "today" | "all"): Promise<CostRollup> {
+  return getJson(`/api/cost-summary?window=${window}`, costRollupSchema);
 }
 
 // Record the operator's head-to-head pick on a quick-compare run (candidate id or "tie").

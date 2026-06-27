@@ -1,9 +1,11 @@
 import { afterEach, describe, expect, it, test, vi } from "vitest";
 
 import {
+  costRollupSchema,
   createDataset,
   datasetSchema,
   extractResultSchema,
+  getCostSummary,
   getSettings,
   previewDataset,
   proofReportSchema,
@@ -95,6 +97,37 @@ describe("settings + sample-data client", () => {
   it("seedSampleData parses counts", async () => {
     mockResponse({ datasets: 1, receipts: 1 });
     expect(await seedSampleData()).toEqual({ datasets: 1, receipts: 1 });
+  });
+});
+
+describe("cost summary client", () => {
+  const ROLLUP = {
+    window: "today",
+    run_count: 2,
+    eval_cost_usd: 0.34,
+    judge_cost_usd: 0.02,
+    total_cost_usd: 0.36,
+    trend: [
+      { run_id: "r1", created_at: "2026-06-27T10:00:00Z", total_cost_usd: 0.1, pass_rate: 0.8 },
+      { run_id: "r2", created_at: "2026-06-27T11:00:00Z", total_cost_usd: 0.26, pass_rate: 0.9 },
+    ],
+  };
+
+  it("costRollupSchema parses the eval/judge split + trend", () => {
+    const r = costRollupSchema.parse(ROLLUP);
+    expect(r.window).toBe("today");
+    expect(r.total_cost_usd).toBe(0.36);
+    expect(r.trend.map((p) => p.run_id)).toEqual(["r1", "r2"]);
+  });
+
+  it("getCostSummary requests the window and returns the validated rollup", async () => {
+    const spy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(new Response(JSON.stringify(ROLLUP), { status: 200 }));
+    const r = await getCostSummary("today");
+    expect(spy).toHaveBeenCalledWith("/api/cost-summary?window=today");
+    expect(r.eval_cost_usd).toBe(0.34);
+    expect(r.judge_cost_usd).toBe(0.02);
   });
 });
 

@@ -298,6 +298,37 @@ class RunCostSummary(BaseModel):
     total_cost_usd: float
 
 
+class CostTrendPoint(BaseModel):
+    """One run's place on the cost / pass-rate trend line — oldest first.
+
+    Pure projection of a stored run's persisted fields (``created_at`` +
+    ``cost_summary.total_cost_usd`` + the leaderboard's pooled pass-rate). No scoring is
+    re-run, so this never touches ``config_hash``.
+    """
+
+    run_id: str
+    created_at: str
+    total_cost_usd: float
+    pass_rate: float  # pooled Σpasses / Σexamples across the run's leaderboard (0.0 when unscored)
+
+
+class CostRollup(BaseModel):
+    """Cumulative cost across stored runs in a window — split eval vs judge — plus a trend series.
+
+    A read-only rollup over persisted :class:`RunCostSummary` fields (``candidate_cost_usd`` =
+    eval, ``judge_cost_usd`` = judge). ``window`` is ``"today"`` (runs created on the current UTC
+    date) or ``"all"`` (every stored run). Hash-inert by construction — same pattern as
+    :func:`track_record`: reads existing fields, re-runs no scoring, opens no migration.
+    """
+
+    window: Literal["today", "all"]
+    run_count: int
+    eval_cost_usd: float  # Σ candidate_cost_usd
+    judge_cost_usd: float  # Σ judge_cost_usd
+    total_cost_usd: float  # eval + judge
+    trend: list[CostTrendPoint]  # one point per run in the window, oldest first
+
+
 class ProofReport(BaseModel):
     """The full assembled result: run provenance + leaderboard + every result row.
 
