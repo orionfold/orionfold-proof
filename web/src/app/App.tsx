@@ -200,6 +200,11 @@ export function App() {
   // The selected failure case. Lifted here (out of the cockpit) so the run-detail Inspector in the
   // app-level rail and the cockpit's FailureCases list share one selection. Cleared when the run changes.
   const [selectedFailure, setSelectedFailure] = useState<ResultRow | null>(null);
+  // True WHILE a proof run is streaming. Lifted from the cockpit so the app-level rail can light up
+  // the live Host gauges during the run — the finished `report` (which drives `runDetail`) only
+  // exists AFTER the run ends, so it can't be the live signal. This is the fix for "gauges never
+  // appear mid-run": the rail subscribes to the telemetry stream whenever runActive is true.
+  const [runActive, setRunActive] = useState(false);
 
   // Whenever the cockpit's shown run changes, clear the failure selection so the rail's run-detail
   // never shows a row from the previous report. (Lifted out of the cockpit with the selection.)
@@ -265,6 +270,7 @@ export function App() {
           onPreselectConsumed={() => setPreselectDatasetId(null)}
           selectedFailure={selectedFailure}
           onSelectFailure={setSelectedFailure}
+          onRunActiveChange={setRunActive}
         />
       </div>
       {view === "datasets" && (
@@ -298,6 +304,10 @@ export function App() {
             <Inspector report={report} selected={selectedFailure} />
           ) : null
         }
+        // Live gauges fire while a run streams, regardless of which view is showing — the run keeps
+        // going if the operator side-trips to Datasets. (The finished `report` above only gates the
+        // run-detail card, not the live gauges.)
+        runActive={runActive}
       />
     </div>
   );

@@ -20,6 +20,12 @@ _INTERVAL_S = 0.5
 # Process-name fragments for the local runtimes whose RSS we want (the llama_server memory).
 _RUNTIME_PROCS = ("ollama", "llama_server", "llama-server", "lm-studio", "lmstudio")
 
+# Below this, a "serving runtime" footprint is implausibly small for a loaded model — it's the bare
+# server shim with no weights resident (e.g. Ollama's ~0.06 GB API process before/without a runner
+# child). Report None (honest absence) rather than bake a misleading number into a permanent
+# receipt. A genuinely tiny model on CPU still clears this comfortably.
+_MIN_PLAUSIBLE_RSS_GB = 0.5
+
 
 def _nvidia_gpu_util() -> float | None:
     try:
@@ -59,16 +65,55 @@ def _gpu_util(gpu_opt_in: bool) -> float | None:
     return None  # Mac without opt-in → honest unavailable, never a fabricated number
 
 
+def _runtime_rss_gb(procs: list[tuple[int, int, str, int]]) -> float | None:
+    """Sum RSS (GB) across the local runtime's whole process TREE, best-effort.
+
+    ``procs`` is ``(pid, ppid, name, rss_bytes)`` for every process. Ollama is a client/server
+    split: the process whose name matches ``_RUNTIME_PROCS`` is the thin server shim, while the
+    model weights live in an ``ollama runner`` CHILD (often named generically, e.g. ``llama``).
+    Matching only the shim reported ~0.1 GB for a multi-GB model. So: seed from every name-matched
+    process, then walk the parent→child graph to include all descendants, and sum their RSS — the
+    weights get counted whatever the child is named. Returns None when nothing matches, or when the
+    total is implausibly small (the shim alone, no weights resident) — honest absence over a wrong
+    number.
+    """
+    children: dict[int, list[int]] = {}
+    rss_by_pid: dict[int, int] = {}
+    seeds: list[int] = []
+    for pid, ppid, name, rss in procs:
+        children.setdefault(ppid, []).append(pid)
+        rss_by_pid[pid] = rss
+        if any(k in (name or "").lower() for k in _RUNTIME_PROCS):
+            seeds.append(pid)
+    if not seeds:
+        return None
+    # BFS over the tree from each seed; a set guards against double-counting shared subtrees.
+    seen: set[int] = set()
+    queue = list(seeds)
+    while queue:
+        pid = queue.pop()
+        if pid in seen:
+            continue
+        seen.add(pid)
+        queue.extend(children.get(pid, ()))
+    total_gb = sum(rss_by_pid.get(pid, 0) for pid in seen) / (1024**3)
+    if total_gb < _MIN_PLAUSIBLE_RSS_GB:
+        return None
+    return round(total_gb, 2)
+
+
 def _serving_rss_gb() -> float | None:
-    """RSS of the local runtime process (the llama_server memory), best-effort."""
+    """RSS of the local runtime's process tree (the weights-bearing runner), best-effort."""
     try:
-        for p in psutil.process_iter(["name"]):
-            name = (p.info.get("name") or "").lower()
-            if any(k in name for k in _RUNTIME_PROCS):
-                return round(p.memory_info().rss / (1024**3), 1)
+        procs: list[tuple[int, int, str, int]] = []
+        for p in psutil.process_iter(["ppid", "name", "memory_info"]):
+            mem = p.info.get("memory_info")
+            procs.append(
+                (p.pid, p.info.get("ppid") or 0, p.info.get("name") or "", mem.rss if mem else 0)
+            )
     except Exception:
-        pass
-    return None
+        return None
+    return _runtime_rss_gb(procs)
 
 
 def _sample_once(gpu_opt_in: bool) -> dict:

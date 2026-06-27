@@ -28,4 +28,25 @@ describe("HostPanel", () => {
     expect(screen.getByText(/arm64/)).toBeInTheDocument();
     expect(screen.getByText(/cloud only/)).toBeInTheDocument();
   });
+
+  it("asserts the trust story and shows at-rest gauges when idle", () => {
+    render(<HostPanel profile={profile} telemetry={null} />);
+    expect(screen.getByText(/this proof runs here/i)).toBeInTheDocument();
+    expect(screen.getByText(/Private · on this machine/i)).toBeInTheDocument();
+    // The gauge geometry is present even idle, labeled "at rest" (never a fake live 0%).
+    expect(screen.getAllByText(/at rest/i).length).toBe(2);
+  });
+
+  it("shows live gauges with real readings during a run", () => {
+    render(
+      <HostPanel
+        profile={profile}
+        telemetry={{ cpu_util: 47, mem_used_gb: 24.2, process_rss_gb: 5.1, gpu_util: null }}
+      />,
+    );
+    expect(screen.getByText(/47%/)).toBeInTheDocument(); // CPU gauge reading
+    expect(screen.getByText(/5.1 GB/)).toBeInTheDocument(); // runtime RSS (the fixed sampling)
+    // No "at rest" placeholder once live.
+    expect(screen.queryByText(/at rest/i)).not.toBeInTheDocument();
+  });
 });

@@ -71,8 +71,36 @@ function RunConfig({ report }: { report: ProofReport }) {
         <Field label="Created">
           <span className="text-(--color-ink-muted)">{run.created_at}</span>
         </Field>
+        <HardwareField report={report} />
       </dl>
     </section>
+  );
+}
+
+// Compact hardware provenance, inline with the run config — so the machine a proof ran on is
+// visible at the top of the Inspector right after a run, not buried below the fold in the rail's
+// Host card. Renders nothing for older runs that carry no host profile (honest absence).
+function HardwareField({ report }: { report: ProofReport }) {
+  const { host, telemetry } = report;
+  if (!host) return null;
+  // One identity line (chip · runtime) + a quiet peaks line when the run was sampled. Mirrors the
+  // receipt's "reproduced on hardware like X" without restating the whole spec sheet.
+  const identity = [host.chip ?? host.arch, host.local_runtime].filter(Boolean).join(" · ");
+  const peaks: string[] = [];
+  if (telemetry?.sampled) {
+    if (telemetry.cpu_util_max != null) peaks.push(`CPU peak ${Math.round(telemetry.cpu_util_max)}%`);
+    if (telemetry.process_rss_gb_max != null) peaks.push(`${telemetry.process_rss_gb_max} GB RSS`);
+    if (telemetry.gpu_util_max != null) peaks.push(`GPU peak ${Math.round(telemetry.gpu_util_max)}%`);
+  }
+  return (
+    <Field label="Hardware">
+      <span className="text-(--color-ink)">{identity}</span>
+      {peaks.length > 0 && (
+        <span className="mt-0.5 block font-mono text-xs text-(--color-ink-muted)">
+          {peaks.join(" · ")}
+        </span>
+      )}
+    </Field>
   );
 }
 

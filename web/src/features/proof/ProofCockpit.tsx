@@ -54,6 +54,7 @@ export function ProofCockpit({
   onPreselectConsumed,
   selectedFailure,
   onSelectFailure,
+  onRunActiveChange,
 }: {
   report: ProofReport | null;
   onReport: (report: ProofReport) => void;
@@ -70,6 +71,9 @@ export function ProofCockpit({
   // optional so unit tests that don't exercise failure selection can omit it (falls back to local).
   selectedFailure?: ResultRow | null;
   onSelectFailure?: (row: ResultRow | null) => void;
+  // Notifies App while a run is streaming, so the app-level rail can light up the live Host gauges
+  // during the run. Optional so unit tests that don't exercise the rail can omit it.
+  onRunActiveChange?: (active: boolean) => void;
 }) {
   const queryClient = useQueryClient();
   const datasets = useQuery({ queryKey: ["datasets"], queryFn: getDatasets });
@@ -210,6 +214,13 @@ export function ProofCockpit({
     },
     onError: () => setProgress(null),
   });
+
+  // Surface the streaming state to App so the app-level rail can subscribe to the live telemetry
+  // stream exactly while the run is in flight (the rail can't read this mutation directly).
+  const runIsPending = runMutation.isPending;
+  useEffect(() => {
+    onRunActiveChange?.(runIsPending);
+  }, [runIsPending, onRunActiveChange]);
 
   // The guided demo targets the bundled sample (detected by `is_sample`, not a hardcoded id — the
   // sample-detection invariant) and two cheap, available cloud candidates. The CTA only shows when

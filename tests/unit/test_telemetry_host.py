@@ -1,4 +1,5 @@
 from orionfold.domain.models import HostProfile
+from orionfold.telemetry import host as host_mod
 
 
 def test_host_profile_defaults_are_none_except_arch():
@@ -23,9 +24,6 @@ def test_host_profile_roundtrips():
         gpu_label="Apple M3 Max GPU",
     )
     assert HostProfile.model_validate(p.model_dump()) == p
-
-
-from orionfold.telemetry import host as host_mod
 
 
 def test_detect_host_profile_always_returns_arch():

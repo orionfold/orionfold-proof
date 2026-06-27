@@ -250,11 +250,44 @@ export const runCostSummarySchema = z.object({
 });
 export type RunCostSummary = z.infer<typeof runCostSummarySchema>;
 
+// Static description of the machine a proof ran on (the always-on Host panel + the receipt's
+// Hardware stanza). Presentation-only; never part of the proof identity. Defined here because the
+// report schema below references it; the live per-sample shape stays near the SSE helpers.
+export const hostProfileSchema = z.object({
+  arch: z.string(),
+  chip: z.string().nullable(),
+  cpu_cores: z.number().nullable(),
+  memory_gb: z.number().nullable(),
+  os_label: z.string().nullable(),
+  local_runtime: z.string().nullable(),
+  gpu_label: z.string().nullable(),
+});
+export type HostProfile = z.infer<typeof hostProfileSchema>;
+
+// Rolled-up live sampling for a finished run (presentation-only; never in config_hash). Mirrors
+// the backend TelemetrySummary. `sampled=false` is the honest "not captured" state. Optional on the
+// report so older stored runs (no telemetry) parse unchanged.
+export const telemetrySummarySchema = z.object({
+  sampled: z.boolean(),
+  n_samples: z.number(),
+  cpu_util_mean: z.number().nullable(),
+  cpu_util_max: z.number().nullable(),
+  mem_used_gb_max: z.number().nullable(),
+  process_rss_gb_max: z.number().nullable(),
+  gpu_util_mean: z.number().nullable(),
+  gpu_util_max: z.number().nullable(),
+});
+export type TelemetrySummary = z.infer<typeof telemetrySummarySchema>;
+
 export const proofReportSchema = z.object({
   run: proofRunSchema,
   leaderboard: z.array(leaderboardEntrySchema),
   results: z.array(resultRowSchema),
   cost_summary: runCostSummarySchema,
+  // The machine the proof ran on + its live sampling. Both optional/nullable so reports stored
+  // before host telemetry shipped still parse; the Inspector surfaces them when present.
+  host: hostProfileSchema.nullish(),
+  telemetry: telemetrySummarySchema.nullish(),
 });
 export type ProofReport = z.infer<typeof proofReportSchema>;
 
@@ -387,19 +420,8 @@ export function getProviderHealth(): Promise<ProviderHealthPanel> {
   return getJson("/api/health/providers", providerHealthPanelSchema);
 }
 
-// Host telemetry — the static profile (the always-on Host panel) and the live per-sample shape
-// (the gauges that fill in during a run). Both presentation-only; never part of the proof identity.
-export const hostProfileSchema = z.object({
-  arch: z.string(),
-  chip: z.string().nullable(),
-  cpu_cores: z.number().nullable(),
-  memory_gb: z.number().nullable(),
-  os_label: z.string().nullable(),
-  local_runtime: z.string().nullable(),
-  gpu_label: z.string().nullable(),
-});
-export type HostProfile = z.infer<typeof hostProfileSchema>;
-
+// Host telemetry — the live per-sample shape (the gauges that fill in during a run). The static
+// `hostProfileSchema` lives above the report schema (it's referenced there). Presentation-only.
 export const telemetrySampleSchema = z.object({
   cpu_util: z.number(),
   mem_used_gb: z.number().nullable(),

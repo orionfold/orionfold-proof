@@ -16,7 +16,12 @@ export function HostPanel({
       aria-label="Host"
       className="flex flex-col gap-3 border-t border-(--color-panel-line) px-5 py-4"
     >
-      <h3 className="text-xs font-medium uppercase tracking-wider text-(--color-ink-faint)">Host</h3>
+      <div className="flex flex-col gap-0.5">
+        <h3 className="text-xs font-medium uppercase tracking-wider text-(--color-ink-faint)">Host</h3>
+        {/* The card asserts the product's trust story rather than just listing specs: this is the
+            machine the proof runs on, and it stays here. Calm, ink-faint, no color theater. */}
+        <p className="text-xs text-(--color-ink-faint)">Your hardware — this proof runs here.</p>
+      </div>
       {!profile ? (
         <p className="text-sm text-(--color-ink-muted)">Detecting host…</p>
       ) : (
@@ -29,8 +34,29 @@ export function HostPanel({
           <Row label="GPU" value={profile.gpu_label ?? "unavailable"} />
         </dl>
       )}
-      {telemetry && <LiveGauges sample={telemetry} />}
+      {/* During a run the gauges go live; at rest we show the SAME gauge geometry at 0% so the
+          transition is continuous (no sudden appearance) and the card always reads as an
+          instrument, not a static spec list. */}
+      {telemetry ? <LiveGauges sample={telemetry} /> : profile ? <IdleGauges /> : null}
+      {profile && (
+        <p className="flex items-center gap-1.5 border-t border-(--color-panel-line) pt-3 text-xs text-(--color-ink-faint)">
+          <span aria-hidden className="inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-(--color-ok)" />
+          Private · on this machine
+        </p>
+      )}
     </section>
+  );
+}
+
+// At-rest gauge rail: the live-gauge geometry held at 0%, so the card reads as an instrument even
+// when idle and the live transition is a fill, not a layout shift. Labeled "at rest" so a viewer
+// never mistakes it for a live zero reading.
+function IdleGauges() {
+  return (
+    <div className="flex flex-col gap-2 border-t border-(--color-panel-line) pt-3">
+      <Gauge label="CPU" pct={0} value="at rest" />
+      <Gauge label="GPU" pct={0} value="at rest" />
+    </div>
   );
 }
 
