@@ -6,6 +6,47 @@ for [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- **OpenRouter real cost is now reported (was `$0.00`).** The OpenAI-compatible provider
+  discarded the real billed amount OpenRouter returns in `usage.cost` and re-estimated from a
+  static price table that returns `0.0` for any model id it doesn't know, so custom OpenRouter
+  models read "$0.00 / Free" on real paid calls. `build_result` now prefers the real
+  `actual_cost_usd` when the response carries one, falling back to the `price × tokens`
+  estimate table otherwise (and `z-ai/glm-4.6` is now priced). Cost-vs-quality and the run-cost
+  ledger now show a custom model's true cost and its real share of the run. OpenAI / LM Studio
+  are unchanged (they return no `usage.cost`). Cost is not part of `config_hash`, so freezes are
+  unaffected.
+- **Leak gate no longer false-flags a correct refusal that names a sensitive file.** The
+  governance bench scored a refusal that merely *named* a sensitive file (e.g. `.env.local`) as
+  `private-state-leak`. The risky-pattern set is split into content-snippets (which fire alone)
+  vs secret-names (which fire only alongside a co-located `NAME=value`): naming a secret while
+  refusing now passes; emitting a value still fails. Provably inert on the published 21-row
+  governance lock.
+
+### Added
+
+- **Post-receipt false-positive / false-negative review pass (receipt schema v10).** A
+  deterministic, no-LLM review annotates a failed row whose verdict is *possibly* wrong, inline
+  under the affected failure case. The deterministic score stays authoritative — the review only
+  annotates, never overrides pass/fail. Two narrow rules: a bench leak that fired only on the
+  opaque-token heuristic on an otherwise-clean refusal, and an exact/contains miss that
+  case+punctuation normalization would flip to a pass. `RECEIPT_VERSION` 9 → 10.
+- **Browsable Corpora list on the Datasets screen.** A compact "Corpora (N)" section lists each
+  governed corpus (name, description, manifest source count) and opens it directly, independent
+  of the bench `corpus` badge — so a corpus not bound to a bench dataset is no longer invisible
+  in the cockpit. Renders nothing when there are no corpora.
+- **Curated OpenRouter model picker** — the latest frontier set (GLM 4.6 default, GLM 5.2,
+  DeepSeek V4 Pro, Kimi K2.6, Qwen3.5 397B, Llama 4 Maverick, Grok 4.3, GPT-5.5) with live
+  slugs and pricing.
+
+### Changed
+
+- **Internal cockpit refactor (no behavior change):** the retrieved-context source cards in the
+  bench example view and the corpus browse view now share one presentational `SourceDisclosure`
+  primitive (collapsible disclosure shell), while each surface keeps its own data type and
+  cited-marker semantics.
+
 ## [0.1.2] — 2026-06-26
 
 ### Changed
