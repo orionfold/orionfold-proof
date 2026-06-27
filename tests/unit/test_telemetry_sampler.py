@@ -1,5 +1,54 @@
 from orionfold.domain.models import TelemetrySummary
-from orionfold.telemetry.sampler import RunSampler, _runtime_rss_gb, _sample_once
+from orionfold.telemetry.sampler import (
+    RunSampler,
+    _parse_gpu_util,
+    _runtime_rss_gb,
+    _sample_once,
+)
+
+
+# Real `powermetrics --samplers gpu_power` output captured on a Mac15,10 / macOS Sequoia
+# (24G623). This OS reports "GPU HW active residency", NOT the older "GPU active"/"GPU Busy"
+# the parser used to grep for — and the line carries many colons + a trailing paren, which a
+# naive split(":")[-1] mis-parses. This fixture locks the real-world shape.
+SEQUOIA_GPU_POWER = """\
+Machine model: Mac15,10
+*** Sampled system activity ***
+
+**** GPU usage ****
+
+GPU HW active frequency: 338 MHz
+GPU HW active residency:   5.11% (338 MHz: 5.1% 618 MHz:   0% 796 MHz:   0%)
+GPU SW requested state: (P1 : 100% P2 :   0%)
+GPU idle residency:  94.89%
+GPU Power: 29 mW
+"""
+
+# Older powermetrics label still seen on some macOS builds.
+LEGACY_GPU_BUSY = """\
+**** GPU usage ****
+GPU active frequency: 700 MHz
+GPU Busy: 42.0%
+"""
+
+
+def test_parse_gpu_util_reads_sequoia_active_residency():
+    # The bug this session caught while enabling GPU on a real Mac: "GPU HW active residency"
+    # must be parsed, and only the FIRST percentage (5.11), not a value from inside the parens.
+    assert _parse_gpu_util(SEQUOIA_GPU_POWER) == 5.11
+
+
+def test_parse_gpu_util_reads_legacy_busy_label():
+    assert _parse_gpu_util(LEGACY_GPU_BUSY) == 42.0
+
+
+def test_parse_gpu_util_falls_back_to_inverting_idle_residency():
+    # If only an idle line is present, active = 100 - idle (they sum to 100 by definition).
+    assert _parse_gpu_util("GPU idle residency: 94.89%") == round(100 - 94.89, 2)  # → 5.11
+
+
+def test_parse_gpu_util_none_when_no_gpu_line():
+    assert _parse_gpu_util("Machine model: Mac15,10\nGPU Power: 29 mW\n") is None
 
 
 # A process record is (pid, ppid, name, rss_bytes). _runtime_rss_gb must sum the RSS of every

@@ -8,6 +8,7 @@ absence). The thread only READS OS stats — it never touches provider threads, 
 
 from __future__ import annotations
 
+import re
 import subprocess
 import threading
 
@@ -39,19 +40,45 @@ def _nvidia_gpu_util() -> float | None:
         return None
 
 
+# powermetrics' GPU-utilization line label varies by macOS version. Newer builds (Sequoia and
+# later) report "GPU HW active residency: NN.NN% (...)" — note the trailing per-frequency
+# breakdown in parens, which a naive split(":")[-1] mis-parses. Older builds reported
+# "GPU Busy: NN%" / "GPU active: NN%". We match any of these and pull the FIRST percentage after
+# the label. As a last resort we invert "GPU idle residency" (active = 100 - idle). `_PCT` is
+# anchored to grab a number immediately followed by `%`, so it never grabs a MHz/mW value.
+_PCT = re.compile(r"([0-9]+(?:\.[0-9]+)?)\s*%")
+_ACTIVE_LABELS = ("GPU HW active residency", "GPU active", "GPU Busy")
+
+
+def _parse_gpu_util(text: str) -> float | None:
+    """Extract GPU utilization % from `powermetrics --samplers gpu_power` output, or None.
+
+    Pure (no subprocess) so the label/format handling is unit-tested against real fixtures.
+    """
+    idle: float | None = None
+    for line in text.splitlines():
+        for label in _ACTIVE_LABELS:
+            if label in line:
+                m = _PCT.search(line)
+                if m:
+                    return float(m.group(1))
+        if "GPU idle residency" in line:
+            m = _PCT.search(line)
+            if m:
+                idle = float(m.group(1))
+    # Fallback: only an idle figure was present — active is its complement.
+    return round(100 - idle, 2) if idle is not None else None
+
+
 def _powermetrics_gpu_util() -> float | None:
-    # Opt-in, macOS: needs sudo. `-n 1` one sample. Parse the "GPU active"/"GPU Busy" line.
+    # Opt-in, macOS: needs passwordless sudo for `powermetrics`. `-n 1` = one sample.
     try:
         out = subprocess.check_output(
             ["sudo", "-n", "powermetrics", "--samplers", "gpu_power", "-n", "1", "-i", "200"],
             stderr=subprocess.DEVNULL,
             timeout=3,
         ).decode()
-        for line in out.splitlines():
-            if "GPU active" in line or "GPU Busy" in line:
-                pct = line.split(":")[-1].strip().rstrip("%")
-                return float(pct)
-        return None
+        return _parse_gpu_util(out)
     except Exception:
         return None
 
