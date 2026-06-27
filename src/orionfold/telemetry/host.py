@@ -43,6 +43,18 @@ def _macos_os_label() -> str | None:
     return name or ver
 
 
+def _linux_os_label() -> str | None:
+    # Parse PRETTY_NAME from /etc/os-release directly (no shell). Best-effort.
+    try:
+        with open("/etc/os-release", encoding="utf-8") as fh:
+            for line in fh:
+                if line.startswith("PRETTY_NAME="):
+                    return line.split("=", 1)[1].strip().strip('"') or None
+    except OSError:
+        return None
+    return None
+
+
 def _linux_gpu_label() -> str | None:
     # `nvidia-smi -L` → "GPU 0: NVIDIA RTX 4090 (UUID: ...)"; take the model substring.
     out = _sh(["nvidia-smi", "-L"])
@@ -73,7 +85,7 @@ def detect_host_profile() -> HostProfile:
         os_label = _macos_os_label()
         gpu_label = f"{chip} GPU" if chip else None  # Apple Silicon: GPU is the SoC
     elif system == "Linux":
-        os_label = _sh(["sh", "-c", '. /etc/os-release 2>/dev/null && echo "$PRETTY_NAME"'])
+        os_label = _linux_os_label()
         gpu_label = _linux_gpu_label()
     else:
         os_label = f"{system} {platform.release()}".strip() or None
