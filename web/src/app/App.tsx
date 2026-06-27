@@ -9,7 +9,9 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-import { getHealth, type Health, type ProofReport } from "../lib/api";
+import { getHealth, type Health, type ProofReport, type ResultRow } from "../lib/api";
+import { Inspector } from "../features/proof/Inspector";
+import { InspectorRail } from "../features/proof/InspectorRail";
 import { CandidatesView } from "../features/proof/CandidatesView";
 import { CorpusView } from "../features/proof/CorpusView";
 import { DatasetsView } from "../features/proof/DatasetsView";
@@ -195,6 +197,15 @@ export function App() {
   const [preselectDatasetId, setPreselectDatasetId] = useState<string | null>(null);
   // The corpus to browse — set by a bench card's corpus badge; the "corpus" sub-view reads it.
   const [corpusFocusId, setCorpusFocusId] = useState<string | null>(null);
+  // The selected failure case. Lifted here (out of the cockpit) so the run-detail Inspector in the
+  // app-level rail and the cockpit's FailureCases list share one selection. Cleared when the run changes.
+  const [selectedFailure, setSelectedFailure] = useState<ResultRow | null>(null);
+
+  // Whenever the cockpit's shown run changes, clear the failure selection so the rail's run-detail
+  // never shows a row from the previous report. (Lifted out of the cockpit with the selection.)
+  useEffect(() => {
+    setSelectedFailure(null);
+  }, [report?.run.id]);
 
   // Rail navigation always clears the open receipt so Receipts reopens to its list.
   const navigate = (next: View) => {
@@ -233,7 +244,7 @@ export function App() {
   };
 
   return (
-    <div className="grid min-h-full grid-rows-[auto_1fr] lg:grid-cols-[15rem_minmax(0,1fr)] lg:grid-rows-1">
+    <div className="grid min-h-full grid-rows-[auto_1fr] lg:grid-cols-[15rem_minmax(0,1fr)_22rem] lg:grid-rows-1">
       {/* Skip-to-content: the first focusable element, visually hidden until focused, then a cyan
           (action) chip. Targets the Proof Run workspace — the primary, default main region. */}
       <a
@@ -252,6 +263,8 @@ export function App() {
           onViewDataset={openDataset}
           preselectDatasetId={preselectDatasetId}
           onPreselectConsumed={() => setPreselectDatasetId(null)}
+          selectedFailure={selectedFailure}
+          onSelectFailure={setSelectedFailure}
         />
       </div>
       {view === "datasets" && (
@@ -277,6 +290,15 @@ export function App() {
         ) : (
           <ReceiptsView onOpenReceipt={setReceiptInView} />
         ))}
+      {/* The persistent app-level inspector rail: a Host card on every screen (never dead
+          whitespace), with the cockpit's run-detail Inspector stacked above it during a run. */}
+      <InspectorRail
+        runDetail={
+          view === "proof" && report ? (
+            <Inspector report={report} selected={selectedFailure} />
+          ) : null
+        }
+      />
     </div>
   );
 }

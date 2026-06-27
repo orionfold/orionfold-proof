@@ -874,5 +874,8 @@ def test_telemetry_host_returns_profile(client):
     assert r.status_code == 200
     body = r.json()
     assert "arch" in body and body["arch"]
-    # local_runtime is present (may be None when no local server is reachable)
+    # local_runtime is present (may be None when no real local server is reachable). It must
+    # NEVER report a mock provider — mocks carry privacy="local" to simulate a local model for
+    # the keyless demo, but they are not a hardware runtime and would mislead the Host panel.
     assert "local_runtime" in body
+    assert body["local_runtime"] not in ("mock_good", "mock_bad")

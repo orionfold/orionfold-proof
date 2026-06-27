@@ -387,6 +387,31 @@ export function getProviderHealth(): Promise<ProviderHealthPanel> {
   return getJson("/api/health/providers", providerHealthPanelSchema);
 }
 
+// Host telemetry — the static profile (the always-on Host panel) and the live per-sample shape
+// (the gauges that fill in during a run). Both presentation-only; never part of the proof identity.
+export const hostProfileSchema = z.object({
+  arch: z.string(),
+  chip: z.string().nullable(),
+  cpu_cores: z.number().nullable(),
+  memory_gb: z.number().nullable(),
+  os_label: z.string().nullable(),
+  local_runtime: z.string().nullable(),
+  gpu_label: z.string().nullable(),
+});
+export type HostProfile = z.infer<typeof hostProfileSchema>;
+
+export const telemetrySampleSchema = z.object({
+  cpu_util: z.number(),
+  mem_used_gb: z.number().nullable(),
+  process_rss_gb: z.number().nullable(),
+  gpu_util: z.number().nullable(),
+});
+export type TelemetrySample = z.infer<typeof telemetrySampleSchema>;
+
+export function getHostProfile(): Promise<HostProfile> {
+  return getJson("/api/telemetry/host", hostProfileSchema);
+}
+
 export const resolvedSelectorSchema = z.object({
   label: z.string(),
   candidate_id: z.string(),

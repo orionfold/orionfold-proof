@@ -58,7 +58,6 @@ from orionfold.scoring.judge import build_judge
 from orionfold.scoring.rubric import default_rubric_for
 from orionfold.providers.registry import (
     UnknownCandidateError,
-    _build,
     available_candidates,
     build_candidates,
     expand_prompt_variants,
@@ -423,18 +422,19 @@ _LOCAL_RUNTIME_LABELS = {"ollama": "Ollama", "lmstudio": "LM Studio", "llamacpp"
 
 
 def _configured_local_runtime() -> str | None:
-    """Friendly label for the local runtime that is actually serving, or None.
+    """Friendly label for the real local runtime that is actually serving, or None.
 
     The registry always lists Ollama/LM Studio (keyless local profiles), so presence alone
-    would dishonestly claim "Ollama" even when nothing is running. We only label a local
-    runtime whose health probe says it is reachable (``status == "ok"``) — the same honest
-    signal the cockpit uses to gray out unrunnable candidates.
+    would dishonestly claim "Ollama" even when nothing is running. We only label a runtime that
+    is (a) a *real* hardware runtime — the mock providers carry ``privacy="local"`` to simulate
+    a local model for the keyless demo, but they are not hardware and must never appear here —
+    and (b) reachable per its health probe (``status == "ok"``), the same honest signal the
+    cockpit uses to gray out unrunnable candidates.
     """
-    registry = _build()
     reachable = {r.provider_id for r in probe_all() if r.status == "ok"}
-    for pid, (provider, _model) in registry.items():
-        if getattr(provider, "privacy", None) == "local" and pid in reachable:
-            return _LOCAL_RUNTIME_LABELS.get(pid, pid)
+    for pid in _LOCAL_RUNTIME_LABELS:  # only the real local runtimes, in preference order
+        if pid in reachable:
+            return _LOCAL_RUNTIME_LABELS[pid]
     return None
 
 

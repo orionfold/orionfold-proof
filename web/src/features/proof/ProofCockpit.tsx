@@ -28,7 +28,6 @@ import { ProviderTag } from "./badges";
 import { CostLedger } from "./CostLedger";
 import { FailureCases } from "./FailureCases";
 import { FrontierScatter } from "./FrontierScatter";
-import { Inspector } from "./Inspector";
 import { Leaderboard } from "./Leaderboard";
 import { QuickCompare } from "./QuickCompare";
 import { RecipeRow } from "./RecipeRow";
@@ -53,6 +52,8 @@ export function ProofCockpit({
   onViewDataset,
   preselectDatasetId,
   onPreselectConsumed,
+  selectedFailure,
+  onSelectFailure,
 }: {
   report: ProofReport | null;
   onReport: (report: ProofReport) => void;
@@ -64,6 +65,11 @@ export function ProofCockpit({
   // calls onPreselectConsumed so a later return to Proof doesn't re-force the operator's selection.
   preselectDatasetId?: string | null;
   onPreselectConsumed?: () => void;
+  // The selected failure case is lifted to App so the run-detail Inspector (now in the shared
+  // app-level rail) and the FailureCases list in this column stay in sync. Controlled by App;
+  // optional so unit tests that don't exercise failure selection can omit it (falls back to local).
+  selectedFailure?: ResultRow | null;
+  onSelectFailure?: (row: ResultRow | null) => void;
 }) {
   const queryClient = useQueryClient();
   const datasets = useQuery({ queryKey: ["datasets"], queryFn: getDatasets });
@@ -101,7 +107,12 @@ export function ProofCockpit({
   // we replace the former, preserve the latter. Empty string = nothing auto-filled yet.
   const autoFilledPrompt = useRef<string>("");
   const [activeRecipeId, setActiveRecipeId] = useState<string | null>(null);
-  const [openFailure, setOpenFailure] = useState<ResultRow | null>(null);
+  // Failure-case selection is owned by App (so the rail's run-detail Inspector and this column's
+  // FailureCases list share one source of truth). Falls back to local state when App doesn't
+  // control it (unit tests). Aliased to the prior local names below.
+  const [localFailure, setLocalFailure] = useState<ResultRow | null>(null);
+  const openFailure = selectedFailure ?? localFailure;
+  const setOpenFailure = onSelectFailure ?? setLocalFailure;
   // Live progress for the streaming run: the plan from the `start` frame + a per-candidate
   // completed-count map. Candidates run concurrently (cloud parallel, local serialized), so cells
   // arrive out of order — we key completion on candidate_id/example_index, never on arrival order.
@@ -304,7 +315,7 @@ export function ProofCockpit({
   }
 
   return (
-    <div className="grid min-h-full grid-rows-[auto_auto] lg:grid-cols-[minmax(0,1fr)_22rem] lg:grid-rows-1">
+    <div className="min-h-full">
       {/* Skip-to-content target (App's skip link → #main-content). tabIndex -1 lets it receive
           programmatic focus without becoming a tab stop. */}
       <main id="main-content" tabIndex={-1} className="flex flex-col gap-8 px-6 py-8 lg:px-10 focus:outline-none">
@@ -434,8 +445,6 @@ export function ProofCockpit({
           />
         )}
       </main>
-
-      <Inspector report={report} selected={openFailure} />
     </div>
   );
 }
