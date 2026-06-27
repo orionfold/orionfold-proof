@@ -42,6 +42,7 @@ from orionfold.domain.models import (
     CorpusSource,
     Dataset,
     Example,
+    HostProfile,
     ProofBrief,
     ProofReport,
     ProofRun,
@@ -57,11 +58,13 @@ from orionfold.scoring.judge import build_judge
 from orionfold.scoring.rubric import default_rubric_for
 from orionfold.providers.registry import (
     UnknownCandidateError,
+    _build,
     available_candidates,
     build_candidates,
     expand_prompt_variants,
 )
 from orionfold.receipts import export
+from orionfold.telemetry import detect_host_profile
 from orionfold.sample_data import seed_sample_data
 from orionfold.storage.db import apply_migrations, connect
 from orionfold.storage.repository import (
@@ -414,6 +417,33 @@ def get_provider_health() -> ProviderHealthPanel:
             for r in results
         ]
     )
+
+
+_LOCAL_RUNTIME_LABELS = {"ollama": "Ollama", "lmstudio": "LM Studio", "llamacpp": "llama.cpp"}
+
+
+def _configured_local_runtime() -> str | None:
+    """Friendly label for the local runtime that is actually serving, or None.
+
+    The registry always lists Ollama/LM Studio (keyless local profiles), so presence alone
+    would dishonestly claim "Ollama" even when nothing is running. We only label a local
+    runtime whose health probe says it is reachable (``status == "ok"``) — the same honest
+    signal the cockpit uses to gray out unrunnable candidates.
+    """
+    registry = _build()
+    reachable = {r.provider_id for r in probe_all() if r.status == "ok"}
+    for pid, (provider, _model) in registry.items():
+        if getattr(provider, "privacy", None) == "local" and pid in reachable:
+            return _LOCAL_RUNTIME_LABELS.get(pid, pid)
+    return None
+
+
+@router.get("/telemetry/host")
+def telemetry_host() -> HostProfile:
+    """Static host profile, with the configured local runtime labeled. Read-only, no secrets."""
+    profile = detect_host_profile()
+    # Don't mutate the cached object — return a copy with the live runtime label filled.
+    return profile.model_copy(update={"local_runtime": _configured_local_runtime()})
 
 
 @router.post("/credentials")

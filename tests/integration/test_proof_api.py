@@ -867,3 +867,12 @@ def test_corpus_sources_enriches_from_bound_bench_examples(client):
 
 def test_corpus_sources_unknown_id_is_404(client):
     assert client.get("/api/corpora/no-such-corpus/sources").status_code == 404
+
+
+def test_telemetry_host_returns_profile(client):
+    r = client.get("/api/telemetry/host")
+    assert r.status_code == 200
+    body = r.json()
+    assert "arch" in body and body["arch"]
+    # local_runtime is present (may be None when no local server is reachable)
+    assert "local_runtime" in body
