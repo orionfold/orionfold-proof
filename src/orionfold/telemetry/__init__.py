@@ -5,5 +5,6 @@ that fails degrades a field to ``None``/"unavailable" and never raises into a ru
 """
 
 from orionfold.telemetry.host import detect_host_profile
+from orionfold.telemetry.sampler import RunSampler
 
-__all__ = ["detect_host_profile"]
+__all__ = ["RunSampler", "detect_host_profile"]
