@@ -23,3 +23,35 @@ def test_host_profile_roundtrips():
         gpu_label="Apple M3 Max GPU",
     )
     assert HostProfile.model_validate(p.model_dump()) == p
+
+
+from orionfold.telemetry import host as host_mod
+
+
+def test_detect_host_profile_always_returns_arch():
+    host_mod._clear_cache()
+    p = host_mod.detect_host_profile()
+    # arch is the one field that always resolves (platform.machine never empty)
+    assert p.arch
+    assert isinstance(p.arch, str)
+
+
+def test_detect_host_profile_is_cached():
+    host_mod._clear_cache()
+    a = host_mod.detect_host_profile()
+    b = host_mod.detect_host_profile()
+    assert a is b  # same object — cached, not re-probed
+
+
+def test_probe_failures_degrade_to_none(monkeypatch):
+    host_mod._clear_cache()
+
+    # Force every subprocess shell-out to raise → fields go None, never crash.
+    def boom(*a, **k):
+        raise OSError("no such tool")
+
+    monkeypatch.setattr(host_mod.subprocess, "check_output", boom)
+    p = host_mod.detect_host_profile()
+    assert p.arch  # still resolves (stdlib platform)
+    # chip/os_label come from shell-outs that just failed → None, no exception
+    assert p.chip is None
