@@ -6,6 +6,8 @@ for [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.1.3] — 2026-06-26
+
 ### Fixed
 
 - **OpenRouter real cost is now reported (was `$0.00`).** The OpenAI-compatible provider
