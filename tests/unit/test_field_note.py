@@ -191,6 +191,52 @@ def test_figures_have_accessibility_attributes():
     assert "<figcaption>" in svg
 
 
+# --- chart polish (v12 receipt redesign) -----------------------------------------------------
+
+def test_scatter_has_a_subtle_grid_behind_the_dots():
+    svg = pareto_svg(_report())
+    # Faint gridlines are drawn with a low opacity so they read as background structure.
+    assert 'opacity="0.22"' in svg
+
+
+def test_scatter_shows_a_visible_label_next_to_each_dot():
+    # Beyond the <title> hover, each candidate gets a visible short label by its dot.
+    svg = pareto_svg(_report())
+    # The mock candidates' short labels (tail after the last "/" or "·") appear as <text>.
+    assert "<text" in svg
+    # Two candidates → at least the two dot labels plus the two axis labels.
+    assert svg.count("<text") >= 4
+
+
+def test_pass_rate_bars_have_subtle_gridlines():
+    svg = pass_rate_svg(_report())
+    assert 'opacity="0.28"' in svg
+
+
+def test_pass_rate_bar_height_is_capped_for_few_candidates():
+    # A single-candidate bar must not fill the whole plot — the cap keeps it calm/readable.
+    from orionfold.domain.models import (
+        Candidate, LeaderboardEntry, ProofBrief, ProofReport, ProofRun, Rubric, RunCostSummary,
+    )
+    run = ProofRun(
+        id="run_one", brief=ProofBrief(task_name="t", decision_question="q"),
+        dataset_id="d", dataset_name="D", rubric=Rubric(threshold=0.8),
+        candidates=[Candidate(id="solo", label="hf.co/Orionfold/Advisor-GGUF", provider_id="ollama")],
+        config_hash="abc123abc123", created_at="2026-06-27T00:00:00Z",
+    )
+    lb = [LeaderboardEntry(candidate_id="solo", label="hf.co/Orionfold/Advisor-GGUF",
+                           provider_id="ollama", privacy="local", total=21, pass_count=18,
+                           pass_rate=18 / 21, avg_score=0.86, avg_latency_ms=3000,
+                           total_estimated_cost_usd=0.0, error_count=0, failure_count=3,
+                           recommended=True)]
+    report = ProofReport(run=run, leaderboard=lb, results=[],
+                         cost_summary=RunCostSummary(candidate_cost_usd=0, judge_cost_usd=0, total_cost_usd=0))
+    svg = pass_rate_svg(report)
+    import re
+    heights = [float(h) for h in re.findall(r'<rect[^>]*height="([\d.]+)"', svg)]
+    assert heights and max(heights) <= 26.0  # capped, not the full ~160px inner height
+
+
 # --- determinism -----------------------------------------------------------------------------
 
 

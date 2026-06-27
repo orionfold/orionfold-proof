@@ -48,17 +48,27 @@ def test_all_formats_carry_version_hash_and_timestamp():
 
 def test_recommendation_names_the_winning_candidate_with_a_verdict():
     report = _report()
-    for text in (export.to_markdown(report), export.to_html(report)):
-        assert "Verdict" in text
+    # Both formats lead with the verdict and name the winner. Markdown labels it "Verdict:" (the
+    # document spine); the HTML receipt (v12) promotes the verdict VALUE into the headline, so the
+    # word "Ship" leads instead of the label. Both still surface the verdict and the candidate.
+    md = export.to_markdown(report)
+    assert "Verdict" in md
+    for text in (md, export.to_html(report)):
         assert "Ship" in text  # mock_good passes 5/5 → Ship
         assert "mock_good" in text
 
 
 def test_repro_section_supports_rerun():
     report = _report()
-    for text in (export.to_markdown(report), export.to_html(report)):
-        assert "Repro" in text
-        assert "/api/runs" in text  # a concrete rerun command
+    # Both formats carry a concrete rerun command. The section label differs by genre: Markdown
+    # keeps "Repro" (document spine); the HTML receipt uses "Rerun it" to share the orionfold.com
+    # receipts vocabulary (v12 redesign). Both still expose the rerun endpoint.
+    md = export.to_markdown(report)
+    assert "Repro" in md
+    assert "/api/runs" in md
+    html_out = export.to_html(report)
+    assert "Rerun it" in html_out
+    assert "/api/runs" in html_out
 
 
 def test_failure_case_appears_in_receipt():
@@ -202,7 +212,7 @@ def test_receipt_records_prompt_variants_and_text():
                          cost_summary=RunCostSummary(candidate_cost_usd=0, judge_cost_usd=0, total_cost_usd=0))
 
     data = export.build_receipt(report)
-    assert data["receipt_version"] == 11
+    assert data["receipt_version"] == 12
     assert data["prompt_variants"] == [
         {"name": "Baseline", "system_prompt": "Be neutral."},
         {"name": "Concise", "system_prompt": "Be terse."},
@@ -394,8 +404,96 @@ def _format_fn_report():
                        cost_summary=RunCostSummary(candidate_cost_usd=0, judge_cost_usd=0, total_cost_usd=0))
 
 
-def test_receipt_version_is_11():
-    assert export.RECEIPT_VERSION == 11
+def test_receipt_version_is_12():
+    assert export.RECEIPT_VERSION == 12
+
+
+# ---------------------------------------------------------------------------
+# v12 — visual redesign: verdict hero, embedded figures, cost ledger, shared
+# vocabulary with orionfold.com (eyebrow + "Rerun it"). Presentation only.
+# ---------------------------------------------------------------------------
+
+def test_html_hero_uses_the_shared_eyebrow_vocabulary():
+    html_out = export.to_html(_report())
+    # Mono-uppercase evidence eyebrow over the verdict headline (mirrors the website receipt).
+    assert 'class="eyebrow"' in html_out
+    assert "Proof Receipt ·" in html_out  # eyebrow tags the dataset
+    # The metric spine surfaces the recommended candidate's headline pass figure.
+    assert "class='metric'" in html_out
+
+
+def test_html_embeds_both_figures_for_a_scored_run():
+    html_out = export.to_html(_report())
+    assert "class='figures'" in html_out
+    # pass-rate bars + cost-vs-quality scatter, both reused from `figures` (inline SVG, no assets).
+    assert html_out.count('<figure class="fn-diagram">') == 2
+    assert "<svg" in html_out
+
+
+def test_html_figures_theme_inside_the_receipt():
+    # The figures read --color-* tokens; the receipt must define them (bridged to the rc palette)
+    # so a standalone receipt themes its figures without the cockpit stylesheet.
+    html_out = export.to_html(_report())
+    assert "--color-accent:" in html_out
+    assert "--color-ok:" in html_out
+
+
+def test_html_cost_ledger_block_present():
+    html_out = export.to_html(_report())
+    assert "class='ledger'" in html_out
+    # Still keeps the one-line run-cost summary for at-a-glance + parser stability.
+    assert "Run cost:" in html_out
+
+
+def test_html_figures_omitted_on_quick_unscored_run():
+    # A quick check is unscored → no pass-rate bars / scatter (no fake 0% figures).
+    html_out = export.to_html(_quick_report(chosen="mock_good"))
+    assert "class='figures'" not in html_out
+    # The figure ELEMENT is absent (the class appears once in the CSS rule, never as a rendered node).
+    assert '<figure class="fn-diagram">' not in html_out
+
+
+def test_html_input_renders_retrieved_context_as_source_cards():
+    # An input in the flattened "retrieved public context" shape renders the SAME structured
+    # Question + source-card decomposition the cockpit shows — not a flat blob. This is the reuse of
+    # the shared parser (one parsing→rendering solution across the cockpit and the receipt).
+    structured = (
+        "Question: Which lane won the bakeoff?\n\nRetrieved public context:\n"
+        "Source 1: article_hermes_serving_lane\n"
+        "Label: Field Note: The Hermes Serving Lane\n"
+        "Class: field_note / book2_field_note\n"
+        "Title: The Hermes Serving Lane on a DGX Spark\n"
+        "Excerpt: The NIM Nemotron lane is the incumbent."
+    )
+    out = export._input_html(structured)
+    assert "class='ctx'" in out
+    assert "class='ctx-question'" in out  # the question is split out of the blob
+    assert "class='src-id'" in out
+    assert "The Hermes Serving Lane on a DGX Spark" in out  # the source title surfaces
+    assert "src-excerpt" in out
+    # Progressive disclosure (DS SourceDisclosure): a source WITH a body is a <details>/<summary>
+    # that collapses, not an always-open card.
+    assert "<details class='src-card'>" in out
+    assert "<summary class='src-head'>" in out
+    # DS: no left-edge accent on the card (the accent-as-left-border was a slop tell, removed).
+    assert "border-left: 2px solid var(--color-accent)" not in out
+
+
+def test_input_source_without_a_body_is_not_expandable():
+    # A source with only a head (no label/excerpt) renders as a flat, non-expandable card — mirrors
+    # SourceDisclosure's hasBody gating (no empty disclosure to click).
+    out = export._input_html(
+        "Question: q\n\nRetrieved public context:\nSource 1: doc_a\nTitle: A title"
+    )
+    assert "src-card-flat" in out
+    assert "<details" not in out
+
+
+def test_input_html_degrades_to_plain_val_for_free_form_text():
+    # Free-form input (no retrieved-context marker) falls back to the pre-wrap value, never a card.
+    out = export._input_html("Just classify this ticket: password reset failed.")
+    assert "class='val'" in out
+    assert "src-card" not in out
 
 
 def test_hardware_stanza_renders_when_host_present(make_report):

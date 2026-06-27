@@ -12,6 +12,8 @@ import html
 import json
 
 from orionfold.domain.models import LeaderboardEntry, ProofReport, ResultRow
+from orionfold.receipts.figures import pareto_svg, pass_rate_svg
+from orionfold.receipts.retrieved_context import parse_retrieved_context
 from orionfold.scoring.review import review_report
 
 # v2: added verdict, summary, and a repro section (run id + rerun command).
@@ -38,8 +40,16 @@ from orionfold.scoring.review import review_report
 # case/punctuation normalization would have flipped). Carried as a `verdict_review` list (empty when
 # nothing flagged) and rendered inline under the affected failure case. Advisory only — the
 # deterministic verdict stays authoritative; the review never changes pass/fail.
+# v12: receipt VISUAL redesign — presentation only, the canonical `build_receipt()` dict is
+# byte-identical to v11 (so `config_hash` and the JSON export are unchanged in shape/values). The
+# HTML receipt gains a verdict hero (evidence eyebrow + metric headline + recommendation), the two
+# inline SVG figures (pass-rate bars + cost-vs-quality scatter, reused from `figures` — full runs
+# only, self-omitting on quick/unscored), a cost-ledger split block, and mono-uppercase section
+# labels + a "Rerun it" provenance footer that mirror the orionfold.com receipts vocabulary (shared
+# familiarity hooks across the cockpit and the website, each kept to its own genre). Markdown/JSON
+# bodies are unchanged except the version number. Bump = the rendered HTML drifted, nothing else.
 # Bump on any schema change so downstream consumers can detect drift.
-RECEIPT_VERSION = 11
+RECEIPT_VERSION = 12
 
 
 def _verdict(top: LeaderboardEntry) -> str:
@@ -485,44 +495,130 @@ def to_markdown(report: ProofReport) -> str:
 _RECEIPT_STYLE = """<style>
   :root {
     color-scheme: light dark;
-    --rc-bg: #0b0f14; --rc-ink: #e6edf3; --rc-muted: #9fb0c0; --rc-line: #1c2530;
-    --rc-rec-bg: #11331f; --rc-rec-line: #1f5135; --rc-rec-ink: #c8f5da;
+    /* Receipt palette (--rc-*) + a status/accent set the inline SVG figures read (--color-*),
+       defined HERE so a self-contained receipt themes its figures without the cockpit's stylesheet.
+       Accent is Proof cyan (the one action colour); ok/warn/danger are status only. */
+    --rc-bg: #0b0f14; --rc-ink: #e6edf3; --rc-muted: #9fb0c0; --rc-faint: #6f8190; --rc-line: #1c2530;
+    --rc-card: #0f141b; --rc-rec-bg: #11331f; --rc-rec-line: #1f5135; --rc-rec-ink: #c8f5da;
     --rc-case: #c4d0db; --rc-case-key: #6f8190;
+    --color-accent: #22d3ee; --color-ok: #34d399; --color-warn: #fbbf24; --color-danger: #f87171;
+    --color-ink-muted: var(--rc-muted); --color-ink-faint: var(--rc-faint);
   }
   @media (prefers-color-scheme: light) {
     :root {
-      --rc-bg: #f4f6f8; --rc-ink: #1b2430; --rc-muted: #51616f; --rc-line: #dde3ea;
-      --rc-rec-bg: #e7f7ee; --rc-rec-line: #b6e6cb; --rc-rec-ink: #0f5132;
+      --rc-bg: #f4f6f8; --rc-ink: #1b2430; --rc-muted: #51616f; --rc-faint: #6b7785; --rc-line: #dde3ea;
+      --rc-card: #ffffff; --rc-rec-bg: #e7f7ee; --rc-rec-line: #b6e6cb; --rc-rec-ink: #0f5132;
       --rc-case: #2b3744; --rc-case-key: #5f6e80;
+      --color-accent: #0e9e98; --color-ok: #0f9d63; --color-warn: #b97e00; --color-danger: #c0392b;
     }
   }
   :root[data-theme="dark"] {
-    --rc-bg: #0b0f14; --rc-ink: #e6edf3; --rc-muted: #9fb0c0; --rc-line: #1c2530;
-    --rc-rec-bg: #11331f; --rc-rec-line: #1f5135; --rc-rec-ink: #c8f5da;
+    --rc-bg: #0b0f14; --rc-ink: #e6edf3; --rc-muted: #9fb0c0; --rc-faint: #6f8190; --rc-line: #1c2530;
+    --rc-card: #0f141b; --rc-rec-bg: #11331f; --rc-rec-line: #1f5135; --rc-rec-ink: #c8f5da;
     --rc-case: #c4d0db; --rc-case-key: #6f8190;
+    --color-accent: #22d3ee; --color-ok: #34d399; --color-warn: #fbbf24; --color-danger: #f87171;
   }
   :root[data-theme="light"] {
-    --rc-bg: #f4f6f8; --rc-ink: #1b2430; --rc-muted: #51616f; --rc-line: #dde3ea;
-    --rc-rec-bg: #e7f7ee; --rc-rec-line: #b6e6cb; --rc-rec-ink: #0f5132;
+    --rc-bg: #f4f6f8; --rc-ink: #1b2430; --rc-muted: #51616f; --rc-faint: #6b7785; --rc-line: #dde3ea;
+    --rc-card: #ffffff; --rc-rec-bg: #e7f7ee; --rc-rec-line: #b6e6cb; --rc-rec-ink: #0f5132;
     --rc-case: #2b3744; --rc-case-key: #5f6e80;
+    --color-accent: #0e9e98; --color-ok: #0f9d63; --color-warn: #b97e00; --color-danger: #c0392b;
   }
   body { margin: 0; font: 15px/1.6 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
          background: var(--rc-bg); color: var(--rc-ink); }
   main { max-width: 56rem; margin: 0 auto; padding: 2.5rem 1.5rem; }
-  h1 { font-size: 1.5rem; letter-spacing: -0.01em; margin: 0 0 0.25rem; }
+  /* Shared vocabulary with orionfold.com receipts: a mono-uppercase eyebrow over a tight display
+     headline. Here the eyebrow is the evidence tag (PROOF RECEIPT · dataset), the headline is the
+     verdict + metric spine — the cockpit's evidence genre wearing the website's familiarity hooks. */
+  .eyebrow { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px;
+             letter-spacing: 0.18em; text-transform: uppercase; color: var(--color-accent); margin: 0; }
+  h1 { font-size: 1.65rem; letter-spacing: -0.01em; line-height: 1.2; margin: 0.5rem 0 0; }
+  .metric { margin: 0.6rem 0 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.25rem 0.9rem;
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .metric .stat { font-size: 1.05rem; color: var(--rc-ink); }
+  .metric .stat b { color: var(--color-accent); font-weight: 600; }
   .rec { background: var(--rc-rec-bg); border: 1px solid var(--rc-rec-line); color: var(--rc-rec-ink);
-          padding: 0.9rem 1rem; border-radius: 10px; margin: 1rem 0 1.5rem; }
+          padding: 0.9rem 1rem; border-radius: 12px; margin: 1.25rem 0 1.5rem; }
+  /* Section labels echo the website's "The receipt" / "Rerun it" mono-uppercase chrome. */
+  h2 { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px;
+       letter-spacing: 0.12em; text-transform: uppercase; color: var(--rc-faint); font-weight: 600;
+       margin: 2rem 0 0.6rem; }
   dl { display: grid; grid-template-columns: max-content 1fr; gap: 0.2rem 1rem; margin: 0 0 1.5rem; }
   dt { color: var(--rc-muted); } dd { margin: 0; }
-  table { width: 100%; border-collapse: collapse; margin: 0.5rem 0 1.5rem; }
+  table { width: 100%; border-collapse: collapse; margin: 0.5rem 0 1rem; }
   th, td { text-align: left; padding: 0.5rem 0.6rem; border-bottom: 1px solid var(--rc-line); }
-  th { color: var(--rc-muted); font-weight: 600; }
+  th { color: var(--rc-muted); font-weight: 600; font-size: 0.85rem; }
+  tbody tr.rec-row { background: color-mix(in srgb, var(--rc-rec-bg) 55%, transparent); }
   code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
   .muted { color: var(--rc-muted); }
-  ul.failures { list-style: none; padding: 0; }
-  ul.failures > li { border: 1px solid var(--rc-line); border-radius: 10px; padding: 0.8rem 1rem; margin: 0.6rem 0; }
-  .case { color: var(--rc-case); margin-top: 0.25rem; }
-  .case > span { color: var(--rc-case-key); display: inline-block; min-width: 4.5rem; }
+  /* Inline figures (pass-rate bars + cost×quality scatter), reused from `figures`. Two-up on wide,
+     stacked on narrow; the card frame matches the website's rounded receipt blocks. */
+  .figures { display: grid; gap: 1rem; grid-template-columns: 1fr; margin: 0.5rem 0 0.5rem; }
+  @media (min-width: 40rem) { .figures { grid-template-columns: 1fr 1fr; } }
+  figure.fn-diagram { margin: 0; border: 1px solid var(--rc-line); border-radius: 12px;
+                      background: var(--rc-card); padding: 0.9rem 1rem; }
+  figure.fn-diagram svg { width: 100%; height: auto; display: block; }
+  figure.fn-diagram figcaption { color: var(--rc-faint); font-size: 0.8rem; margin-top: 0.5rem; }
+  /* Cost ledger — the eval/judge/total split as a small framed block, not a buried one-liner. */
+  .ledger { display: flex; flex-wrap: wrap; gap: 0.4rem 1.5rem; border: 1px solid var(--rc-line);
+            border-radius: 12px; background: var(--rc-card); padding: 0.8rem 1rem; margin: 0.5rem 0 0.5rem;
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .ledger .cell { display: flex; flex-direction: column; gap: 0.1rem; }
+  .ledger .cell span { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--rc-faint); }
+  .ledger .cell strong { font-weight: 600; color: var(--rc-ink); }
+  ul.failures, ul.variants { list-style: none; padding: 0; }
+  ul.failures > li { border: 1px solid var(--rc-line); border-radius: 12px; padding: 0.8rem 1rem; margin: 0.6rem 0;
+                     background: var(--rc-card); }
+  ul.failures > li > strong { display: block; margin-bottom: 0.5rem; }
+  ul.variants > li { margin: 0.3rem 0; }
+  /* input / expected / output: a STACKED label over a pre-wrap value (mirrors the cockpit's
+     ExampleCard.Field) so authored newlines + structured prompts (Source 1: … Source 2: …) keep
+     their shape instead of collapsing into one wall of text. The value is mono + size-capped with a
+     scroll so a giant retrieved-context block never dominates the receipt. */
+  .case { display: grid; gap: 0.15rem; margin-top: 0.6rem; }
+  .case > span { color: var(--rc-case-key); font-size: 11px; letter-spacing: 0.08em;
+                 text-transform: uppercase; }
+  .case > .val { color: var(--rc-case); white-space: pre-wrap; overflow-wrap: anywhere;
+                 font: 12.5px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace;
+                 max-height: 16rem; overflow: auto;
+                 background: color-mix(in srgb, var(--rc-line) 22%, transparent);
+                 border-radius: 8px; padding: 0.5rem 0.65rem; }
+  /* Structured retrieved-context render (the Advisor bench shape) — the SAME Question + source-card
+     decomposition the cockpit shows for datasets/corpus/evals, reusing the shared parser. A flat
+     pre-wrap blob becomes a question line over a stack of titled, cited source cards. */
+  .ctx { display: grid; gap: 0.5rem; }
+  .ctx-question { margin: 0; color: var(--rc-ink); }
+  .ctx-sources-label { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
+                       color: var(--rc-faint); }
+  .ctx-sources { display: grid; gap: 0.4rem; }
+  /* Source card = the DS SourceDisclosure shell: a full neutral border on the raised card surface
+     (NO left-edge accent — accent is reserved for the primary action / winner). Native <details>
+     gives progressive disclosure with zero JS. */
+  .src-card { border: 1px solid var(--rc-line); border-radius: 8px; background: var(--rc-card); }
+  .src-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.3rem 0.5rem;
+              padding: 0.45rem 0.6rem; }
+  details.src-card > summary.src-head { cursor: pointer; list-style: none; }
+  details.src-card > summary.src-head::-webkit-details-marker { display: none; }
+  /* A rotating ▸ disclosure caret leads the summary so the expand affordance reads at a glance. */
+  details.src-card > summary.src-head::before { content: "▸"; color: var(--rc-faint);
+              font-size: 10px; margin-right: 0.1rem; transition: transform 0.12s ease; }
+  details.src-card[open] > summary.src-head::before { transform: rotate(90deg); }
+  details.src-card > summary.src-head:hover { background: color-mix(in srgb, var(--rc-ink) 5%, transparent); }
+  .src-title { color: var(--rc-ink); font-weight: 500; }
+  .src-id { font-size: 11px; color: var(--rc-faint);
+            background: color-mix(in srgb, var(--rc-line) 30%, transparent);
+            border-radius: 4px; padding: 0.05rem 0.35rem; }
+  .src-class { font-size: 11px; color: var(--rc-faint); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .src-body { border-top: 1px solid var(--rc-line); padding: 0.45rem 0.6rem; }
+  .src-label { margin: 0 0 0.2rem; font-size: 12px; color: var(--rc-muted); }
+  .src-excerpt { margin: 0; font-size: 12px; color: var(--rc-case); white-space: pre-wrap;
+                 overflow-wrap: anywhere; }
+  /* "Rerun it" provenance footer — the website's mono-labelled card, carrying the repro spine. */
+  .provenance { border: 1px solid var(--rc-line); border-radius: 12px; background: var(--rc-card);
+                padding: 1rem 1.1rem; margin: 1.5rem 0 0; }
+  .provenance p.label { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px;
+                        letter-spacing: 0.18em; text-transform: uppercase; color: var(--rc-faint); margin: 0 0 0.6rem; }
+  .provenance dl { margin: 0; }
 </style>"""
 
 
@@ -545,7 +641,7 @@ def _quick_html(report: ProofReport, data: dict, theme: str | None) -> str:
     )
     outputs = "".join(
         "<li><strong>{label}{star}</strong>"
-        "<div class='case'><span>output</span> {body}</div></li>".format(
+        "<div class='case'><span>output</span><div class='val'>{body}</div></div></li>".format(
             label=html.escape(by_id[r.candidate_id].label if r.candidate_id in by_id else r.candidate_id),
             star=" ⭐" if r.candidate_id == pick else "",
             body=html.escape(f"error: {r.error}" if r.error else (r.output_text or "—")),
@@ -563,15 +659,14 @@ def _quick_html(report: ProofReport, data: dict, theme: str | None) -> str:
 </head>
 <body>
 <main>
-  <h1>Proof Receipt</h1>
-  <p class="muted">QUICK CHECK · 1 example · not scored proof</p>
-  <div class="rec"><strong>Verdict: {html.escape(data['verdict'])}</strong> — {html.escape(data['recommendation'])}</div>
+  <p class="eyebrow">Proof Receipt · Quick check</p>
+  <h1>{html.escape(data['verdict'])} — {html.escape(brief['decision_question'] or brief['task_name'])}</h1>
+  <p class="metric"><span class="stat">QUICK CHECK · 1 example · not scored proof</span></p>
+  <div class="rec"><strong>{html.escape(data['recommendation'])}</strong></div>
   <p class="muted">{html.escape(data['summary'])}</p>
   <dl>
     <dt>Decision</dt><dd>{html.escape(brief['decision_question'])}</dd>
     <dt>Task</dt><dd>{html.escape(brief['task_name'])}</dd>
-    <dt>Run id</dt><dd><code>{html.escape(data['run_id'])}</code></dd>
-    <dt>Config hash</dt><dd><code>{html.escape(data['config_hash'])}</code></dd>
     <dt>Generated</dt><dd>{html.escape(data['created_at'])}</dd>
     <dt>Receipt schema</dt><dd>v{data['receipt_version']}</dd>
   </dl>
@@ -583,10 +678,102 @@ def _quick_html(report: ProofReport, data: dict, theme: str | None) -> str:
   <h2>Outputs</h2>
   <ul class="failures">{outputs}</ul>
   <p class="muted">{html.escape(data['quick_note'])}</p>
+  <section class="provenance">
+    <p class="label">Provenance</p>
+    <dl>
+      <dt>Run id</dt><dd><code>{html.escape(data['run_id'])}</code></dd>
+      <dt>Config hash</dt><dd><code>{html.escape(data['config_hash'])}</code></dd>
+    </dl>
+  </section>
 </main>
 </body>
 </html>
 """
+
+
+def _metric_spine(data: dict) -> str:
+    """The mono metric line under the headline — the verdict's numbers at a glance. For a scored
+    full run: pass-rate · pass-count · est. cost of the recommended candidate (the one being
+    shipped). The accent <b> wraps the headline pass-rate so it pops, mirroring the website's
+    metric eyebrow. Falls back gracefully when nothing is recommended (no-winner run)."""
+    top = next((e for e in data["leaderboard"] if e.get("recommended")), None)
+    if top is None:
+        return ""
+    pct = f"{top['pass_rate']:.0%}"
+    cells = [
+        f"<span class='stat'><b>{pct}</b> pass</span>",
+        f"<span class='stat'>{top['pass_count']}/{top['total']} examples</span>",
+        f"<span class='stat'>${top['total_estimated_cost_usd']:.2f}</span>",
+    ]
+    return f"<p class='metric'>{''.join(cells)}</p>"
+
+
+def _figures_html(report: ProofReport) -> str:
+    """The two inline SVG figures (pass-rate bars + cost-vs-quality scatter), reused verbatim from
+    `figures`. Both self-omit (return "") on unscored/quick runs or when there's nothing to draw, so
+    the receipt only shows a figure when it carries real meaning. Wrapped in a two-up grid."""
+    parts = [pass_rate_svg(report), pareto_svg(report)]
+    parts = [p for p in parts if p]
+    if not parts:
+        return ""
+    return f"<div class='figures'>{''.join(parts)}</div>"
+
+
+def _ledger_html(cost: dict) -> str:
+    """The cost ledger as a small framed split (eval / judge / total) instead of a buried line."""
+    return (
+        "<div class='ledger'>"
+        f"<div class='cell'><span>Eval</span><strong>${cost['candidate']:.4f}</strong></div>"
+        f"<div class='cell'><span>Judge</span><strong>${cost['judge']:.4f}</strong></div>"
+        f"<div class='cell'><span>Total</span><strong>${cost['total']:.4f}</strong></div>"
+        "</div>"
+    )
+
+
+def _input_html(input_text: str) -> str:
+    """Render an example's INPUT. When it's the flattened "retrieved public context" shape (the
+    Advisor bench convention), parse it into a Question + source cards — the SAME structured
+    rendering the cockpit shows for datasets / corpus / evals (reusing `parse_retrieved_context`).
+    Otherwise degrade to a plain pre-wrap value. One parsing→rendering solution, two surfaces."""
+    ctx = parse_retrieved_context(input_text)
+    if ctx is None:
+        return f"<div class='val'>{html.escape(input_text)}</div>"
+
+    cards = []
+    for src in ctx.sources:
+        head = []
+        if src.title:
+            head.append(f"<span class='src-title'>{html.escape(src.title)}</span>")
+        head.append(f"<code class='src-id'>{html.escape(src.id)}</code>")
+        if src.class_:
+            head.append(f"<span class='src-class'>{html.escape(src.class_)}</span>")
+        body = []
+        if src.label:
+            body.append(f"<p class='src-label'>{html.escape(src.label)}</p>")
+        if src.excerpt:
+            body.append(f"<p class='src-excerpt'>{html.escape(src.excerpt)}</p>")
+        # Progressive disclosure (native <details>, no JS — works in the sandboxed standalone
+        # receipt) mirroring the cockpit's SourceDisclosure: a summary row that's always visible,
+        # an excerpt/label body revealed on expand. Non-expandable when there's nothing to reveal.
+        if body:
+            cards.append(
+                f"<details class='src-card'><summary class='src-head'>{''.join(head)}</summary>"
+                f"<div class='src-body'>{''.join(body)}</div></details>"
+            )
+        else:
+            cards.append(
+                f"<div class='src-card src-card-flat'><div class='src-head'>{''.join(head)}</div></div>"
+            )
+
+    question = (
+        f"<p class='ctx-question'>{html.escape(ctx.question)}</p>" if ctx.question else ""
+    )
+    return (
+        f"<div class='ctx'>{question}"
+        f"<div class='ctx-sources-label'>Retrieved context · {len(ctx.sources)} "
+        f"source{'s' if len(ctx.sources) != 1 else ''}</div>"
+        f"<div class='ctx-sources'>{''.join(cards)}</div></div>"
+    )
 
 
 def to_html(report: ProofReport, theme: str | None = None) -> str:
@@ -597,7 +784,7 @@ def to_html(report: ProofReport, theme: str | None = None) -> str:
     brief = data["brief"]
 
     rows = "".join(
-        "<tr>"
+        f"<tr{' class=\"rec-row\"' if e['recommended'] else ''}>"
         f"<td>{html.escape(e['label'])}{' ⭐' if e['recommended'] else ''}</td>"
         f"<td>{html.escape(e['provider_id'])}</td>"
         f"<td>{html.escape(e['privacy'])}</td>"
@@ -616,17 +803,17 @@ def to_html(report: ProofReport, theme: str | None = None) -> str:
     reviews = _reviews_by_key(data)
     if failures:
         items = "".join(
-            "<li><strong>{cid}</strong> · example {idx} · {reason}"
-            "<div class='case'><span>input</span> {inp}</div>"
-            "<div class='case'><span>expected</span> {exp}</div>"
-            "<div class='case'><span>output</span> {out}</div></li>".format(
+            "<li><strong>{cid} · example {idx} · {reason}</strong>"
+            "<div class='case'><span>input</span>{inp}</div>"
+            "<div class='case'><span>expected</span><div class='val'>{exp}</div></div>"
+            "<div class='case'><span>output</span><div class='val'>{out}</div></div></li>".format(
                 cid=html.escape(f["candidate_id"]),
                 idx=f["example_index"],
                 reason=html.escape(
                     _failure_reason(f)
                     + _review_suffix(reviews.get((f["candidate_id"], f["example_index"])))
                 ),
-                inp=html.escape(f["input_text"]),
+                inp=_input_html(f["input_text"]),
                 exp=html.escape(f["expected_text"]),
                 out=html.escape(f["output_text"] or "—"),
             )
@@ -656,17 +843,17 @@ def to_html(report: ProofReport, theme: str | None = None) -> str:
 </head>
 <body>
 <main>
-  <h1>Proof Receipt</h1>
-  <p class="muted">{html.escape(brief['task_name'])}</p>
-  <div class="rec"><strong>Verdict: {html.escape(data['verdict'])}</strong> — {html.escape(data['recommendation'])}</div>
+  <p class="eyebrow">Proof Receipt · {html.escape(data['dataset']['name'])}</p>
+  <h1>{html.escape(data['verdict'])} — {html.escape(brief['decision_question'] or brief['task_name'])}</h1>
+  {_metric_spine(data)}
+  <div class="rec"><strong>{html.escape(data['recommendation'])}</strong></div>
   <p class="muted">{html.escape(data['summary'])}</p>
+  {_figures_html(report)}
   <dl>
     <dt>Decision</dt><dd>{html.escape(brief['decision_question'])}</dd>
     <dt>Dataset</dt><dd>{html.escape(data['dataset']['name'])} (<code>{html.escape(data['dataset']['id'])}</code>)</dd>
     <dt>Rubric</dt><dd>{html.escape(_rubric_label(data['rubric']))}</dd>
     <dt>Scored by</dt><dd>{html.escape(data['scored_by'])}</dd>
-    <dt>Run id</dt><dd><code>{html.escape(data['run_id'])}</code></dd>
-    <dt>Config hash</dt><dd><code>{html.escape(data['config_hash'])}</code></dd>
     <dt>Generated</dt><dd>{html.escape(data['created_at'])}</dd>
     <dt>Receipt schema</dt><dd>v{data['receipt_version']}</dd>
   </dl>
@@ -679,17 +866,21 @@ def to_html(report: ProofReport, theme: str | None = None) -> str:
     </tr></thead>
     <tbody>{rows}</tbody>
   </table>
+  <h2>Cost ledger</h2>
+  {_ledger_html(data['cost'])}
   <p class="muted">Run cost: candidate ${data['cost']['candidate']:.4f} · judge ${data['cost']['judge']:.4f} · total ${data['cost']['total']:.4f}</p>
   <h2>Failure cases ({len(failures)})</h2>
   {failures_html}
   {variants_html}
   {_hardware_html(report)}
-  <h2>Repro</h2>
-  <dl>
-    <dt>Run id</dt><dd><code>{html.escape(data['repro']['run_id'])}</code></dd>
-    <dt>Config hash</dt><dd><code>{html.escape(data['repro']['config_hash'])}</code></dd>
-    <dt>Rerun</dt><dd><code>{html.escape(data['repro']['rerun'])}</code></dd>
-  </dl>
+  <section class="provenance">
+    <p class="label">Rerun it</p>
+    <dl>
+      <dt>Run id</dt><dd><code>{html.escape(data['repro']['run_id'])}</code></dd>
+      <dt>Config hash</dt><dd><code>{html.escape(data['repro']['config_hash'])}</code></dd>
+      <dt>Rerun</dt><dd><code>{html.escape(data['repro']['rerun'])}</code></dd>
+    </dl>
+  </section>
 </main>
 </body>
 </html>

@@ -47,6 +47,48 @@ def _esc(text: str) -> str:
     )
 
 
+def _short_label(label: str, *, limit: int = 16) -> str:
+    """A compact chart label: keep the most identifying tail of a long id (e.g.
+    ``hf.co/Orionfold/Advisor-GGUF`` → ``Advisor-GGUF``, ``z-ai/glm-4.6`` → ``glm-4.6``) so the
+    fixed-width gutter never clips. Splits on the last ``/`` or ``·`` and ellipsises if still long."""
+    tail = label.rsplit("/", 1)[-1].rsplit("·", 1)[-1].strip()
+    if len(tail) > limit:
+        tail = tail[: limit - 1] + "…"
+    return tail or label[:limit]
+
+
+def _gridlines_v(x0: float, x1: float, y0: float, y1: float, *, steps: int = 4) -> str:
+    """Faint vertical gridlines (subtle background structure for a bar chart) at even fractions of
+    the inner width. Drawn BEFORE the bars so they sit behind. --rc-line-ish via --color-ink-faint
+    at low opacity keeps them quiet."""
+    parts = []
+    for k in range(1, steps + 1):
+        x = x0 + (x1 - x0) * k / steps
+        parts.append(
+            f'<line x1="{_num(x)}" y1="{_num(y0)}" x2="{_num(x)}" y2="{_num(y1)}" '
+            f'stroke="var(--color-ink-faint)" stroke-width="0.5" opacity="0.28"/>'
+        )
+    return "".join(parts)
+
+
+def _gridlines_hv(x0: float, x1: float, y0: float, y1: float, *, steps: int = 4) -> str:
+    """Faint horizontal + vertical gridlines for the scatter — a subtle plot grid behind the dots."""
+    parts = []
+    for k in range(1, steps + 1):
+        y = y0 + (y1 - y0) * k / steps
+        parts.append(
+            f'<line x1="{_num(x0)}" y1="{_num(y)}" x2="{_num(x1)}" y2="{_num(y)}" '
+            f'stroke="var(--color-ink-faint)" stroke-width="0.5" opacity="0.22"/>'
+        )
+    for k in range(1, steps + 1):
+        x = x0 + (x1 - x0) * k / steps
+        parts.append(
+            f'<line x1="{_num(x)}" y1="{_num(y0)}" x2="{_num(x)}" y2="{_num(y1)}" '
+            f'stroke="var(--color-ink-faint)" stroke-width="0.5" opacity="0.22"/>'
+        )
+    return "".join(parts)
+
+
 def _pareto_frontier(pts: list[tuple[float, float]]) -> set[int]:
     """Indices of Pareto-optimal points for lower-cost-better × higher-quality-better.
 
@@ -134,6 +176,8 @@ def pareto_svg(report: ProofReport) -> str:
         return _PAD_T + (1 - quality) * inner_h
 
     parts: list[str] = []
+    # Subtle plot grid behind the dots — quiet structure so a dot's position reads against a scale.
+    parts.append(_gridlines_hv(_PAD_L, _PAD_L + inner_w, _PAD_T, _PAD_T + inner_h, steps=4))
     # axes (neutral ink)
     parts.append(
         f'<line x1="{_PAD_L}" y1="{_PAD_T}" x2="{_PAD_L}" y2="{_PAD_T + inner_h}" '
@@ -177,6 +221,17 @@ def pareto_svg(report: ProofReport) -> str:
             f'<circle cx="{_num(cx)}" cy="{_num(cy)}" r="{radius}" '
             f'fill="var({colour})"><title>{_esc(e.label)}</title></circle>'
         )
+        # Visible short label by each dot. Anchor end (label to the LEFT) when the dot sits in the
+        # right third so it never runs off the plot; otherwise start (label to the RIGHT). Nudge the
+        # y up unless the dot is near the top, where it drops below to stay inside the frame.
+        near_right = cx > _PAD_L + inner_w * 0.66
+        anchor = "end" if near_right else "start"
+        lx = cx - radius - 3 if near_right else cx + radius + 3
+        ly = cy + 11 if cy < _PAD_T + 14 else cy - radius - 4
+        parts.append(
+            f'<text x="{_num(lx)}" y="{_num(ly)}" text-anchor="{anchor}" font-size="8" '
+            f'fill="var(--color-ink-muted)">{_esc(_short_label(e.label))}</text>'
+        )
 
     rec = next((e.label for e in entries if e.recommended), None)
     caption = (
@@ -209,21 +264,34 @@ def pass_rate_svg(report: ProofReport) -> str:
     inner_w = _W - _PAD_L - _PAD_R
     inner_h = _H - _PAD_T - _PAD_B
     n = len(entries)
-    gap = 6
-    bar_h = (inner_h - gap * (n - 1)) / n if n else inner_h
+    gap = 8
+    # Cap bar thickness so a 1–2 candidate run gets calm, readable bars instead of one slab filling
+    # the card; the band of bars is then centred vertically in the plot area.
+    bar_h = min(26.0, (inner_h - gap * (n - 1)) / n) if n else inner_h
+    band_h = bar_h * n + gap * (n - 1)
+    y_top = _PAD_T + max(0.0, (inner_h - band_h) / 2)
 
     parts: list[str] = []
+    # Subtle 25/50/75/100% vertical gridlines behind the bars (the 0–100% scale is implicit).
+    parts.append(_gridlines_v(_PAD_L, _PAD_L + inner_w, _PAD_T, _PAD_T + inner_h, steps=4))
+    # axis baseline (neutral ink)
+    parts.append(
+        f'<line x1="{_PAD_L}" y1="{_PAD_T}" x2="{_PAD_L}" y2="{_PAD_T + inner_h}" '
+        f'stroke="var(--color-ink-faint)" stroke-width="1"/>'
+    )
     for i, e in enumerate(entries):
-        y = _PAD_T + i * (bar_h + gap)
+        y = y_top + i * (bar_h + gap)
         width = e.pass_rate * inner_w
         colour = "--color-accent" if e.recommended else "--color-ok"
         parts.append(
             f'<rect x="{_PAD_L}" y="{_num(y)}" width="{_num(width)}" height="{_num(bar_h)}" '
             f'rx="2" fill="var({colour})"><title>{_esc(e.label)}</title></rect>'
         )
+        # Label limit ~8 chars so the most-identifying tail fits the fixed left gutter without
+        # clipping at the SVG edge (the gutter is _PAD_L px wide at font-size 8).
         parts.append(
-            f'<text x="{_PAD_L - 4}" y="{_num(y + bar_h / 2 + 3)}" text-anchor="end" '
-            f'font-size="8" fill="var(--color-ink-muted)">{_esc(e.label)}</text>'
+            f'<text x="{_PAD_L - 5}" y="{_num(y + bar_h / 2 + 3)}" text-anchor="end" '
+            f'font-size="8" fill="var(--color-ink-muted)">{_esc(_short_label(e.label, limit=8))}</text>'
         )
         parts.append(
             f'<text x="{_num(_PAD_L + width + 4)}" y="{_num(y + bar_h / 2 + 3)}" '
