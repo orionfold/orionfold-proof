@@ -246,6 +246,24 @@ class HostProfile(BaseModel):
     gpu_label: str | None = None  # "Apple M3 Max GPU" / "NVIDIA RTX 4090" / None
 
 
+class TelemetrySummary(BaseModel):
+    """Rolled-up live sampling for one run. Presentation-only — NEVER in ``config_hash``.
+
+    ``sampled=False`` (the default) is the honest "telemetry not captured" state — never a
+    fabricated zero. Every metric is best-effort and may be ``None``.
+    """
+
+    sampled: bool = False
+    n_samples: int = 0
+    cpu_util_mean: float | None = None
+    cpu_util_max: float | None = None
+    mem_used_gb_max: float | None = None
+    process_rss_gb_max: float | None = None  # serving-runtime RSS (the llama_server memory)
+    gpu_util_mean: float | None = None  # None on Mac without the powermetrics opt-in
+    gpu_util_max: float | None = None
+    warmup_ms: int | None = None  # first-call latency incl. cold load (not pure decode)
+
+
 class ProofBrief(BaseModel):
     """Lightweight framing of the decision this proof informs (not a wizard in v0)."""
 
@@ -294,6 +312,10 @@ class ProofReport(BaseModel):
             candidate_cost_usd=0.0, judge_cost_usd=0.0, total_cost_usd=0.0
         )
     )
+    # Hardware context — presentation-only, EXCLUDED from config_hash. Optional + defaulted so
+    # older stored reports deserialize unchanged. host = the machine; telemetry = live sampling.
+    host: HostProfile | None = None
+    telemetry: TelemetrySummary | None = None
 
 
 class TrackRecordEntry(BaseModel):
