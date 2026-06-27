@@ -329,7 +329,11 @@ export function ProofCockpit({
     <div className="min-h-full">
       {/* Skip-to-content target (App's skip link → #main-content). tabIndex -1 lets it receive
           programmatic focus without becoming a tab stop. */}
-      <main id="main-content" tabIndex={-1} className="flex flex-col gap-8 px-6 py-8 lg:px-10 focus:outline-none">
+      {/* Centered wide reading measure (mx-auto + max-w-[96rem]) so the working canvas sits in the
+          middle of the now-railless full-width region instead of jamming against the left edge with
+          dead space on the right. Matches ViewShell's cap (spec §3.1). When a run exists the App
+          grid hands this a (1fr) column beside the 22rem Inspector, and the cap applies within it. */}
+      <main id="main-content" tabIndex={-1} className="mx-auto flex w-full max-w-[96rem] flex-col gap-8 px-6 py-8 lg:px-10 focus:outline-none">
         <header className="flex flex-col gap-3">
           <div className="flex flex-col gap-1">
             <h2 className="text-xl font-semibold tracking-tight text-(--color-ink)">Proof Run</h2>

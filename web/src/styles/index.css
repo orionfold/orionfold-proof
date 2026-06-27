@@ -60,6 +60,13 @@
   --animate-reveal: reveal 0.3s ease-out both; /* results / progress easing in */
   --animate-emphasis: emphasis 0.6s ease-out; /* one quiet lift on the winner card */
   --animate-breathe: breathe 2.4s ease-in-out infinite; /* first-run CTA affordance */
+
+  /* ── Arena-shape chrome (cockpit redesign) ───────────────────────────────────────────────
+     The top app bar + horizontal telemetry rail replace the old left/right rails. Heights live
+     here as tokens so the rail can pin at `top: var(--bar-h)` and the real-estate budget
+     (spec §3.1: total chrome ≤ ~135px) is checkable from one place: 52 + 78 = 130px. */
+  --bar-h: 52px; /* compact single-tier app bar */
+  --rail-h: 78px; /* horizontal telemetry rail (single dense row) */
 }
 
 /* Light theme — Orionfold "paper, not glare": soft gray app surface, white raised cards, a cyan
@@ -174,6 +181,49 @@ body {
   /* Generous line height; readability over density (design system: type). */
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+}
+
+/* ── Blueprint draughting field (spec §3.2) ──────────────────────────────────────────────────
+   Proof's whitespace motif: a fine low-opacity grid PLUS heavier rule lines and small corner
+   registration ticks — reads as "measured, drawn-to-spec," distinct from Arena's pure grid. Pure
+   CSS layered gradients (no image), `fixed` so the field stays still as content scrolls. Alpha is
+   kept very low (the line token at ~0.5 / overlaid at ~0.03–0.06) so it shows ONLY in whitespace:
+   any dense surface (cards, tables, bento tiles, rail cells) paints its own opaque
+   --color-panel-card over it. Calm and static — no animation, so it's reduced-motion-safe by
+   construction. Toggle off globally with `.blueprint-off` (single off-switch). */
+.blueprint {
+  background-color: var(--color-panel);
+  background-image:
+    /* corner registration ticks — faint crosshairs every 240px */
+    radial-gradient(circle at 0 0, color-mix(in srgb, var(--color-panel-line-strong) 55%, transparent) 0 1px, transparent 1.5px),
+    /* heavier rule lines every 120px (the "drawn-to-spec" major grid) */
+    repeating-linear-gradient(
+      to right,
+      color-mix(in srgb, var(--color-panel-line) 50%, transparent) 0 1px,
+      transparent 1px 120px
+    ),
+    repeating-linear-gradient(
+      to bottom,
+      color-mix(in srgb, var(--color-panel-line) 50%, transparent) 0 1px,
+      transparent 1px 120px
+    ),
+    /* fine grid every 24px */
+    repeating-linear-gradient(
+      to right,
+      color-mix(in srgb, var(--color-panel-line) 22%, transparent) 0 1px,
+      transparent 1px 24px
+    ),
+    repeating-linear-gradient(
+      to bottom,
+      color-mix(in srgb, var(--color-panel-line) 22%, transparent) 0 1px,
+      transparent 1px 24px
+    );
+  background-size: 240px 240px, auto, auto, auto, auto;
+  background-attachment: fixed;
+}
+/* Single global off-switch — if the field ever reads as busy in review, add this class. */
+.blueprint-off {
+  background-image: none;
 }
 
 /* Monospace for hashes, IDs, scores, timestamps, and config — the "signed receipt" voice. */

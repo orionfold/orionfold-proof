@@ -144,9 +144,10 @@ export function SettingsView() {
           <div>
             <p className="text-sm text-(--color-ink)">GPU metrics</p>
             <p className="text-xs text-(--color-ink-faint)">
-              Sample Apple Silicon GPU utilization during a run via powermetrics (asks for admin
-              once). Off by default — GPU reads "unavailable" until enabled. Everything stays on this
-              machine.
+              Sample Apple Silicon GPU utilization during a run via powermetrics, which needs
+              passwordless <code>sudo</code> (run <code>sudo powermetrics</code> once in a terminal,
+              or configure sudoers). Without it, GPU stays "unavailable" — this toggle never prompts
+              for a password. Off by default. Everything stays on this machine.
             </p>
           </div>
           <button
