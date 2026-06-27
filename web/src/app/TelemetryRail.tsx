@@ -22,6 +22,16 @@ import {
 import { type RunProgress } from "../features/proof/useRunProgress";
 import { emptyTrend, pushSample, sparklinePath, type Trend } from "../features/proof/sparkline";
 
+// The three live host trends shown as sparklines. Bundled so they reset/accumulate together.
+interface Trends {
+  cpu: Trend;
+  gpu: Trend;
+  mem: Trend;
+}
+function emptyTrends(): Trends {
+  return { cpu: emptyTrend(), gpu: emptyTrend(), mem: emptyTrend() };
+}
+
 // The standing instrument cluster — a full-width, single-row horizontal rail on every screen
 // (spec §4). At rest it shows host identity calmly; during a run the live cells light up (CPU
 // sparkline, run progress), driven by the telemetry SSE + the lifted run-progress snapshot. Cost
@@ -45,24 +55,33 @@ export function TelemetryRail({
   });
 
   const [sample, setSample] = useState<TelemetrySample | null>(null);
-  // The live CPU trend, accumulated across the run's samples (peak-over-bucket → SVG sparkline).
-  // A ref so the SSE callback always sees the latest without re-subscribing; mirrored to state so
-  // the sparkline re-renders each frame.
-  const cpuTrendRef = useRef<Trend>(emptyTrend());
-  const [cpuTrend, setCpuTrend] = useState<Trend>(emptyTrend());
+  // Per-metric trends (CPU / GPU / memory), accumulated across a run's samples (peak-over-bucket →
+  // SVG sparkline). Refs so the SSE callback always sees the latest without re-subscribing;
+  // mirrored to state so the sparklines re-render each frame. The LAST completed run's trends are
+  // KEPT after the run ends (rendered dimmed, an at-rest record) so the rail shows "this run vs
+  // last run" (spec §4); they reset only when a NEW run starts. Bucket of 2 samples (~1s/bar at
+  // the ~500ms rate) keeps the line lively but smooth.
+  const trendsRef = useRef<Trends>(emptyTrends());
+  const [trends, setTrends] = useState<Trends>(emptyTrends());
 
   useEffect(() => {
     if (!runActive) {
+      // Run ended (or never started): drop the live sample so readouts return to "at rest", but
+      // LEAVE the trends frozen as the last-run record. The Sparkline renders them dimmed.
       setSample(null);
-      cpuTrendRef.current = emptyTrend();
-      setCpuTrend(emptyTrend());
       return;
     }
+    // A new run starts: clear the prior run's trends so the fresh line draws from empty.
+    trendsRef.current = emptyTrends();
+    setTrends(trendsRef.current);
     const onSample = (s: TelemetrySample) => {
       setSample(s);
-      // Bucket of 2 samples (~1s/bar at the ~500ms sample rate) keeps the trend lively but smooth.
-      cpuTrendRef.current = pushSample(cpuTrendRef.current, s.cpu_util, { bucket: 2 });
-      setCpuTrend(cpuTrendRef.current);
+      trendsRef.current = {
+        cpu: pushSample(trendsRef.current.cpu, s.cpu_util, { bucket: 2 }),
+        gpu: pushSample(trendsRef.current.gpu, s.gpu_util, { bucket: 2 }),
+        mem: pushSample(trendsRef.current.mem, s.mem_used_gb, { bucket: 2 }),
+      };
+      setTrends(trendsRef.current);
     };
     const unsubscribe = subscribeTelemetry(onSample, () => setSample(null));
     return () => {
@@ -108,12 +127,18 @@ export function TelemetryRail({
       className="sticky top-(--bar-h) z-20 flex h-(--rail-h) shrink-0 items-stretch gap-px overflow-x-auto border-b border-(--color-panel-line) bg-(--color-rail)"
     >
       <Cell label="Host" value={profile?.chip ?? profile?.arch ?? "detecting…"} Icon={CircuitBoard} strong />
-      {/* CPU is the showcase live cell: readout + SVG sparkline of the run's CPU trend. */}
+      {/* Live host cells: readout + SVG sparkline of the run's trend. The line stays after the run
+          (dimmed) as the last-run record; a new run draws a fresh bright line over it. CPU/GPU are
+          percentages (max 100); memory auto-scales to its own range. */}
       <Cell label="CPU" value={cpu} Icon={Cpu} live={live}>
-        <Sparkline trend={cpuTrend} max={100} active={live} />
+        <Sparkline trend={trends.cpu} max={100} active={live} />
       </Cell>
-      <Cell label="GPU" value={gpu} Icon={CircuitBoard} live={sample?.gpu_util != null} />
-      <Cell label="Memory" value={mem} Icon={MemoryStick} live={sample?.mem_used_gb != null} />
+      <Cell label="GPU" value={gpu} Icon={CircuitBoard} live={sample?.gpu_util != null}>
+        <Sparkline trend={trends.gpu} max={100} active={sample?.gpu_util != null} />
+      </Cell>
+      <Cell label="Memory" value={mem} Icon={MemoryStick} live={sample?.mem_used_gb != null}>
+        <Sparkline trend={trends.mem} active={sample?.mem_used_gb != null} />
+      </Cell>
       <Cell label="Runtime" value={profile?.local_runtime ?? "cloud only"} Icon={Server} />
       {/* Live run progress while streaming; otherwise the last proof result. */}
       {progressValue != null ? (
@@ -146,7 +171,7 @@ export function TelemetryRail({
 // A compact SVG sparkline of the live trend. Token-native (stroke=var(--color-*)); the forming
 // edge renders as a dimmed dot so "live" reads without animation (reduced-motion-safe). Renders
 // nothing until there's data, so an at-rest cell stays calm.
-function Sparkline({ trend, max, active }: { trend: Trend; max: number; active: boolean }) {
+function Sparkline({ trend, max, active }: { trend: Trend; max?: number; active: boolean }) {
   const w = 56;
   const h = 16;
   const values = trend.forming != null ? [...trend.finalized, trend.forming] : trend.finalized;
@@ -183,7 +208,10 @@ function Cell({
   children?: React.ReactNode;
 }) {
   return (
-    <div className="flex min-w-[5.5rem] flex-col justify-center gap-0.5 border-r border-(--color-panel-line) px-4">
+    // Top-aligned (justify-start + a fixed top inset) so every cell's LABEL pins to the same y
+    // across the row whether or not a sparkline follows — centering drifted the taller (sparkline)
+    // cells' labels upward. The sparkline simply hangs below the readout.
+    <div className="flex min-w-[5.5rem] flex-col justify-start gap-0.5 border-r border-(--color-panel-line) px-4 pt-2.5">
       <span className="flex items-center gap-1 text-[0.58rem] font-medium uppercase tracking-wider text-(--color-ink-faint)">
         {Icon && <Icon aria-hidden className="h-3 w-3 shrink-0" />}
         {label}
@@ -222,7 +250,7 @@ function CellButton({
     <button
       type="button"
       onClick={onClick}
-      className="flex min-w-[5.5rem] flex-col justify-center gap-0.5 border-r border-(--color-panel-line) px-4 text-left transition-colors hover:bg-(--color-panel-card)"
+      className="flex min-w-[5.5rem] flex-col justify-start gap-0.5 border-r border-(--color-panel-line) px-4 pt-2.5 text-left transition-colors hover:bg-(--color-panel-card)"
       title={`Open Receipts — ${label.toLowerCase()}`}
     >
       <span className="flex items-center gap-1 text-[0.58rem] font-medium uppercase tracking-wider text-(--color-ink-faint)">
