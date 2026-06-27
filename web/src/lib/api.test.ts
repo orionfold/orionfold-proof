@@ -60,8 +60,8 @@ describe("settings + sample-data client", () => {
   const THRESHOLDS = { similarity: 0.55, keypoint: 0.8, judge: 0.8 };
 
   it("getSettings parses sandbox_enabled and thresholds", async () => {
-    mockResponse({ sandbox_enabled: true, thresholds: THRESHOLDS });
-    expect(await getSettings()).toEqual({ sandbox_enabled: true, thresholds: THRESHOLDS });
+    mockResponse({ sandbox_enabled: true, powermetrics_gpu_optin: false, thresholds: THRESHOLDS });
+    expect(await getSettings()).toEqual({ sandbox_enabled: true, powermetrics_gpu_optin: false, thresholds: THRESHOLDS });
   });
 
   it("setSandbox PUTs the flag", async () => {
@@ -69,7 +69,7 @@ describe("settings + sample-data client", () => {
       .spyOn(globalThis, "fetch")
       .mockResolvedValue(
         new Response(
-          JSON.stringify({ sandbox_enabled: false, thresholds: THRESHOLDS }),
+          JSON.stringify({ sandbox_enabled: false, powermetrics_gpu_optin: false, thresholds: THRESHOLDS }),
           { status: 200 },
         ),
       );
@@ -83,7 +83,7 @@ describe("settings + sample-data client", () => {
       .spyOn(globalThis, "fetch")
       .mockResolvedValue(
         new Response(
-          JSON.stringify({ sandbox_enabled: false, thresholds: next }),
+          JSON.stringify({ sandbox_enabled: false, powermetrics_gpu_optin: false, thresholds: next }),
           { status: 200 },
         ),
       );

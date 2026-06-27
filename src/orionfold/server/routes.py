@@ -92,6 +92,7 @@ from orionfold.storage.settings import (
     get_powermetrics_optin,
     get_sandbox_enabled,
     get_threshold_defaults,
+    set_powermetrics_optin,
     set_sandbox_enabled,
     set_threshold_defaults,
 )
@@ -168,6 +169,7 @@ class SettingsModel(BaseModel):
     """The full, resolved settings the GET returns."""
 
     sandbox_enabled: bool
+    powermetrics_gpu_optin: bool
     thresholds: ThresholdDefaults
 
 
@@ -179,6 +181,7 @@ class SettingsUpdate(BaseModel):
     """
 
     sandbox_enabled: bool | None = None
+    powermetrics_gpu_optin: bool | None = None
     thresholds: ThresholdDefaults | None = None
 
 
@@ -498,6 +501,7 @@ def set_credential(body: CredentialRequest) -> CredentialStatus:
 def _read_settings(conn: sqlite3.Connection) -> SettingsModel:
     return SettingsModel(
         sandbox_enabled=get_sandbox_enabled(conn),
+        powermetrics_gpu_optin=get_powermetrics_optin(conn),
         thresholds=ThresholdDefaults(**get_threshold_defaults(conn)),
     )
 
@@ -517,6 +521,8 @@ def update_settings(request: Request, body: SettingsUpdate) -> SettingsModel:
     try:
         if body.sandbox_enabled is not None:
             set_sandbox_enabled(conn, body.sandbox_enabled)
+        if body.powermetrics_gpu_optin is not None:
+            set_powermetrics_optin(conn, body.powermetrics_gpu_optin)
         if body.thresholds is not None:
             set_threshold_defaults(conn, body.thresholds.model_dump())
         return _read_settings(conn)

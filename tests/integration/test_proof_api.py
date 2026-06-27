@@ -357,6 +357,15 @@ def test_settings_default_and_update(client):
     assert client.get("/api/settings").json()["sandbox_enabled"] is True
 
 
+def test_settings_powermetrics_optin_round_trips(client):
+    # Defaults off; PUT is partial so toggling it leaves sandbox + thresholds untouched.
+    assert client.get("/api/settings").json()["powermetrics_gpu_optin"] is False
+    updated = client.put("/api/settings", json={"powermetrics_gpu_optin": True}).json()
+    assert updated["powermetrics_gpu_optin"] is True
+    assert updated["sandbox_enabled"] is False
+    assert client.get("/api/settings").json()["powermetrics_gpu_optin"] is True
+
+
 def test_settings_threshold_override_round_trips(client):
     # PUT only thresholds → persisted and reflected; sandbox stays untouched.
     resp = client.put(

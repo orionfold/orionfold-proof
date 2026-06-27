@@ -7,7 +7,7 @@ import type { Dataset, SelectionPanel, Settings } from "../../lib/api";
 vi.mock("../../lib/api", async (orig) => ({
   ...(await orig<typeof import("../../lib/api")>()),
   getSelection: vi.fn(async () => ({ providers: [] })),
-  getSettings: vi.fn(async () => ({ sandbox_enabled: false, thresholds: { similarity: 0.55, keypoint: 0.8, judge: 0.8 } }) as Settings),
+  getSettings: vi.fn(async () => ({ sandbox_enabled: false, powermetrics_gpu_optin: false, thresholds: { similarity: 0.55, keypoint: 0.8, judge: 0.8 } }) as Settings),
 }));
 
 import { getSelection, getSettings } from "../../lib/api";
@@ -38,7 +38,7 @@ describe("ScoringMethod", () => {
   beforeEach(() => {
     // Reset to the file defaults so a per-test mockResolvedValue can't leak across tests.
     vi.mocked(getSelection).mockResolvedValue({ providers: [] });
-    vi.mocked(getSettings).mockResolvedValue({ sandbox_enabled: false, thresholds: { similarity: 0.55, keypoint: 0.8, judge: 0.8 } } as Settings);
+    vi.mocked(getSettings).mockResolvedValue({ sandbox_enabled: false, powermetrics_gpu_optin: false, thresholds: { similarity: 0.55, keypoint: 0.8, judge: 0.8 } } as Settings);
   });
 
   it("renders the free group with Auto/Keypoint/Similarity and the paid LLM judge", () => {
@@ -174,7 +174,7 @@ describe("ScoringMethod", () => {
   });
 
   it("Sandbox ON + sample dataset: does NOT auto-select the Mock judge (stays on the keyless demo)", async () => {
-    vi.mocked(getSettings).mockResolvedValue({ sandbox_enabled: true, thresholds: { similarity: 0.55, keypoint: 0.8, judge: 0.8 } } as Settings);
+    vi.mocked(getSettings).mockResolvedValue({ sandbox_enabled: true, powermetrics_gpu_optin: false, thresholds: { similarity: 0.55, keypoint: 0.8, judge: 0.8 } } as Settings);
     const onChange = vi.fn();
     render(wrap(<ScoringMethod value={null} onChange={onChange} dataset={sampleDataset} />));
     const judge = await screen.findByRole("button", { name: /LLM judge/i });
@@ -184,7 +184,7 @@ describe("ScoringMethod", () => {
   });
 
   it("Sandbox ON: LLM judge offers the keyless Mock judge", async () => {
-    vi.mocked(getSettings).mockResolvedValue({ sandbox_enabled: true, thresholds: { similarity: 0.55, keypoint: 0.8, judge: 0.8 } } as Settings);
+    vi.mocked(getSettings).mockResolvedValue({ sandbox_enabled: true, powermetrics_gpu_optin: false, thresholds: { similarity: 0.55, keypoint: 0.8, judge: 0.8 } } as Settings);
     const onChange = vi.fn();
     render(wrap(<ScoringMethod value={null} onChange={onChange} dataset={kpDataset} />));
     const judge = await screen.findByRole("button", { name: /LLM judge/i });

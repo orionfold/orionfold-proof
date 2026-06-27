@@ -10,12 +10,12 @@ beforeEach(() => {
     const method = (init?.method ?? "GET").toUpperCase();
     if (String(url).endsWith("/api/settings") && method === "GET")
       return new Response(
-        JSON.stringify({ sandbox_enabled: false, thresholds: THRESHOLDS }),
+        JSON.stringify({ sandbox_enabled: false, powermetrics_gpu_optin: false, thresholds: THRESHOLDS }),
         { status: 200 },
       );
     if (String(url).endsWith("/api/settings") && method === "PUT")
       return new Response(
-        JSON.stringify({ sandbox_enabled: true, thresholds: THRESHOLDS }),
+        JSON.stringify({ sandbox_enabled: true, powermetrics_gpu_optin: false, thresholds: THRESHOLDS }),
         { status: 200 },
       );
     if (String(url).endsWith("/api/data") && method === "DELETE")

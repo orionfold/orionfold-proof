@@ -7,6 +7,7 @@ import {
   getSettings,
   removeSampleData,
   seedSampleData,
+  setPowermetricsOptin,
   setSandbox,
   setThresholds,
   type Thresholds,
@@ -44,11 +45,16 @@ export function SettingsView() {
     mutationFn: (t: Thresholds) => setThresholds(t),
     onSuccess: (s) => qc.setQueryData(["settings"], s),
   });
+  const gpuTelemetry = useMutation({
+    mutationFn: (enabled: boolean) => setPowermetricsOptin(enabled),
+    onSuccess: (s) => qc.setQueryData(["settings"], s),
+  });
   const seed = useMutation({ mutationFn: seedSampleData, onSuccess: invalidateData });
   const removeSamples = useMutation({ mutationFn: removeSampleData, onSuccess: invalidateData });
   const clearAll = useMutation({ mutationFn: clearAllData, onSuccess: invalidateData });
 
   const on = settings.data?.sandbox_enabled ?? false;
+  const gpuOn = settings.data?.powermetrics_gpu_optin ?? false;
 
   return (
     <ViewShell
@@ -128,6 +134,37 @@ export function SettingsView() {
               className={
                 "absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all " +
                 (on ? "left-[1.375rem]" : "left-0.5")
+              }
+            />
+          </button>
+        </div>
+
+        {/* GPU telemetry opt-in */}
+        <div className="flex items-start justify-between gap-4 border-t border-(--color-panel-line) pt-4">
+          <div>
+            <p className="text-sm text-(--color-ink)">GPU metrics</p>
+            <p className="text-xs text-(--color-ink-faint)">
+              Sample Apple Silicon GPU utilization during a run via powermetrics (asks for admin
+              once). Off by default — GPU reads "unavailable" until enabled. Everything stays on this
+              machine.
+            </p>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={gpuOn}
+            aria-label="GPU metrics"
+            disabled={settings.isLoading || gpuTelemetry.isPending}
+            onClick={() => gpuTelemetry.mutate(!gpuOn)}
+            className={
+              "relative h-6 w-11 shrink-0 rounded-full transition-colors " +
+              (gpuOn ? "bg-(--color-accent)" : "bg-(--color-panel-line-strong)")
+            }
+          >
+            <span
+              className={
+                "absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all " +
+                (gpuOn ? "left-[1.375rem]" : "left-0.5")
               }
             />
           </button>

@@ -600,6 +600,7 @@ export type Thresholds = z.infer<typeof thresholdsSchema>;
 
 export const settingsSchema = z.object({
   sandbox_enabled: z.boolean(),
+  powermetrics_gpu_optin: z.boolean(),
   thresholds: thresholdsSchema,
 });
 export type Settings = z.infer<typeof settingsSchema>;
@@ -631,6 +632,10 @@ async function mutate<T>(
 
 export function setSandbox(enabled: boolean): Promise<Settings> {
   return mutate("/api/settings", "PUT", settingsSchema, { sandbox_enabled: enabled });
+}
+
+export function setPowermetricsOptin(enabled: boolean): Promise<Settings> {
+  return mutate("/api/settings", "PUT", settingsSchema, { powermetrics_gpu_optin: enabled });
 }
 
 export function setThresholds(thresholds: Thresholds): Promise<Settings> {
