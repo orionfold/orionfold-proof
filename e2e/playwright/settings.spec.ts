@@ -32,6 +32,7 @@ test("sandbox toggle controls the Mock provider in the picker", async ({ page })
 
   await page.getByRole("button", { name: "Settings" }).click();
   await page.getByRole("switch", { name: /Sandbox/i }).click();
-  await page.getByRole("button", { name: "Proof Run" }).click();
+  // After the Arena reshape the cockpit nav tab is "Prove" (the old "Proof Run" was the heading).
+  await page.getByRole("button", { name: "Prove" }).click();
   await expect(page.getByRole("checkbox", { name: "Good model" })).toBeVisible();
 });

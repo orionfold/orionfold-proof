@@ -195,27 +195,27 @@ body {
   background-color: var(--color-panel);
   background-image:
     /* corner registration ticks — faint crosshairs every 240px */
-    radial-gradient(circle at 0 0, color-mix(in srgb, var(--color-panel-line-strong) 55%, transparent) 0 1px, transparent 1.5px),
+    radial-gradient(circle at 0 0, color-mix(in srgb, var(--color-panel-line-strong) 68%, transparent) 0 1px, transparent 1.5px),
     /* heavier rule lines every 120px (the "drawn-to-spec" major grid) */
     repeating-linear-gradient(
       to right,
-      color-mix(in srgb, var(--color-panel-line) 50%, transparent) 0 1px,
+      color-mix(in srgb, var(--color-panel-line) 62%, transparent) 0 1px,
       transparent 1px 120px
     ),
     repeating-linear-gradient(
       to bottom,
-      color-mix(in srgb, var(--color-panel-line) 50%, transparent) 0 1px,
+      color-mix(in srgb, var(--color-panel-line) 62%, transparent) 0 1px,
       transparent 1px 120px
     ),
     /* fine grid every 24px */
     repeating-linear-gradient(
       to right,
-      color-mix(in srgb, var(--color-panel-line) 22%, transparent) 0 1px,
+      color-mix(in srgb, var(--color-panel-line) 32%, transparent) 0 1px,
       transparent 1px 24px
     ),
     repeating-linear-gradient(
       to bottom,
-      color-mix(in srgb, var(--color-panel-line) 22%, transparent) 0 1px,
+      color-mix(in srgb, var(--color-panel-line) 32%, transparent) 0 1px,
       transparent 1px 24px
     );
   background-size: 240px 240px, auto, auto, auto, auto;

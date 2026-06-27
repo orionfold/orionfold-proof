@@ -46,8 +46,24 @@ for [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   with checkbox compare, replacing the old tall cards. Track Record (formerly its own tab) folds in
   as dense 2-up dataset standings cards. Telemetry-rail cost / result cells deep-link into the
   matching mode. Presentation-only — no scoring / receipt / hash change.
+- **Receipt detail is its own screen (L3), absorbing the old Inspector.** Opening a run from the
+  Receipts table lands on a full detail view carrying the v12 receipt plus the complete record —
+  run config + config hash + Hardware stanza, the full leaderboard + cost-vs-quality frontier + the
+  eval/judge cost ledger, and the failure cases with an inline input/expected/output/error pane. The
+  Prove canvas is now a single full-width working surface (the transitional right-side Inspector is
+  gone), with a "View full receipt →" one-click into the detail screen. Presentation-only.
+- **Consistent screen layout.** Every view (Prove · Datasets · Receipts · the receipt detail ·
+  Settings) now centers in the same `max-w-[96rem]` reading measure with matching padding, instead
+  of left-jamming or spanning edge-to-edge. The blueprint draughting-grid background reads at a
+  calm, just-perceptible alpha in whitespace.
 
 ### Fixed
+
+- **Cockpit follows the dataset on change.** Loading a past bench run then selecting a different
+  dataset kept the stale bench rubric (tripping the corpus-binding gate on Run), a stale "Rerun
+  proof" button, and a stale "Scored by the bench" line. Switching datasets now resets to a fresh
+  setup — rubric re-defaults, the loaded result clears, the recipe resets — and the scoring cards
+  re-highlight to match. Presentation-only.
 
 - **GPU opt-in now reads real utilization on macOS Sequoia.** The `powermetrics` parser only
   matched the old `GPU active` / `GPU Busy` labels; Sequoia (15.x) emits

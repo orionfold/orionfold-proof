@@ -14,10 +14,11 @@ export function ViewShell({
 }) {
   // After the Arena reshape the canvas is full-width (no left/right rails), so reading screens
   // would sprawl edge-to-edge. Cap the inner column to a calm wide reading measure (max-w-[96rem],
-  // spec §3.1) and left-anchor it, so each screen still reads as one instrument panel — WS-F F5.
+  // spec §3.1) and CENTER it (mx-auto), so every secondary screen sits in the same centered
+  // measure as the Proof cockpit's <main> instead of left-jamming against it — WS-F F5.
   return (
     <main className="flex flex-col px-6 py-8 lg:px-10">
-      <div className="flex w-full max-w-[96rem] flex-col gap-8">
+      <div className="mx-auto flex w-full max-w-[96rem] flex-col gap-8">
         <header className="flex flex-wrap items-start justify-between gap-3">
           <div className="flex flex-col gap-1">
             <h2 className="text-xl font-semibold tracking-tight text-(--color-ink)">{title}</h2>

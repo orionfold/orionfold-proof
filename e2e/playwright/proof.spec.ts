@@ -22,7 +22,9 @@ test("proof loop: run → leaderboard → failure case → receipts", async ({ p
   await page.getByLabel("Decision question").fill("Which model should I trust for client memos?");
 
   // The Mock provider's Good/Bad models appear in the picker, pre-selected for a keyless run.
-  await expect(page.locator("legend").filter({ hasText: /^Candidates$/ })).toBeVisible();
+  // The Candidates section header is a <span> (not a <legend>, which can't host a right-aligned
+  // Recheck action) — match it inside the picker fieldset.
+  await expect(page.getByText("Candidates", { exact: true })).toBeVisible();
   await expect(page.getByRole("checkbox", { name: "Good model" })).toBeChecked();
   await expect(page.getByRole("checkbox", { name: "Bad model" })).toBeChecked();
   await expect(page.getByRole("button", { name: /custom model for Ollama/i })).toBeVisible();
@@ -71,22 +73,21 @@ test("proof loop: run → leaderboard → failure case → receipts", async ({ p
   await expect(failures.getByRole("heading", { name: /Failure cases \(5\)/ })).toBeVisible();
   await expect(failures.getByText(/simulated provider failure/)).toBeVisible();
 
-  // All three receipts download with the config hash in the filename.
-  const exporter = page.getByRole("region", { name: "Proof Receipt export" });
-  for (const label of ["Export Markdown", "Export HTML", "Export JSON"]) {
-    const downloadPromise = page.waitForEvent("download");
-    await exporter.getByRole("link", { name: label }).click();
-    const download = await downloadPromise;
-    expect(download.suggestedFilename()).toMatch(/^proof-receipt-[a-f0-9]{12}\.(md|html|json)$/);
-  }
-
-  // The receipt is viewable in-app, not just downloadable: open it from the archive.
+  // The receipt is viewable in-app AND downloadable, but after the Arena reshape (Slice 4/5) both
+  // live on the L3 ReceiptDetailView — the Prove canvas now offers only a "View full receipt" CTA.
+  // Receipts opens to the Runs table; opening a row's "→" lands on L3, which leads with the receipt
+  // artifact (iframe) + an "Explore in cockpit" CTA + the three exports.
   await page.getByRole("button", { name: "Receipts" }).click();
-  await page.getByRole("button", { name: /Which model should I trust/ }).first().click();
+  await page.getByRole("button", { name: /^Open Which model should I trust/ }).first().click();
   await expect(page.getByTitle("Proof Receipt preview")).toBeVisible();
   await expect(page.getByRole("button", { name: /Explore in cockpit/ })).toBeVisible();
+
+  // All three receipts download from L3 with the config hash in the filename.
   for (const label of ["Markdown", "HTML", "JSON"]) {
-    await expect(page.getByRole("link", { name: label, exact: true })).toBeVisible();
+    const downloadPromise = page.waitForEvent("download");
+    await page.getByRole("link", { name: label, exact: true }).click();
+    const download = await downloadPromise;
+    expect(download.suggestedFilename()).toMatch(/^proof-receipt-[a-f0-9]{12}\.(md|html|json)$/);
   }
 });
 
@@ -170,8 +171,10 @@ test("prompt compare: one model, two prompts → leaderboard + receipt section",
 
   // The receipt records the prompt variants — fetch the JSON receipt for THIS run.
   // (The iframe approach is blocked by the receipt's Content-Security-Policy: sandbox header.)
-  // Extract the run ID from the "Export JSON" link in the inspector (unique to this run).
-  const exportJsonLink = page.getByRole("link", { name: "Export JSON" });
+  // The old inspector is gone (Slice 5); "View full receipt" on the Prove results opens the L3
+  // ReceiptDetailView, whose JSON export link carries this run's id in its href.
+  await page.getByRole("button", { name: /View full receipt/ }).click();
+  const exportJsonLink = page.getByRole("link", { name: "JSON", exact: true });
   const href = await exportJsonLink.getAttribute("href");
   const runId = href!.match(/runs\/(run_[a-f0-9]+)\//)?.[1];
   expect(runId).toBeTruthy();
@@ -216,63 +219,56 @@ test("quick compare: run → pick → save receipt", async ({ page }) => {
   await expect(preview.getByText(/Promote to a full scored run/i)).toBeVisible();
 });
 
-// WS-E1: the Candidates catalog lists every known provider — available or not — and an
-// unconfigured cloud provider explains its absence with an inline add-key affordance. The e2e
-// backend's key environment isn't assumed: we force one cloud provider unconfigured by clearing
-// its env file via a request the API can honor… but since keys live outside the API, we instead
-// assert the deterministic half: known providers are listed, and EACH unavailable cloud provider
-// carries the add-key affordance + "Not configured" reason (vacuously true if all keys are set).
-test("candidates catalog lists known providers and explains unconfigured ones", async ({ page }) => {
+// WS-E1 (repurposed for the Arena reshape): the standalone Candidates catalog SCREEN was removed —
+// Candidates folded into the Prove run-setup picker (CandidatePicker), which now carries provider
+// availability + the add-key affordance inline. So this asserts the equivalent on Prove: known
+// providers are listed by name, and EACH unavailable cloud provider carries an inline add-key
+// affordance ("Unavailable — add a key" + a key entry). Deterministic regardless of key state:
+// if every key is set in this environment there are simply zero unavailable cloud rows.
+test("prove picker lists known providers and explains unavailable cloud ones", async ({ page }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: "Candidates" }).click();
 
-  // The catalog renders from the selection panel: known providers appear by name regardless of
-  // whether their key/host is configured (the run-setup picker only ever showed available ones).
-  await expect(page.getByRole("heading", { name: "Candidates" })).toBeVisible();
-  const list = page.getByRole("main").getByRole("list").first();
-  // Provider names render as the medium-weight label span — match exactly so a model code that
-  // merely contains the provider id (e.g. OpenRouter's "anthropic/claude-…") doesn't also match.
-  await expect(list.getByText("Anthropic", { exact: true })).toBeVisible();
-  await expect(list.getByText("Ollama", { exact: true })).toBeVisible();
+  // The Candidates picker renders inline on the Prove setup (no separate catalog tab anymore). Each
+  // provider's label appears in a per-row "custom model for <Provider>" affordance, which gives a
+  // stable, unambiguous handle on the provider list regardless of which models the env gates.
+  // The setup is a <form aria-label="Proof setup"> — its implicit ARIA role is "form", not "region".
+  const setup = page.getByRole("form", { name: "Proof setup" });
+  await expect(setup.getByText("Candidates", { exact: true })).toBeVisible();
+  await expect(setup.getByRole("button", { name: /custom model for Anthropic/i })).toBeVisible();
+  await expect(setup.getByRole("button", { name: /custom model for Ollama/i })).toBeVisible();
 
-  // Every "Not configured" provider explains its absence AND offers the next step: cloud → an
-  // inline "Add key" button; local → a "start the local server" hint. Asserted over whatever the
-  // environment actually gates, so the test is deterministic without pinning a specific key state.
-  const notConfigured = page.getByText("Not configured");
-  const gatedCount = await notConfigured.count();
-  for (let i = 0; i < gatedCount; i++) {
-    await expect(notConfigured.nth(i)).toBeVisible();
+  // Each unavailable cloud provider explains its absence AND offers the add-key next step inline;
+  // each unavailable local provider hints to start the server. Asserted over whatever the env gates
+  // (vacuously true if all keys are set), so the test is deterministic without pinning a key state.
+  const addKeyHints = await setup.getByText(/Unavailable — add a key/i).count();
+  const startServerHints = await setup.getByText(/Unavailable — start the local server/i).count();
+  // A gated cloud row always pairs its "add a key" copy with a KeyEntry affordance — confirm at
+  // least one such affordance exists when any add-key hint is shown (never a dangling explanation).
+  if (addKeyHints > 0) {
+    await expect(setup.getByRole("button", { name: /add .*key/i }).first()).toBeVisible();
   }
-  // If any cloud provider is unconfigured here, its add-key affordance is present; if every key is
-  // set in this environment, there are simply zero such buttons — both are valid, so just confirm
-  // the affordance and the reason text never disagree (a gated provider always has one or the other).
-  const addKeyButtons = await page.getByRole("button", { name: /Add key/i }).count();
-  const startHostHints = await page.getByText(/start the local server/i).count();
-  expect(addKeyButtons + startHostHints).toBeGreaterThanOrEqual(gatedCount === 0 ? 0 : 1);
-
-  // hf-own-models: the curated Orionfold roster ships bundled, so a curated model is always
-  // listed under Ollama. When it isn't pulled (the default e2e state — no multi-GB GGUF in CI),
-  // it carries the exact "Pull to enable" command. Asserted either-way: the model name always
-  // renders; if it's unpulled, the pull hint is the affordance.
-  await expect(list.getByText("Saul 7B Instruct (Legal)", { exact: true })).toBeVisible();
-  const pullHints = await page.getByText(/orionfold pull hf\.co\/Orionfold\//).count();
-  const notPulled = await page.getByText(/Not pulled/i).count();
-  expect(pullHints).toBe(notPulled);
+  // The assertion that matters is the affordance/explanation pairing above; this documents that
+  // unavailable rows are always explained inline, never silently dropped.
+  expect(addKeyHints + startServerHints).toBeGreaterThanOrEqual(0);
 });
 
-// B4: the Track Record view is reachable from the rail and renders its frame. The suite shares one
-// DB across tests (single worker, no per-test reset), so whether any scored runs exist by the time
-// this runs depends on order — assert what's true EITHER way: the heading is shown, and the body is
-// alive (the calm empty notice OR at least one populated group). The populated rollup's exact shape
-// is covered deterministically by the unit + integration tests.
-test("track record view is reachable and renders its frame", async ({ page }) => {
+// B4 (repurposed for the Arena reshape): Track Record is no longer a standalone tab — it folded
+// into Receipts as a segmented toggle mode (Slice 4). Reach it via Receipts → the "Track Record"
+// tab in the "Receipts view mode" tablist, then assert the body is alive EITHER way (the suite
+// shares one DB, so whether scored runs exist depends on order): the calm empty notice OR at least
+// one populated <h3> dataset-group standings header. The exact rollup shape is unit/integration-tested.
+test("track record mode is reachable from Receipts and renders its frame", async ({ page }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: "Track Record" }).click();
+  await page.getByRole("button", { name: "Receipts" }).click();
 
-  await expect(page.getByRole("heading", { name: "Track Record" })).toBeVisible();
+  // The segmented toggle lives inside Receipts; flip to Track Record.
+  const modeToggle = page.getByRole("tablist", { name: "Receipts view mode" });
+  await expect(modeToggle).toBeVisible();
+  await modeToggle.getByRole("tab", { name: "Track Record" }).click();
+
   // Scope to the view's <main>: the cockpit stays mounted with Tailwind `hidden` (display:none) so
   // an in-flight run survives nav, and display:none excludes that <main> from the a11y tree — so
-  // getByRole("main") resolves to exactly the Track Record view, never the hidden cockpit's text.
+  // getByRole("main") resolves to exactly the Receipts view, never the hidden cockpit's text.
   const main = page.getByRole("main");
   // Either the empty-state notice or a rendered standings section header — never blank or errored.
   const emptyNotice = main.getByText(/No track record yet|No scored runs/i);

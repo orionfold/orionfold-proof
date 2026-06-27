@@ -41,7 +41,10 @@ export function ReceiptDetailView({
   const isScored = run.mode !== "quick" && report.leaderboard.length > 0;
 
   return (
-    <main aria-label="Proof Receipt" className="flex flex-col gap-6 px-6 py-8 lg:px-10">
+    <main
+      aria-label="Proof Receipt"
+      className="mx-auto flex w-full max-w-[96rem] flex-col gap-6 px-6 py-8 lg:px-10"
+    >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <button
           type="button"

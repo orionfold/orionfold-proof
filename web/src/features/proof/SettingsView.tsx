@@ -61,7 +61,7 @@ export function SettingsView() {
       title="Settings"
       subtitle="Manage appearance, your local data, and the simulated sandbox. Everything here stays on this machine."
     >
-      <div className="grid max-w-2xl gap-6">
+      <div className="mx-auto grid w-full max-w-4xl gap-6">
         {/* Appearance */}
         <section className="grid gap-6 rounded-xl border border-(--color-panel-line) bg-(--color-panel-card) p-6">
           <div>
