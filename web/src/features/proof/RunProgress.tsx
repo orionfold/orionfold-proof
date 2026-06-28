@@ -11,9 +11,11 @@ import { ProviderTag } from "./badges";
 export function RunProgress({
   start,
   completed,
+  onStop,
 }: {
   start: RunStartEvent;
   completed: Record<string, number>;
+  onStop?: () => void;
 }) {
   const { total, n_examples: n, candidates } = start;
   const done = candidates.reduce((sum, c) => sum + Math.min(completed[c.id] ?? 0, n), 0);
@@ -30,9 +32,20 @@ export function RunProgress({
           <LoaderCircle aria-hidden className="h-4 w-4 animate-spin text-(--color-accent)" />
           Running proof
         </span>
-        <span className="tabular-nums text-sm text-(--color-ink-muted)">
-          {done}/{total}
-        </span>
+        <div className="flex items-center gap-3">
+          <span className="tabular-nums text-sm text-(--color-ink-muted)">
+            {done}/{total}
+          </span>
+          {onStop && !finishing && (
+            <button
+              type="button"
+              onClick={onStop}
+              className="rounded-md border border-(--color-panel-line) px-2.5 py-1 text-xs text-(--color-ink-muted) transition-colors hover:border-(--color-ink-muted) hover:text-(--color-ink)"
+            >
+              Stop run
+            </button>
+          )}
+        </div>
       </div>
 
       <div

@@ -38,6 +38,8 @@ import { QuickCompare } from "./QuickCompare";
 import { RecipeRow } from "./RecipeRow";
 import { RunProgress } from "./RunProgress";
 import { RunSetup } from "./RunSetup";
+import { RunStopped } from "./RunStopped";
+import { buildStoppedSummary, type StoppedSummary } from "./stoppedSummary";
 import { healthByProvider } from "./providerHealth";
 import { StageStepper } from "./StageStepper";
 
@@ -148,6 +150,12 @@ export function ProofCockpit({
   // in the same tick — the effect below waits until the sample is selected AND the judge rubric has
   // landed, then fires exactly once.
   const [demoArmed, setDemoArmed] = useState(false);
+  // Stop button: an AbortController per run drops the SSE fetch when the operator stops; the cells
+  // received so far are accumulated in a ref so we can total honest incurred cost without re-reading
+  // any persisted state (a stopped run is never saved). `stopped` drives the calm Run-stopped panel.
+  const abortRef = useRef<AbortController | null>(null);
+  const cellsRef = useRef<{ cost: number }[]>([]);
+  const [stopped, setStopped] = useState<StoppedSummary | null>(null);
 
   // Whenever the shown run changes — a fresh run or one reopened from Receipts — clear any
   // failure-case selection so the inspector doesn't show a row from the previous report.
@@ -211,26 +219,38 @@ export function ProofCockpit({
   const resolvedPromptModel = promptModel || defaultPromptModel(selection.data);
 
   const runMutation = useMutation({
-    mutationFn: (body: RunRequest) =>
-      createRunStream(body, {
-        onStart: (s) => {
-          setProgress({ start: s, completed: {} });
-          // A `start` event resets the snapshot to fresh totals (reduceRunProgress spreads an empty
-          // base for start), so the prior arg is unused — pass the current value as the seed.
-          setRunProgress((prev) => reduceRunProgress(prev ?? emptyRunProgress(), s));
+    mutationFn: (body: RunRequest) => {
+      // Fresh run: arm a new abort controller, reset the received-cells ledger, and clear any prior
+      // stopped panel.
+      abortRef.current = new AbortController();
+      cellsRef.current = [];
+      setStopped(null);
+      return createRunStream(
+        body,
+        {
+          onStart: (s) => {
+            setProgress({ start: s, completed: {} });
+            // A `start` event resets the snapshot to fresh totals (reduceRunProgress spreads an empty
+            // base for start), so the prior arg is unused — pass the current value as the seed.
+            setRunProgress((prev) => reduceRunProgress(prev ?? emptyRunProgress(), s));
+          },
+          onProgress: (p) => {
+            // Accumulate each cell's cost so a stop can total honest incurred spend.
+            cellsRef.current.push({ cost: p.cost ?? 0 });
+            setProgress((prev) => {
+              if (!prev) return prev;
+              // Monotonic per-candidate count, order-independent: a cell at example_index k means at
+              // least k+1 of that candidate's examples are done.
+              const prior = prev.completed[p.candidate_id] ?? 0;
+              const next = Math.max(prior, p.example_index + 1);
+              return { ...prev, completed: { ...prev.completed, [p.candidate_id]: next } };
+            });
+            setRunProgress((prev) => (prev ? reduceRunProgress(prev, p) : prev));
+          },
         },
-        onProgress: (p) => {
-          setProgress((prev) => {
-            if (!prev) return prev;
-            // Monotonic per-candidate count, order-independent: a cell at example_index k means at
-            // least k+1 of that candidate's examples are done.
-            const prior = prev.completed[p.candidate_id] ?? 0;
-            const next = Math.max(prior, p.example_index + 1);
-            return { ...prev, completed: { ...prev.completed, [p.candidate_id]: next } };
-          });
-          setRunProgress((prev) => (prev ? reduceRunProgress(prev, p) : prev));
-        },
-      }),
+        abortRef.current.signal,
+      );
+    },
     onSuccess: (r) => {
       onReport(r);
       setProgress(null);
@@ -238,11 +258,21 @@ export function ProofCockpit({
       // Keep the Receipts archive current without a manual refetch.
       void queryClient.invalidateQueries({ queryKey: ["runs"] });
     },
-    onError: () => {
+    onError: (err) => {
+      // An aborted run is a deliberate Stop, not a failure: compute the discard summary (cells +
+      // incurred cost) BEFORE clearing progress, then show the calm Run-stopped panel. A real error
+      // takes the existing path.
+      if (err instanceof DOMException && err.name === "AbortError") {
+        setStopped(buildStoppedSummary(progress?.start ?? null, cellsRef.current));
+      }
       setProgress(null);
       setRunProgress(null);
     },
   });
+
+  // Stop the in-flight run: abort the SSE fetch. The server detects the disconnect, cancels between
+  // examples, and saves nothing; onError (AbortError) renders the Run-stopped panel.
+  const stopRun = () => abortRef.current?.abort();
 
   // Surface the streaming state to App so the app-level rail can subscribe to the live telemetry
   // stream exactly while the run is in flight (the rail can't read this mutation directly).
@@ -466,9 +496,11 @@ export function ProofCockpit({
           }
         />
 
-        {runMutation.isPending ? (
+        {stopped ? (
+          <RunStopped summary={stopped} onStartOver={() => setStopped(null)} />
+        ) : runMutation.isPending ? (
           progress ? (
-            <RunProgress start={progress.start} completed={progress.completed} />
+            <RunProgress start={progress.start} completed={progress.completed} onStop={stopRun} />
           ) : (
             <StartingNotice />
           )

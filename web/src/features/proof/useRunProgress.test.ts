@@ -14,7 +14,7 @@ const START: RunStartEvent = {
 };
 
 function progress(candidate_id: string, example_index: number, passed: boolean): RunProgressEvent {
-  return { type: "progress", done: 0, candidate_id, example_index, passed, error: false };
+  return { type: "progress", done: 0, candidate_id, example_index, passed, error: false, cost: 0 };
 }
 
 function feed(events: (RunStartEvent | RunProgressEvent)[]): RunProgress {

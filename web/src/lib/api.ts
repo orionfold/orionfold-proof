@@ -668,6 +668,8 @@ export interface RunProgressEvent {
   example_index: number;
   passed: boolean;
   error: boolean;
+  /** Per-cell incurred cost (candidate + judge), used to total honest spend if the run is stopped. */
+  cost: number;
 }
 
 export interface RunStreamHandlers {
@@ -750,11 +752,13 @@ export function clearAllData(): Promise<DataCounts> {
 export async function createRunStream(
   body: RunRequest,
   handlers: RunStreamHandlers = {},
+  signal?: AbortSignal,
 ): Promise<ProofReport> {
   const res = await fetch("/api/runs/stream", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
+    signal,
   });
   if (!res.ok || !res.body) {
     const detail = await res.json().catch(() => ({}));
