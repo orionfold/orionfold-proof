@@ -6,6 +6,17 @@ for [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.2.1] — 2026-06-27
+
+### Fixed
+
+- **README screenshot refreshed for the Arena cockpit.** The README hero (the PyPI
+  long-description image) and the bundled `samples/screenshots/` set predated the 0.2.0 Arena-shape
+  redesign — they showed the old three-column layout, and the prior hero file was removed in 0.2.0,
+  leaving the published page pointing at a missing image. The hero now shows the current cockpit
+  (top app bar + always-on telemetry rail + Prove canvas), and the README's receipt-schema mention
+  is corrected to v12. Docs-only — no code change.
+
 ## [0.2.0] — 2026-06-27
 
 ### Added
