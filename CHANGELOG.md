@@ -72,7 +72,9 @@ for [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   GPU cell shows a real idle % at rest via a single throttled `GET /api/telemetry/gpu-idle` read,
   gated server-side behind the existing opt-in (NVIDIA tried unprivileged first; the macOS
   powermetrics read never fires without consent), polled at most every 30s and only while the tab is
-  visible and no run is active. Presentation-only — telemetry stays out of `config_hash`.
+  visible and no run is active. The rail sparklines now fill to the baseline (a light shaded area
+  under the trend line) so a sparse trace reads as a mound rising from the x-axis, not a line
+  floating at an unclear elevation. Presentation-only — telemetry stays out of `config_hash`.
 
 ### Fixed
 
