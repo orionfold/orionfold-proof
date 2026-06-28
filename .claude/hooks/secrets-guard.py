@@ -46,11 +46,19 @@ ASSIGNMENT_PATTERN = re.compile(
     """
 )
 
-# Values that are clearly not real secrets — env lookups, templates, examples.
+# Values that are clearly not real secrets — env lookups, references, templates,
+# examples. The captured `val` stops at the first space/quote, so a secret-named
+# field assigned a *dotted-attribute reference* (e.g. `api_key = settings.advisor_api_key`)
+# is captured whole and must be recognized as a reference, not a literal. This is
+# safe: SECRET_PATTERNS runs first (so a real keyed literal still blocks), and a
+# genuine high-entropy secret is an unbroken base64/hex run; the dotted-ref alt caps
+# each segment at 32 chars + depth at 6, so a dotted token (a JWT header.payload.sig
+# whose segments are 40+ base64url chars) cannot slip through it.
 PLACEHOLDER = re.compile(
     r"(?ix)^(?:"
     r"\$?\{?[A-Z0-9_]*(?:ENV|VAR|PLACEHOLDER)[A-Z0-9_]*\}?"  # ENV/VAR/PLACEHOLDER refs
     r"|os\.environ.*|getenv.*|process\.env.*"                 # code env lookups
+    r"|(?:self|cls|settings|config|cfg|conf|app|ctx|os|sys|env|args|opts|options|secrets|creds|credentials|vault|client|request|req|response|resp|state)(?:\.[A-Za-z_]\w{0,31}){1,5}[;),]?"  # dotted ref anchored to a known namespace, each seg <=32, depth <=6 (a token can't masquerade as one)
     r"|your[-_].*|example.*|changeme.*|placeholder.*|xxx+.*|\.\.\.+"
     r"|<[^>]+>"                                                # <your-key-here>
     r")$"

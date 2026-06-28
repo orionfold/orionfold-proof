@@ -1,5 +1,5 @@
 {
-  "//": "Harness-enforced behavior for orionfold-proof. Allow-rules widen what runs without prompting; keep them tight. The PreToolUse hook enforces the no-secrets prime directive. See settings.json.example for the reviewed template; see docs/tech/global-skills-inventory.md for the plugin/skill rationale.",
+  "//": "Harness-enforced behavior for orionfold-proof. Allow-rules widen what runs without prompting; keep them tight. The PreToolUse hook enforces the no-secrets prime directive (its PLACEHOLDER regex was widened 2026-06-28 to stop false-positiving on dotted-attribute references like `api_key = settings.x`; real keyed literals still block). See settings.json.example for the reviewed template; see docs/tech/global-skills-inventory.md for the plugin/skill rationale.",
   "model": "claude-opus-4-8",
   "permissions": {
     "allow": [
