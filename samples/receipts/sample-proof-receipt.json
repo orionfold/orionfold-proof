@@ -1,7 +1,7 @@
 {
-  "receipt_version": 7,
+  "receipt_version": 12,
   "run_id": "run_sampledemo01",
-  "config_hash": "467ddd96c9a5",
+  "config_hash": "4f0ccfa83ad3",
   "created_at": "2026-06-19T12:00:00Z",
   "brief": {
     "task_name": "Investment memo summarization",
@@ -26,6 +26,9 @@
     "judge": 0.0,
     "total": 0.0
   },
+  "mode": "full",
+  "chosen_winner": null,
+  "quick_note": "",
   "verdict": "Ship",
   "recommendation": "Mock · good (mock_good) — passed 5/5 (100%), avg latency 57ms, est. cost $0.00, local.",
   "leaderboard": [
@@ -45,7 +48,8 @@
       "failure_count": 0,
       "error_count": 0,
       "recommended": true,
-      "cost_per_quality": 0.0
+      "cost_per_quality": 0.0,
+      "tokens_per_second": 315.7894736842106
     },
     {
       "candidate_id": "mock_bad",
@@ -63,7 +67,8 @@
       "failure_count": 5,
       "error_count": 1,
       "recommended": false,
-      "cost_per_quality": null
+      "cost_per_quality": null,
+      "tokens_per_second": 57.142857142857146
     }
   ],
   "prompt_variants": [],
@@ -78,10 +83,13 @@
       "passed": false,
       "latency_ms": 131,
       "estimated_cost_usd": 0.0,
+      "input_tokens": 30,
+      "output_tokens": 9,
       "privacy": "local",
       "error": null,
       "judge_cost_usd": 0.0,
-      "judge_latency_ms": 0
+      "judge_latency_ms": 0,
+      "bench_detail": null
     },
     {
       "candidate_id": "mock_bad",
@@ -93,10 +101,13 @@
       "passed": false,
       "latency_ms": 161,
       "estimated_cost_usd": 0.0,
+      "input_tokens": 34,
+      "output_tokens": 9,
       "privacy": "local",
       "error": null,
       "judge_cost_usd": 0.0,
-      "judge_latency_ms": 0
+      "judge_latency_ms": 0,
+      "bench_detail": null
     },
     {
       "candidate_id": "mock_bad",
@@ -108,10 +119,13 @@
       "passed": false,
       "latency_ms": 0,
       "estimated_cost_usd": 0.0,
+      "input_tokens": 0,
+      "output_tokens": 0,
       "privacy": "local",
       "error": "RuntimeError: mock_bad: simulated provider failure",
       "judge_cost_usd": 0.0,
-      "judge_latency_ms": 0
+      "judge_latency_ms": 0,
+      "bench_detail": null
     },
     {
       "candidate_id": "mock_bad",
@@ -123,10 +137,13 @@
       "passed": false,
       "latency_ms": 192,
       "estimated_cost_usd": 0.0,
+      "input_tokens": 28,
+      "output_tokens": 9,
       "privacy": "local",
       "error": null,
       "judge_cost_usd": 0.0,
-      "judge_latency_ms": 0
+      "judge_latency_ms": 0,
+      "bench_detail": null
     },
     {
       "candidate_id": "mock_bad",
@@ -138,15 +155,21 @@
       "passed": false,
       "latency_ms": 146,
       "estimated_cost_usd": 0.0,
+      "input_tokens": 34,
+      "output_tokens": 9,
       "privacy": "local",
       "error": null,
       "judge_cost_usd": 0.0,
-      "judge_latency_ms": 0
+      "judge_latency_ms": 0,
+      "bench_detail": null
     }
   ],
+  "verdict_review": [],
+  "host": null,
+  "telemetry": null,
   "repro": {
     "run_id": "run_sampledemo01",
-    "config_hash": "467ddd96c9a5",
+    "config_hash": "4f0ccfa83ad3",
     "created_at": "2026-06-19T12:00:00Z",
     "dataset_id": "investment-memo-summarization",
     "candidate_ids": [

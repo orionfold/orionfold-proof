@@ -6,6 +6,8 @@ for [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.2.2] — 2026-06-28
+
 ### Fixed
 
 - **Figures render standalone when extracted to `<img>`.** `pareto_svg` / `pass_rate_svg` gained a
@@ -15,6 +17,9 @@ for [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `var(--color-*)` painted every chart invisible, and the `<figure>` wrapper hard-errored Astro's
   image importer. The default inline output (field note + receipt HTML) is unchanged — it still
   themes with the host page.
+- **Refreshed the bundled sample receipt** (`samples/receipts/sample-proof-receipt.{md,html,json}`)
+  to the current receipt schema (v12, with the tok/s column) — it had drifted to the pre-0.2.0 v7
+  layout. Regenerated from the mock demo run; secret-free.
 
 ## [0.2.1] — 2026-06-27
 
