@@ -687,6 +687,7 @@ export type Thresholds = z.infer<typeof thresholdsSchema>;
 export const settingsSchema = z.object({
   sandbox_enabled: z.boolean(),
   powermetrics_gpu_optin: z.boolean(),
+  provider_max_retries: z.number(),
   thresholds: thresholdsSchema,
 });
 export type Settings = z.infer<typeof settingsSchema>;
@@ -726,6 +727,10 @@ export function setPowermetricsOptin(enabled: boolean): Promise<Settings> {
 
 export function setThresholds(thresholds: Thresholds): Promise<Settings> {
   return mutate("/api/settings", "PUT", settingsSchema, { thresholds });
+}
+
+export function setMaxRetries(value: number): Promise<Settings> {
+  return mutate("/api/settings", "PUT", settingsSchema, { provider_max_retries: value });
 }
 
 export function seedSampleData(): Promise<DataCounts> {

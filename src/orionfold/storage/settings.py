@@ -15,6 +15,12 @@ _SANDBOX_KEY = "sandbox_enabled"
 # Opt-in for sampling Apple Silicon GPU utilization via powermetrics (needs sudo). Default off;
 # until enabled, GPU telemetry reads "unavailable" rather than a fabricated number.
 _POWERMETRICS_KEY = "powermetrics_gpu_optin"
+# Transient-failure retry cap for provider HTTP calls (dogfood backlog #1). Default 2; 0 disables
+# retry. The Settings UI tunes this; the value is mirrored into ``ORIONFOLD_MAX_RETRIES`` so the
+# provider layer (which reads env, never the DB) honors it live without a restart.
+_MAX_RETRIES_KEY = "provider_max_retries"
+_DEFAULT_MAX_RETRIES = 2
+_MAX_RETRIES_CEILING = 10
 # Only these kinds expose a tunable default-threshold slider in Settings.
 _THRESHOLD_KINDS = ("similarity", "keypoint", "judge")
 _THRESHOLD_KEY = "threshold_{kind}"
@@ -44,6 +50,24 @@ def get_powermetrics_optin(conn: sqlite3.Connection) -> bool:
 
 def set_powermetrics_optin(conn: sqlite3.Connection, enabled: bool) -> None:
     set_setting(conn, _POWERMETRICS_KEY, "true" if enabled else "false")
+
+
+def get_max_retries(conn: sqlite3.Connection) -> int:
+    """Persisted provider retry cap (default 2). A corrupt or out-of-range value falls back."""
+    raw = get_setting(conn, _MAX_RETRIES_KEY)
+    if raw is None:
+        return _DEFAULT_MAX_RETRIES
+    try:
+        value = int(raw)
+    except ValueError:
+        return _DEFAULT_MAX_RETRIES
+    return value if 0 <= value <= _MAX_RETRIES_CEILING else _DEFAULT_MAX_RETRIES
+
+
+def set_max_retries(conn: sqlite3.Connection, value: int) -> None:
+    """Persist the provider retry cap, clamped to ``0.._MAX_RETRIES_CEILING``."""
+    clamped = min(_MAX_RETRIES_CEILING, max(0, int(value)))
+    set_setting(conn, _MAX_RETRIES_KEY, str(clamped))
 
 
 def get_threshold_defaults(conn: sqlite3.Connection) -> dict[str, float]:

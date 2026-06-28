@@ -203,7 +203,7 @@ const CLOUD_SELECTION = {
 const SAMPLE_DATASETS = [
   { id: "sample-investment-memo", name: "Sample · investment memo summarization", description: "", is_sample: true, examples: [{ input_text: "i", expected_text: "e", keypoints: ["22%"] }] },
 ];
-const SETTINGS = { sandbox_enabled: false, powermetrics_gpu_optin: false, thresholds: { similarity: 0.55, keypoint: 0.8, judge: 0.8 } };
+const SETTINGS = { sandbox_enabled: false, powermetrics_gpu_optin: false, provider_max_retries: 2, thresholds: { similarity: 0.55, keypoint: 0.8, judge: 0.8 } };
 
 describe("ProofCockpit guided first-run CTA (WS-E2)", () => {
   it("hides the CTA when there are no cheap cloud candidates", async () => {

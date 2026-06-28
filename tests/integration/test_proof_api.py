@@ -503,6 +503,89 @@ def test_settings_powermetrics_optin_round_trips(client):
     assert client.get("/api/settings").json()["powermetrics_gpu_optin"] is True
 
 
+def test_settings_max_retries_defaults_to_two_and_round_trips(client, monkeypatch):
+    # Shell env must not pre-empt the DB-sourced default in this assertion.
+    monkeypatch.delenv("ORIONFOLD_MAX_RETRIES", raising=False)
+    assert client.get("/api/settings").json()["provider_max_retries"] == 2
+    updated = client.put("/api/settings", json={"provider_max_retries": 4}).json()
+    assert updated["provider_max_retries"] == 4
+    assert updated["sandbox_enabled"] is False  # PUT is partial
+    assert client.get("/api/settings").json()["provider_max_retries"] == 4
+
+
+def test_settings_max_retries_put_mirrors_into_env_live(client, monkeypatch):
+    # The PUT must mirror the persisted (clamped) value into the env knob the provider layer
+    # reads, so a retry-cap change takes effect without a server restart. monkeypatch.setenv
+    # is used so the mutation is auto-restored after the test (no env leak into siblings).
+    import os
+
+    monkeypatch.setenv("ORIONFOLD_MAX_RETRIES", "2")  # owned by monkeypatch → auto-restored
+    client.put("/api/settings", json={"provider_max_retries": 5})
+    assert os.environ["ORIONFOLD_MAX_RETRIES"] == "5"
+    # An out-of-range value is clamped on the way in (ge/le on the model rejects >10 with a 422,
+    # so use the ceiling 10 to exercise the persisted=env path).
+    client.put("/api/settings", json={"provider_max_retries": 10})
+    assert os.environ["ORIONFOLD_MAX_RETRIES"] == "10"
+
+
+def test_settings_partial_put_leaves_retries_untouched(client, monkeypatch):
+    # A PUT that omits provider_max_retries must not disturb the persisted retry cap (the route's
+    # if-present guard), matching the partial-update contract the other fields already honor.
+    monkeypatch.delenv("ORIONFOLD_MAX_RETRIES", raising=False)
+    client.put("/api/settings", json={"provider_max_retries": 4})
+    client.put("/api/settings", json={"sandbox_enabled": True})  # unrelated field
+    assert client.get("/api/settings").json()["provider_max_retries"] == 4
+
+
+def test_settings_max_retries_rejects_out_of_range(client):
+    # The model bounds the field (0..10); a wild value is a 422, not a silent clamp at the API.
+    assert client.put("/api/settings", json={"provider_max_retries": 99}).status_code == 422
+    assert client.put("/api/settings", json={"provider_max_retries": -1}).status_code == 422
+
+
+def test_startup_hydrates_retry_env_from_persisted_setting(tmp_path, monkeypatch):
+    # A persisted retry cap must seed ORIONFOLD_MAX_RETRIES on a fresh process (no shell override),
+    # so the provider layer honors the UI choice across a restart.
+    import os
+
+    from orionfold.storage.db import connect
+    from orionfold.storage.settings import set_max_retries
+
+    db = tmp_path / "proof.db"
+    boot = create_app(db_path=db)
+    with TestClient(boot):  # first lifespan: migrate + seed
+        pass
+    conn = connect(db)
+    set_max_retries(conn, 3)
+    conn.close()
+
+    monkeypatch.delenv("ORIONFOLD_MAX_RETRIES", raising=False)
+    app2 = create_app(db_path=db)
+    with TestClient(app2):  # second lifespan: hydrate from the persisted 3
+        assert os.environ["ORIONFOLD_MAX_RETRIES"] == "3"
+
+
+def test_startup_hydration_does_not_override_shell_env(tmp_path, monkeypatch):
+    # A value set in the actual shell env WINS — the DB is just the UI's persistence.
+    import os
+
+    from orionfold.storage.db import connect
+    from orionfold.storage.settings import set_max_retries
+
+    db = tmp_path / "proof.db"
+    boot = create_app(db_path=db)
+    with TestClient(boot):
+        pass
+    conn = connect(db)
+    set_max_retries(conn, 3)
+    conn.close()
+
+    monkeypatch.setenv("ORIONFOLD_MAX_RETRIES", "7")  # shell wins over the persisted 3
+    app2 = create_app(db_path=db)
+    with TestClient(app2):
+        assert os.environ["ORIONFOLD_MAX_RETRIES"] == "7"
+
+
 def test_settings_threshold_override_round_trips(client):
     # PUT only thresholds → persisted and reflected; sandbox stays untouched.
     resp = client.put(

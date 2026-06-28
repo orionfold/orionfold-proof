@@ -15,6 +15,7 @@ import {
   rubricSchema,
   scoredByLabel,
   seedSampleData,
+  setMaxRetries,
   setSandbox,
   setThresholds,
 } from "./api";
@@ -64,9 +65,23 @@ describe("scoring schemas", () => {
 describe("settings + sample-data client", () => {
   const THRESHOLDS = { similarity: 0.55, keypoint: 0.8, judge: 0.8 };
 
-  it("getSettings parses sandbox_enabled and thresholds", async () => {
-    mockResponse({ sandbox_enabled: true, powermetrics_gpu_optin: false, thresholds: THRESHOLDS });
-    expect(await getSettings()).toEqual({ sandbox_enabled: true, powermetrics_gpu_optin: false, thresholds: THRESHOLDS });
+  it("getSettings parses sandbox_enabled, retries, and thresholds", async () => {
+    mockResponse({ sandbox_enabled: true, powermetrics_gpu_optin: false, provider_max_retries: 2, thresholds: THRESHOLDS });
+    expect(await getSettings()).toEqual({ sandbox_enabled: true, powermetrics_gpu_optin: false, provider_max_retries: 2, thresholds: THRESHOLDS });
+  });
+
+  it("setMaxRetries PUTs a retries-only body", async () => {
+    const spy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(
+        new Response(
+          JSON.stringify({ sandbox_enabled: false, powermetrics_gpu_optin: false, provider_max_retries: 3, thresholds: THRESHOLDS }),
+          { status: 200 },
+        ),
+      );
+    await setMaxRetries(3);
+    const body = JSON.parse((spy.mock.calls[0][1] as RequestInit).body as string);
+    expect(body).toEqual({ provider_max_retries: 3 });
   });
 
   it("setSandbox PUTs the flag", async () => {
@@ -74,7 +89,7 @@ describe("settings + sample-data client", () => {
       .spyOn(globalThis, "fetch")
       .mockResolvedValue(
         new Response(
-          JSON.stringify({ sandbox_enabled: false, powermetrics_gpu_optin: false, thresholds: THRESHOLDS }),
+          JSON.stringify({ sandbox_enabled: false, powermetrics_gpu_optin: false, provider_max_retries: 2, thresholds: THRESHOLDS }),
           { status: 200 },
         ),
       );
@@ -88,7 +103,7 @@ describe("settings + sample-data client", () => {
       .spyOn(globalThis, "fetch")
       .mockResolvedValue(
         new Response(
-          JSON.stringify({ sandbox_enabled: false, powermetrics_gpu_optin: false, thresholds: next }),
+          JSON.stringify({ sandbox_enabled: false, powermetrics_gpu_optin: false, provider_max_retries: 2, thresholds: next }),
           { status: 200 },
         ),
       );

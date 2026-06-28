@@ -10,12 +10,22 @@ beforeEach(() => {
     const method = (init?.method ?? "GET").toUpperCase();
     if (String(url).endsWith("/api/settings") && method === "GET")
       return new Response(
-        JSON.stringify({ sandbox_enabled: false, powermetrics_gpu_optin: false, thresholds: THRESHOLDS }),
+        JSON.stringify({
+          sandbox_enabled: false,
+          powermetrics_gpu_optin: false,
+          provider_max_retries: 2,
+          thresholds: THRESHOLDS,
+        }),
         { status: 200 },
       );
     if (String(url).endsWith("/api/settings") && method === "PUT")
       return new Response(
-        JSON.stringify({ sandbox_enabled: true, powermetrics_gpu_optin: false, thresholds: THRESHOLDS }),
+        JSON.stringify({
+          sandbox_enabled: true,
+          powermetrics_gpu_optin: false,
+          provider_max_retries: 2,
+          thresholds: THRESHOLDS,
+        }),
         { status: 200 },
       );
     if (String(url).endsWith("/api/data") && method === "DELETE")
@@ -49,6 +59,23 @@ test("lays out the four bento section tiles, including a Runtime tile with both 
   // The runtime toggles moved into the Runtime tile but kept their roles/labels.
   expect(screen.getByRole("switch", { name: /Sandbox/i })).toBeInTheDocument();
   expect(screen.getByRole("switch", { name: /GPU metrics/i })).toBeInTheDocument();
+  // The retry cap lives in the same Runtime tile, prefilled from the persisted value.
+  expect(screen.getByRole("combobox", { name: /Transient-failure retries/i })).toHaveValue("2");
+});
+
+test("changing the retry cap PUTs the new value", async () => {
+  renderWithQuery(<SettingsView />);
+  const retry = await screen.findByRole("combobox", { name: /Transient-failure retries/i });
+  fireEvent.change(retry, { target: { value: "4" } });
+  await waitFor(() =>
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      "/api/settings",
+      expect.objectContaining({
+        method: "PUT",
+        body: JSON.stringify({ provider_max_retries: 4 }),
+      }),
+    ),
+  );
 });
 
 test("renders a default-threshold slider per method showing persisted values", async () => {

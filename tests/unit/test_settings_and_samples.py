@@ -29,6 +29,25 @@ def test_powermetrics_optin_defaults_false_and_round_trips():
     assert settings.get_powermetrics_optin(conn) is False
 
 
+def test_max_retries_defaults_to_two_and_round_trips():
+    conn = _db()
+    assert settings.get_max_retries(conn) == 2
+    settings.set_max_retries(conn, 4)
+    assert settings.get_max_retries(conn) == 4
+    settings.set_max_retries(conn, 0)
+    assert settings.get_max_retries(conn) == 0
+
+
+def test_max_retries_clamps_and_recovers_from_corruption():
+    conn = _db()
+    settings.set_max_retries(conn, 99)  # above ceiling → clamped to 10
+    assert settings.get_max_retries(conn) == 10
+    settings.set_max_retries(conn, -5)  # below floor → clamped to 0
+    assert settings.get_max_retries(conn) == 0
+    settings.set_setting(conn, "provider_max_retries", "garbage")  # corrupt → default
+    assert settings.get_max_retries(conn) == 2
+
+
 def test_threshold_defaults_fall_back_to_builtin_map():
     from orionfold.scoring.rubric import DEFAULT_THRESHOLDS
 

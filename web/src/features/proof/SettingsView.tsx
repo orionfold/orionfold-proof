@@ -20,6 +20,7 @@ import {
   getSettings,
   removeSampleData,
   seedSampleData,
+  setMaxRetries,
   setPowermetricsOptin,
   setSandbox,
   setThresholds,
@@ -63,12 +64,17 @@ export function SettingsView() {
     mutationFn: (enabled: boolean) => setPowermetricsOptin(enabled),
     onSuccess: (s) => qc.setQueryData(["settings"], s),
   });
+  const maxRetries = useMutation({
+    mutationFn: (value: number) => setMaxRetries(value),
+    onSuccess: (s) => qc.setQueryData(["settings"], s),
+  });
   const seed = useMutation({ mutationFn: seedSampleData, onSuccess: invalidateData });
   const removeSamples = useMutation({ mutationFn: removeSampleData, onSuccess: invalidateData });
   const clearAll = useMutation({ mutationFn: clearAllData, onSuccess: invalidateData });
 
   const on = settings.data?.sandbox_enabled ?? false;
   const gpuOn = settings.data?.powermetrics_gpu_optin ?? false;
+  const retries = settings.data?.provider_max_retries ?? 2;
 
   // Reachability for the "GPU ready / needs setup" badge. Only poll while the opt-in is on (the
   // badge is hidden otherwise) — a light 30s cadence; the probe is a one-shot, harmless GPU read.
@@ -135,6 +141,11 @@ export function SettingsView() {
             />
             {gpuOn && gpuSetup.data && <GpuSetupBadge status={gpuSetup.data} />}
           </div>
+          <RetryStepper
+            value={retries}
+            disabled={settings.isLoading || maxRetries.isPending}
+            onChange={(n) => maxRetries.mutate(n)}
+          />
         </SettingCard>
 
         <SettingCard
@@ -294,6 +305,49 @@ function Toggle({
           }
         />
       </button>
+    </div>
+  );
+}
+
+// Transient-failure retry cap. Same label-left / control-right shape as Toggle, but a small select
+// instead of a switch (it's a 0–5 count, not a boolean). Genuinely-slow models are never retried —
+// only 429 / 5xx / dropped connections — so the copy says exactly what gets a second chance.
+const RETRY_OPTIONS = [0, 1, 2, 3, 4, 5];
+
+function RetryStepper({
+  value,
+  disabled,
+  onChange,
+}: {
+  value: number;
+  disabled: boolean;
+  onChange: (value: number) => void;
+}) {
+  return (
+    <div className="flex items-start justify-between gap-4">
+      <div>
+        <label htmlFor="retry-cap" className="text-sm text-(--color-ink)">
+          Transient-failure retries
+        </label>
+        <p className="text-xs text-(--color-ink-faint)">
+          Retries a cell on a 429, 5xx, or dropped connection with exponential backoff. 0 disables.
+          A genuinely slow model is never retried — only flaky failures are.
+        </p>
+      </div>
+      <select
+        id="retry-cap"
+        aria-label="Transient-failure retries"
+        value={value}
+        disabled={disabled}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="shrink-0 rounded-md border border-(--color-panel-line-strong) bg-(--color-panel-card) px-2 py-1 text-sm text-(--color-ink)"
+      >
+        {RETRY_OPTIONS.map((n) => (
+          <option key={n} value={n}>
+            {n}
+          </option>
+        ))}
+      </select>
     </div>
   );
 }

@@ -20,6 +20,7 @@ const HOST = {
 const SETTINGS = {
   sandbox_enabled: true,
   powermetrics_gpu_optin: false,
+  provider_max_retries: 2,
   thresholds: { similarity: 0.8, keypoint: 0.8, judge: 0.8 },
 };
 

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import queue
 import sqlite3
 import threading
@@ -93,9 +94,11 @@ from orionfold.storage.repository import (
     validate_bench_binding,
 )
 from orionfold.storage.settings import (
+    get_max_retries,
     get_powermetrics_optin,
     get_sandbox_enabled,
     get_threshold_defaults,
+    set_max_retries,
     set_powermetrics_optin,
     set_sandbox_enabled,
     set_threshold_defaults,
@@ -174,6 +177,7 @@ class SettingsModel(BaseModel):
 
     sandbox_enabled: bool
     powermetrics_gpu_optin: bool
+    provider_max_retries: int
     thresholds: ThresholdDefaults
 
 
@@ -186,6 +190,7 @@ class SettingsUpdate(BaseModel):
 
     sandbox_enabled: bool | None = None
     powermetrics_gpu_optin: bool | None = None
+    provider_max_retries: int | None = Field(default=None, ge=0, le=10)
     thresholds: ThresholdDefaults | None = None
 
 
@@ -213,13 +218,14 @@ def _conn(request: Request) -> sqlite3.Connection:
 
 
 def init_db(db_path) -> None:
-    """Apply migrations and seed bundled datasets — called once at startup."""
+    """Apply migrations, seed bundled datasets, and hydrate env knobs — called once at startup."""
     conn = connect(db_path)
     try:
         apply_migrations(conn)
         seed_datasets(conn)
         seed_corpora(conn)  # bench bindings validate against bundled corpora — seed them first
         seed_bench_datasets(conn)
+        hydrate_env_from_settings(conn)  # seed ORIONFOLD_MAX_RETRIES from the persisted setting
     finally:
         conn.close()
 
@@ -568,10 +574,26 @@ def set_credential(body: CredentialRequest) -> CredentialStatus:
     return CredentialStatus(provider_id=body.provider_id, available=has_key(key_name))
 
 
+# Env var the provider HTTP layer reads for its retry cap. The Settings store is the UI's
+# persistence; mirroring the value here is what lets a PUT take effect live (no server restart).
+_MAX_RETRIES_ENV = "ORIONFOLD_MAX_RETRIES"
+
+
+def hydrate_env_from_settings(conn: sqlite3.Connection) -> None:
+    """Seed env knobs from persisted settings at startup so a fresh process honors the UI value.
+
+    A value already present in the shell env WINS — env is the source of truth for a power user;
+    the DB is just where the Settings UI persists its choice. Called once from the lifespan.
+    """
+    if _MAX_RETRIES_ENV not in os.environ:
+        os.environ[_MAX_RETRIES_ENV] = str(get_max_retries(conn))
+
+
 def _read_settings(conn: sqlite3.Connection) -> SettingsModel:
     return SettingsModel(
         sandbox_enabled=get_sandbox_enabled(conn),
         powermetrics_gpu_optin=get_powermetrics_optin(conn),
+        provider_max_retries=get_max_retries(conn),
         thresholds=ThresholdDefaults(**get_threshold_defaults(conn)),
     )
 
@@ -593,6 +615,11 @@ def update_settings(request: Request, body: SettingsUpdate) -> SettingsModel:
             set_sandbox_enabled(conn, body.sandbox_enabled)
         if body.powermetrics_gpu_optin is not None:
             set_powermetrics_optin(conn, body.powermetrics_gpu_optin)
+        if body.provider_max_retries is not None:
+            set_max_retries(conn, body.provider_max_retries)
+            # Mirror into env so the provider layer picks it up immediately (no restart). Read back
+            # the persisted (clamped) value rather than the raw body so env matches the DB exactly.
+            os.environ[_MAX_RETRIES_ENV] = str(get_max_retries(conn))
         if body.thresholds is not None:
             set_threshold_defaults(conn, body.thresholds.model_dump())
         return _read_settings(conn)

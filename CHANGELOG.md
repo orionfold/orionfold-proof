@@ -6,6 +6,17 @@ for [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **Transient-failure retry for provider calls.** A single 429 / 502·503·504 / dropped connection
+  on a paid multi-candidate run now gets a bounded retry (exponential backoff + jitter, honoring a
+  429 `Retry-After`) instead of wasting that cell. Default 2 retries, tunable in **Settings →
+  Runtime** (0 disables) or via `ORIONFOLD_MAX_RETRIES` (the shell env wins over the UI value). A
+  genuinely-slow model is **never** retried (a read-timeout means the model is working, not flaky)
+  and a deterministic 4xx≠429 (400/401/404) is never retried (it would just waste money). Exhausting
+  retries still records a graceful per-cell error and the run completes — one hung model never voids
+  a proof. Reliability-only: no payload, `config_hash`, or receipt-shape change.
+
 ## [0.2.2] — 2026-06-28
 
 ### Fixed

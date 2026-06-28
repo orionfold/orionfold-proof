@@ -10,6 +10,7 @@ real number even when the body omits one.
 
 from __future__ import annotations
 
+import random
 import time
 from typing import Any
 
@@ -32,6 +33,76 @@ _CLOUD_IDLE_S = 90.0
 # is generous, so a black-holed host (wrong OLLAMA_HOST, dropped route) fails fast instead of
 # burning the full local budget. Independent of the idle budget by design.
 _CONNECT_BACKSTOP_S = 10.0
+
+
+# Transient-failure retry (dogfood backlog #1). A single 429 / 5xx / dropped connection on a
+# paid multi-candidate run should get a bounded, backed-off retry rather than wasting that cell.
+# We retry ONLY transient failures — never a deterministic 4xx≠429 (retrying a 400/401/404 wastes
+# the buyer's money) and never a read-timeout (a slow-but-working model — that is exactly what the
+# generous idle budget is for; a retry would double both the wait and the spend).
+_DEFAULT_MAX_RETRIES = 2
+_RETRY_BASE_S = 0.5
+_RETRY_CAP_S = 8.0
+# HTTP statuses worth a second chance: rate-limit + the transient gateway/upstream 5xx family.
+_RETRYABLE_STATUSES = frozenset({429, 502, 503, 504})
+
+
+def _sleep(seconds: float) -> None:
+    """Backoff sleep, isolated behind a seam so tests run instantly (they stub this out)."""
+    time.sleep(seconds)
+
+
+def max_retries() -> int:
+    """Transient-failure retry count; ``ORIONFOLD_MAX_RETRIES`` overrides the default (2).
+
+    ``0`` disables retry (a single attempt). A garbage or negative value falls back to the
+    default — mirrors the ``ORIONFOLD_MAX_TOKENS`` / ``ORIONFOLD_TIMEOUT_S`` env-knob pattern.
+    """
+    try:
+        value = int(resolve("ORIONFOLD_MAX_RETRIES", str(_DEFAULT_MAX_RETRIES)))
+    except ValueError:
+        return _DEFAULT_MAX_RETRIES
+    return value if value >= 0 else _DEFAULT_MAX_RETRIES
+
+
+def _is_transient_status(status: int) -> bool:
+    """True only for statuses a retry could plausibly fix (rate-limit + transient 5xx)."""
+    return status in _RETRYABLE_STATUSES
+
+
+def _is_transient_exc(exc: httpx.HTTPError) -> bool:
+    """True for connection-level transport failures (refused / reset / connect-timeout / pool).
+
+    Deliberately EXCLUDES :class:`httpx.ReadTimeout` — a read that exhausts the budget means the
+    model is genuinely slow, not flaky, so retrying it is wrong (and, for a paid model, costly).
+    """
+    if isinstance(exc, httpx.ReadTimeout):
+        return False
+    return isinstance(exc, (httpx.ConnectError, httpx.ConnectTimeout, httpx.TransportError))
+
+
+def _backoff_delay(attempt: int, *, retry_after: float | None) -> float:
+    """Bounded exponential backoff with jitter for retry ``attempt`` (0-based).
+
+    A 429's ``Retry-After`` (seconds) takes precedence when present (capped at ``_RETRY_CAP_S``);
+    otherwise ``base * 2**attempt`` capped at ``_RETRY_CAP_S``, plus ``[0, base)`` jitter so many
+    cells retrying at once don't synchronize into a thundering herd.
+    """
+    if retry_after is not None and retry_after > 0:
+        return min(retry_after, _RETRY_CAP_S)
+    backoff = min(_RETRY_CAP_S, _RETRY_BASE_S * (2**attempt))
+    return backoff + random.uniform(0, _RETRY_BASE_S)
+
+
+def _parse_retry_after(response: httpx.Response) -> float | None:
+    """The ``Retry-After`` header in seconds form, if the server sent a numeric one."""
+    raw = response.headers.get("retry-after")
+    if not raw:
+        return None
+    try:
+        return float(raw)
+    except ValueError:
+        return None  # HTTP-date form is not worth parsing for a sub-10s backoff cap
 
 
 def idle_budget(privacy: Privacy) -> float:
@@ -123,30 +194,52 @@ def post_json(
     an explicit ``timeout`` overrides it. Connect is capped at the short absolute backstop so
     an unreachable host fails fast regardless of the read budget.
 
+    A transient failure (429, 502/503/504, or a connection-level transport error) is retried up
+    to ``max_retries()`` times with bounded exponential backoff + jitter; a 429 ``Retry-After`` is
+    honored (capped). A read-timeout and a deterministic 4xx≠429 are NEVER retried.
+
     Raises :class:`ProviderError` on a timeout (``"{provider} timed out after {n}s"``), a non-2xx
     response (``"{provider} HTTP {status}: {short body}"``), or any other transport error — all
-    terse, with nothing sensitive that redaction would need to catch.
+    terse, with nothing sensitive that redaction would need to catch. On exhaustion, the LAST
+    failure's error is raised (so the operator sees the final real reason the cell failed).
     """
     budget = idle_budget(privacy) if timeout is None else timeout
     request_timeout = httpx.Timeout(budget, connect=min(_CONNECT_BACKSTOP_S, budget))
+    retries = max_retries()
     start = time.monotonic()
-    try:
-        response = httpx.post(url, json=payload, headers=headers, timeout=request_timeout)
-    except httpx.TimeoutException as exc:
-        raise ProviderError(f"{provider} timed out after {budget:.0f}s") from exc
-    except httpx.HTTPError as exc:
-        raise ProviderError(f"{provider} request failed: {type(exc).__name__}") from exc
-    latency_ms = int((time.monotonic() - start) * 1000)
+    for attempt in range(retries + 1):
+        retry_after: float | None = None
+        try:
+            response = httpx.post(url, json=payload, headers=headers, timeout=request_timeout)
+        except httpx.TimeoutException as exc:
+            # ReadTimeout is non-transient (slow model, not flaky); a connect-timeout retries.
+            if _is_transient_exc(exc) and attempt < retries:
+                _sleep(_backoff_delay(attempt, retry_after=None))
+                continue
+            raise ProviderError(f"{provider} timed out after {budget:.0f}s") from exc
+        except httpx.HTTPError as exc:
+            if _is_transient_exc(exc) and attempt < retries:
+                _sleep(_backoff_delay(attempt, retry_after=None))
+                continue
+            raise ProviderError(f"{provider} request failed: {type(exc).__name__}") from exc
 
-    if response.status_code >= 400:
-        body = _scrub_error_body(response.text[:_MAX_ERROR_BODY].strip(), headers)
-        raise ProviderError(f"{provider} HTTP {response.status_code}: {body}")
+        if response.status_code >= 400:
+            if _is_transient_status(response.status_code) and attempt < retries:
+                retry_after = _parse_retry_after(response)
+                _sleep(_backoff_delay(attempt, retry_after=retry_after))
+                continue
+            body = _scrub_error_body(response.text[:_MAX_ERROR_BODY].strip(), headers)
+            raise ProviderError(f"{provider} HTTP {response.status_code}: {body}")
 
-    try:
-        data = response.json()
-    except ValueError as exc:
-        raise ProviderError(f"{provider} returned non-JSON response") from exc
-    return data, latency_ms
+        latency_ms = int((time.monotonic() - start) * 1000)
+        try:
+            data = response.json()
+        except ValueError as exc:
+            raise ProviderError(f"{provider} returned non-JSON response") from exc
+        return data, latency_ms
+
+    # Unreachable: the loop either returns on success or raises on the terminal attempt.
+    raise ProviderError(f"{provider} request failed: retries exhausted")  # pragma: no cover
 
 
 def build_result(
