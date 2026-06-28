@@ -902,13 +902,10 @@ def create_run_stream(request: Request, body: RunRequest) -> StreamingResponse:
                     pass
                 _CURRENT_SAMPLER = None
             if worker.is_alive():
-                # Drain the queue so the worker's blocking cell_queue.put() can't wedge, then join.
-                while True:
-                    try:
-                        if cell_queue.get_nowait() is None:
-                            break
-                    except queue.Empty:
-                        break
+                # On disconnect the worker may still be inside an in-flight score_cell. cancel is set,
+                # so it returns after that cell, hits its own finally (which puts the sentinel onto the
+                # unbounded queue — never blocks), and exits. Bound the wait so a hung provider call
+                # can't pin the request thread; the worker is a daemon, so a timeout here is benign.
                 worker.join(timeout=10.0)
 
     return StreamingResponse(
