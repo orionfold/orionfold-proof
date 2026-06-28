@@ -12,9 +12,18 @@ test("proof loop: run → leaderboard → failure case → receipts", async ({ p
   await expect(page.getByRole("heading", { name: "Orionfold Proof" })).toBeVisible();
   await expect(page.getByText(/Connected/)).toBeVisible();
 
+  // Cold-start guard (R4): this is the FIRST test in the serial suite, so it races a freshly-booted
+  // server. The heading + "Connected" pill render immediately, but the setup form is held behind a
+  // full-screen "Loading the local engine…" notice until the `datasets` + `selection` queries
+  // settle — which can exceed the default 5s assertion timeout on a cold boot. Anchor on the dataset
+  // select (the form's gate element) with a generous timeout so the picker interactions below run
+  // against a settled DOM instead of flaking. Sibling tests inherit a warm server and don't need it.
+  const datasetSelect = page.getByLabel("Dataset");
+  await expect(datasetSelect).toBeVisible({ timeout: 30_000 });
+
   // The shared DB may hold datasets from other tests; pin the keypoint demo set explicitly so the
   // 5-example / keypoint-coverage / 5-failure-cases assertions below are deterministic.
-  await page.getByLabel("Dataset").selectOption("investment-memo-summarization");
+  await datasetSelect.selectOption("investment-memo-summarization");
 
   // Type the decision question AFTER selecting the dataset. Since WS-C, an *untouched* question
   // clears on dataset change, so the receipt heading would otherwise fall back to the task name —
@@ -32,9 +41,10 @@ test("proof loop: run → leaderboard → failure case → receipts", async ({ p
   // Run the sample proof (both mock candidates are selected by default in Sandbox).
   await page.getByRole("button", { name: /Run proof/ }).click();
 
-  // Leaderboard: mock_good is recommended and passes everything.
+  // Leaderboard: mock_good is recommended and passes everything. Generous timeout — on a cold
+  // server the first streaming run + scoring can outrun the default 5s (R4, the original flake site).
   const leaderboard = page.getByRole("region", { name: "Leaderboard" });
-  await expect(leaderboard).toBeVisible();
+  await expect(leaderboard).toBeVisible({ timeout: 30_000 });
   await expect(leaderboard.getByText("Recommended")).toBeVisible();
   await expect(leaderboard.getByText("100% (5/5)")).toBeVisible();
 
