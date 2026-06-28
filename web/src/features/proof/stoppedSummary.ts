@@ -23,3 +23,16 @@ export function buildStoppedSummary(
     incurredCost: cells.reduce((sum, c) => sum + (c.cost ?? 0), 0),
   };
 }
+
+/** The error message to show in the run-setup form, or null to show none. A deliberate stop is NOT a
+ * setup error — the calm Run-stopped panel is its canonical surface — so suppress both the
+ * already-stopped case and a raw AbortError (the browser's "BodyStreamBuffer was aborted" text). */
+export function setupRunError(
+  isError: boolean,
+  error: unknown,
+  stopped: boolean,
+): string | null {
+  if (!isError || stopped) return null;
+  if (error instanceof DOMException && error.name === "AbortError") return null;
+  return error instanceof Error ? error.message : null;
+}

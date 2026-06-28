@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildStoppedSummary } from "./stoppedSummary";
+import { buildStoppedSummary, setupRunError } from "./stoppedSummary";
 import type { RunStartEvent } from "../../lib/api";
 
 const start = (total: number): RunStartEvent => ({
@@ -32,5 +32,27 @@ describe("buildStoppedSummary", () => {
     const s = buildStoppedSummary(start(3), [{}, { cost: 0.01 }]);
     expect(s.incurredCost).toBe(0.01);
     expect(s.completedCells).toBe(2);
+  });
+});
+
+describe("setupRunError", () => {
+  it("shows a real run failure's message in the form", () => {
+    expect(setupRunError(true, new Error("Run failed (HTTP 500)"), false)).toBe(
+      "Run failed (HTTP 500)",
+    );
+  });
+
+  it("returns null when there is no error", () => {
+    expect(setupRunError(false, null, false)).toBeNull();
+  });
+
+  it("suppresses an AbortError (a deliberate stop is not a setup error)", () => {
+    const abort = new DOMException("BodyStreamBuffer was aborted", "AbortError");
+    expect(setupRunError(true, abort, false)).toBeNull();
+  });
+
+  it("suppresses any error once the run is stopped (the panel is the canonical surface)", () => {
+    // Even a generically-typed rejection is hidden while the stopped panel is showing.
+    expect(setupRunError(true, new Error("BodyStreamBuffer was aborted"), true)).toBeNull();
   });
 });

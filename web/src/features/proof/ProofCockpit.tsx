@@ -39,7 +39,7 @@ import { RecipeRow } from "./RecipeRow";
 import { RunProgress } from "./RunProgress";
 import { RunSetup } from "./RunSetup";
 import { RunStopped } from "./RunStopped";
-import { buildStoppedSummary, type StoppedSummary } from "./stoppedSummary";
+import { buildStoppedSummary, setupRunError, type StoppedSummary } from "./stoppedSummary";
 import { healthByProvider } from "./providerHealth";
 import { StageStepper } from "./StageStepper";
 
@@ -274,6 +274,11 @@ export function ProofCockpit({
   // examples, and saves nothing; onError (AbortError) renders the Run-stopped panel.
   const stopRun = () => abortRef.current?.abort();
 
+  // A deliberate stop is not a setup error: the calm Run-stopped panel is its canonical surface, so
+  // suppress the form-level error line (otherwise the browser's raw "BodyStreamBuffer was aborted" /
+  // AbortError leaks into the setup slot for an action the operator intended).
+  const runError = setupRunError(runMutation.isError, runMutation.error, stopped !== null);
+
   // Surface the streaming state to App so the app-level rail can subscribe to the live telemetry
   // stream exactly while the run is in flight (the rail can't read this mutation directly).
   const runIsPending = runMutation.isPending;
@@ -437,7 +442,7 @@ export function ProofCockpit({
           brief={effectiveBrief}
           onBriefChange={handleBriefChange}
           isRunning={runMutation.isPending}
-          error={runMutation.isError ? (runMutation.error as Error).message : null}
+          error={runError}
           hasRun={report !== null}
           rubric={rubric}
           onRubricChange={setRubric}
