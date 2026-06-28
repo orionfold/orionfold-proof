@@ -32,6 +32,34 @@ _PAD_T = 12
 _PAD_B = 28  # bottom gutter for the x-axis label
 
 
+# --- colour palette (inline themes via CSS vars; standalone bakes literal hex) ---
+#
+# The figures serve two render contexts from one source:
+#   * INLINE (field note, receipt HTML) — the SVG lives in the page DOM, so `var(--color-*)`
+#     themes with the host (light/dark). This is the default and stays byte-identical.
+#   * STANDALONE (receipt-article extract) — the SVG is referenced as `<img src>`, an isolated
+#     context that can't read page CSS vars (every var() paints invisible). So `standalone=True`
+#     bakes literal, THEME-NEUTRAL hex that reads on both light + dark (an <img>-SVG can't be
+#     theme-reactive). Values are the website's proven mapping (src/styles/index.css): ink-faint/
+#     ink-muted use the light-theme tones (legible on white, still visible on dark); accent is the
+#     brand cyan fill; warn/danger are mid-tones between the two themes' values.
+_STANDALONE_HEX = {
+    "--color-ink-faint": "#9aa1ab",  # gridlines/axes only (never text)
+    "--color-ink-muted": "#6b7280",  # label text — ~4.8:1 on white, WCAG-legible
+    "--color-accent": "#14c8c0",  # recommended dot/bar fill (brand cyan)
+    "--color-ok": "#3fd55a",  # PASS green
+    "--color-warn": "#d9952b",  # caution — between light #b06a00 / dark #f5b14a
+    "--color-danger": "#dd5266",  # fail — between light #c0344d / dark #ff7a93
+}
+
+
+def _colour(token: str, *, standalone: bool) -> str:
+    """Emit a paint value for a DS colour token: a literal hex in standalone mode, else `var(...)`."""
+    if standalone:
+        return _STANDALONE_HEX[token]
+    return f"var({token})"
+
+
 def _num(value: float) -> str:
     """Fixed 2-decimal, trailing zeros trimmed — stable across machines (no float drift)."""
     s = f"{value:.2f}"
@@ -57,34 +85,40 @@ def _short_label(label: str, *, limit: int = 16) -> str:
     return tail or label[:limit]
 
 
-def _gridlines_v(x0: float, x1: float, y0: float, y1: float, *, steps: int = 4) -> str:
+def _gridlines_v(
+    x0: float, x1: float, y0: float, y1: float, *, steps: int = 4, standalone: bool = False
+) -> str:
     """Faint vertical gridlines (subtle background structure for a bar chart) at even fractions of
-    the inner width. Drawn BEFORE the bars so they sit behind. --rc-line-ish via --color-ink-faint
-    at low opacity keeps them quiet."""
+    the inner width. Drawn BEFORE the bars so they sit behind. ink-faint at low opacity keeps them
+    quiet."""
+    stroke = _colour("--color-ink-faint", standalone=standalone)
     parts = []
     for k in range(1, steps + 1):
         x = x0 + (x1 - x0) * k / steps
         parts.append(
             f'<line x1="{_num(x)}" y1="{_num(y0)}" x2="{_num(x)}" y2="{_num(y1)}" '
-            f'stroke="var(--color-ink-faint)" stroke-width="0.5" opacity="0.28"/>'
+            f'stroke="{stroke}" stroke-width="0.5" opacity="0.28"/>'
         )
     return "".join(parts)
 
 
-def _gridlines_hv(x0: float, x1: float, y0: float, y1: float, *, steps: int = 4) -> str:
+def _gridlines_hv(
+    x0: float, x1: float, y0: float, y1: float, *, steps: int = 4, standalone: bool = False
+) -> str:
     """Faint horizontal + vertical gridlines for the scatter — a subtle plot grid behind the dots."""
+    stroke = _colour("--color-ink-faint", standalone=standalone)
     parts = []
     for k in range(1, steps + 1):
         y = y0 + (y1 - y0) * k / steps
         parts.append(
             f'<line x1="{_num(x0)}" y1="{_num(y)}" x2="{_num(x1)}" y2="{_num(y)}" '
-            f'stroke="var(--color-ink-faint)" stroke-width="0.5" opacity="0.22"/>'
+            f'stroke="{stroke}" stroke-width="0.5" opacity="0.22"/>'
         )
     for k in range(1, steps + 1):
         x = x0 + (x1 - x0) * k / steps
         parts.append(
             f'<line x1="{_num(x)}" y1="{_num(y0)}" x2="{_num(x)}" y2="{_num(y1)}" '
-            f'stroke="var(--color-ink-faint)" stroke-width="0.5" opacity="0.22"/>'
+            f'stroke="{stroke}" stroke-width="0.5" opacity="0.22"/>'
         )
     return "".join(parts)
 
@@ -138,27 +172,43 @@ def _pass_rate_tone(rate: float) -> str:
     return "--color-danger"
 
 
-def _figure(body: str, *, title: str, caption: str, label: str) -> str:
-    """Wrap an inner SVG body in the ainative ``fn-diagram`` figure shape (themeable + a11y)."""
-    return (
-        f'<figure class="fn-diagram">\n'
+def _figure(body: str, *, title: str, caption: str, label: str, standalone: bool = False) -> str:
+    """Wrap an inner SVG body for the chosen render context.
+
+    Inline (default): the ainative ``fn-diagram`` ``<figure>`` shape (themeable + a11y caption).
+    Standalone: a BARE ``<svg>`` root — Astro's ``image()`` importer hard-errors on a non-``<svg>``
+    root, and the website supplies its own caption. The ``<title>``/``aria-label`` a11y spine is
+    kept either way; only the surrounding ``<figure>``/``<figcaption>`` chrome is dropped.
+    """
+    svg = (
         f'<svg viewBox="0 0 {_W} {_H}" role="img" aria-label="{_esc(label)}" '
         f'xmlns="http://www.w3.org/2000/svg">\n'
         f"<title>{_esc(title)}</title>\n"
         f"{body}\n"
-        f"</svg>\n"
+        f"</svg>"
+    )
+    if standalone:
+        return svg
+    return (
+        f'<figure class="fn-diagram">\n'
+        f"{svg}\n"
         f"<figcaption>{_esc(caption)}</figcaption>\n"
         f"</figure>"
     )
 
 
-def pareto_svg(report: ProofReport) -> str:
+def pareto_svg(report: ProofReport, *, standalone: bool = False) -> str:
     """Cost-vs-quality scatter: cost (x, lower better) × pass-rate (y); frontier path drawn.
 
     The recommended candidate is the only accent; every other dot is status-toned. When fewer
     than two candidates have a positive cost spread the frontier path is omitted (nothing
     dominates) — honest, never a fabricated line.
+
+    ``standalone=True`` bakes literal hex + a bare ``<svg>`` root for the receipt-article
+    ``<img>`` path (see the colour-palette note above); the default themes inline via CSS vars.
     """
+    ink_faint = _colour("--color-ink-faint", standalone=standalone)
+    ink_muted = _colour("--color-ink-muted", standalone=standalone)
     entries = [e for e in report.leaderboard if e.error_count < e.total or e.total == 0]
     pts = [(e.total_estimated_cost_usd, e.pass_rate) for e in entries]
 
@@ -177,24 +227,28 @@ def pareto_svg(report: ProofReport) -> str:
 
     parts: list[str] = []
     # Subtle plot grid behind the dots — quiet structure so a dot's position reads against a scale.
-    parts.append(_gridlines_hv(_PAD_L, _PAD_L + inner_w, _PAD_T, _PAD_T + inner_h, steps=4))
+    parts.append(
+        _gridlines_hv(
+            _PAD_L, _PAD_L + inner_w, _PAD_T, _PAD_T + inner_h, steps=4, standalone=standalone
+        )
+    )
     # axes (neutral ink)
     parts.append(
         f'<line x1="{_PAD_L}" y1="{_PAD_T}" x2="{_PAD_L}" y2="{_PAD_T + inner_h}" '
-        f'stroke="var(--color-ink-faint)" stroke-width="1"/>'
+        f'stroke="{ink_faint}" stroke-width="1"/>'
     )
     parts.append(
         f'<line x1="{_PAD_L}" y1="{_PAD_T + inner_h}" x2="{_PAD_L + inner_w}" '
-        f'y2="{_PAD_T + inner_h}" stroke="var(--color-ink-faint)" stroke-width="1"/>'
+        f'y2="{_PAD_T + inner_h}" stroke="{ink_faint}" stroke-width="1"/>'
     )
     # axis labels
     parts.append(
         f'<text x="{_PAD_L + inner_w / 2}" y="{_H - 8}" text-anchor="middle" '
-        f'font-size="9" fill="var(--color-ink-muted)">Cost (lower better) →</text>'
+        f'font-size="9" fill="{ink_muted}">Cost (lower better) →</text>'
     )
     parts.append(
         f'<text x="10" y="{_PAD_T + inner_h / 2}" text-anchor="middle" font-size="9" '
-        f'fill="var(--color-ink-muted)" transform="rotate(-90 10 {_num(_PAD_T + inner_h / 2)})">'
+        f'fill="{ink_muted}" transform="rotate(-90 10 {_num(_PAD_T + inner_h / 2)})">'
         f"Pass rate →</text>"
     )
 
@@ -206,20 +260,20 @@ def pareto_svg(report: ProofReport) -> str:
         coords = " ".join(f"{_num(px(pts[i][0]))},{_num(py(pts[i][1]))}" for i in fpts)
         parts.append(
             f'<polyline points="{coords}" fill="none" '
-            f'stroke="var(--color-ink-faint)" stroke-width="1" stroke-dasharray="3 3"/>'
+            f'stroke="{ink_faint}" stroke-width="1" stroke-dasharray="3 3"/>'
         )
 
     for i, e in enumerate(entries):
         cx, cy = px(pts[i][0]), py(pts[i][1])
         if e.recommended:
-            colour = "--color-accent"
+            tone = "--color-accent"
             radius = 5
         else:
-            colour = _pass_rate_tone(e.pass_rate)
+            tone = _pass_rate_tone(e.pass_rate)
             radius = 4
         parts.append(
             f'<circle cx="{_num(cx)}" cy="{_num(cy)}" r="{radius}" '
-            f'fill="var({colour})"><title>{_esc(e.label)}</title></circle>'
+            f'fill="{_colour(tone, standalone=standalone)}"><title>{_esc(e.label)}</title></circle>'
         )
         # Visible short label by each dot. Anchor end (label to the LEFT) when the dot sits in the
         # right third so it never runs off the plot; otherwise start (label to the RIGHT). Nudge the
@@ -230,7 +284,7 @@ def pareto_svg(report: ProofReport) -> str:
         ly = cy + 11 if cy < _PAD_T + 14 else cy - radius - 4
         parts.append(
             f'<text x="{_num(lx)}" y="{_num(ly)}" text-anchor="{anchor}" font-size="8" '
-            f'fill="var(--color-ink-muted)">{_esc(_short_label(e.label))}</text>'
+            f'fill="{ink_muted}">{_esc(_short_label(e.label))}</text>'
         )
 
     rec = next((e.label for e in entries if e.recommended), None)
@@ -244,22 +298,29 @@ def pareto_svg(report: ProofReport) -> str:
         title="Cost vs. quality",
         caption=caption,
         label="Scatter plot of candidate cost against pass rate, recommended pick highlighted.",
+        standalone=standalone,
     )
 
 
-def pass_rate_svg(report: ProofReport) -> str:
+def pass_rate_svg(report: ProofReport, *, standalone: bool = False) -> str:
     """Per-candidate pass-rate bars (``--color-ok``), neutral-ink labels.
 
     Omitted (returns ``""``) when the run is unscored — a quick run (``rubric.kind == "none"``)
     rolls every pass rate up to 0, which is indistinguishable from "scored, all failed", so we
     read the rubric kind to tell them apart and never draw a fake bar. Also omitted when there
     are no candidates.
+
+    ``standalone=True`` bakes literal hex + a bare ``<svg>`` root for the receipt-article
+    ``<img>`` path (see the colour-palette note above); the default themes inline via CSS vars.
     """
     if report.run.rubric.kind == "none":
         return ""
     entries: list[LeaderboardEntry] = list(report.leaderboard)
     if not entries:
         return ""
+
+    ink_faint = _colour("--color-ink-faint", standalone=standalone)
+    ink_muted = _colour("--color-ink-muted", standalone=standalone)
 
     inner_w = _W - _PAD_L - _PAD_R
     inner_h = _H - _PAD_T - _PAD_B
@@ -273,29 +334,38 @@ def pass_rate_svg(report: ProofReport) -> str:
 
     parts: list[str] = []
     # Subtle 25/50/75/100% vertical gridlines behind the bars (the 0–100% scale is implicit).
-    parts.append(_gridlines_v(_PAD_L, _PAD_L + inner_w, _PAD_T, _PAD_T + inner_h, steps=4))
+    parts.append(
+        _gridlines_v(
+            _PAD_L, _PAD_L + inner_w, _PAD_T, _PAD_T + inner_h, steps=4, standalone=standalone
+        )
+    )
     # axis baseline (neutral ink)
     parts.append(
         f'<line x1="{_PAD_L}" y1="{_PAD_T}" x2="{_PAD_L}" y2="{_PAD_T + inner_h}" '
-        f'stroke="var(--color-ink-faint)" stroke-width="1"/>'
+        f'stroke="{ink_faint}" stroke-width="1"/>'
     )
     for i, e in enumerate(entries):
         y = y_top + i * (bar_h + gap)
         width = e.pass_rate * inner_w
-        colour = "--color-accent" if e.recommended else "--color-ok"
+        tone = "--color-accent" if e.recommended else "--color-ok"
         parts.append(
             f'<rect x="{_PAD_L}" y="{_num(y)}" width="{_num(width)}" height="{_num(bar_h)}" '
-            f'rx="2" fill="var({colour})"><title>{_esc(e.label)}</title></rect>'
+            f'rx="2" fill="{_colour(tone, standalone=standalone)}">'
+            f"<title>{_esc(e.label)}</title></rect>"
         )
         # Label limit ~8 chars so the most-identifying tail fits the fixed left gutter without
         # clipping at the SVG edge (the gutter is _PAD_L px wide at font-size 8).
         parts.append(
             f'<text x="{_PAD_L - 5}" y="{_num(y + bar_h / 2 + 3)}" text-anchor="end" '
-            f'font-size="8" fill="var(--color-ink-muted)">{_esc(_short_label(e.label, limit=8))}</text>'
+            f'font-size="8" fill="{ink_muted}">{_esc(_short_label(e.label, limit=8))}</text>'
         )
+        # The % readout sits OUTSIDE the bar. Inline it stays the quiet faint tone (unchanged);
+        # standalone promotes it to muted ink so it passes contrast on a light <img> background
+        # (the faint #9aa1ab gridline grey would be too low-contrast for text on white).
+        pct_fill = ink_muted if standalone else _colour("--color-ink-faint", standalone=False)
         parts.append(
             f'<text x="{_num(_PAD_L + width + 4)}" y="{_num(y + bar_h / 2 + 3)}" '
-            f'font-size="8" fill="var(--color-ink-faint)">{e.pass_rate:.0%}</text>'
+            f'font-size="8" fill="{pct_fill}">{e.pass_rate:.0%}</text>'
         )
 
     return _figure(
@@ -303,4 +373,5 @@ def pass_rate_svg(report: ProofReport) -> str:
         title="Pass rate by candidate",
         caption="Pass rate per candidate (higher is better).",
         label="Horizontal bar chart of pass rate for each candidate.",
+        standalone=standalone,
     )

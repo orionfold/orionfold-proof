@@ -6,6 +6,16 @@ for [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- **Figures render standalone when extracted to `<img>`.** `pareto_svg` / `pass_rate_svg` gained a
+  `standalone=True` mode that emits a bare `<svg>` root (no `<figure>` wrapper) with literal,
+  theme-neutral hex baked in, for the receipt-article export path that references the SVGs as
+  `<img src>`. In that isolated context an SVG can't read page CSS variables, so the default
+  `var(--color-*)` painted every chart invisible, and the `<figure>` wrapper hard-errored Astro's
+  image importer. The default inline output (field note + receipt HTML) is unchanged — it still
+  themes with the host page.
+
 ## [0.2.1] — 2026-06-27
 
 ### Fixed
