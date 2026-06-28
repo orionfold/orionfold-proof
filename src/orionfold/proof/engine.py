@@ -211,6 +211,7 @@ def run_matrix_concurrent(
     rubric: Rubric,
     *,
     on_cell: Callable[[ResultRow], None] | None = None,
+    cancel: threading.Event | None = None,
 ) -> list[ResultRow]:
     """Run candidates CONCURRENTLY, returning rows in input-candidate order.
 
@@ -227,6 +228,10 @@ def run_matrix_concurrent(
 
     ``on_cell`` is invoked once per completed cell, from a worker thread, as soon as that cell scores
     — the hook the live progress stream drains. It must be thread-safe; cells complete out of order.
+
+    When ``cancel`` is set, each candidate stops after the current example — an in-flight
+    ``score_cell`` always finishes (no torn provider call), then no further examples start. ``cancel``
+    is runtime-only and never part of run identity, so it cannot affect ``config_hash``.
     """
     judge: Judge | None = build_judge(rubric) if rubric.kind == "judge" else None
     local_lock = threading.Lock()
@@ -245,6 +250,8 @@ def run_matrix_concurrent(
                 rows.append(row)
                 if on_cell is not None:
                     on_cell(row)
+                if cancel is not None and cancel.is_set():
+                    return
 
     # A single candidate (the common headless/CLI case) needs no pool — run inline.
     if len(candidates) <= 1:

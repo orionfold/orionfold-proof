@@ -303,6 +303,41 @@ class _SlowProvider:
         return ProviderResult(output_text="ok", privacy=self.privacy, latency_ms=1)
 
 
+# ─── Cooperative cancel between examples (Stop button) ────────────────────────
+
+
+def _five_example_dataset():
+    return Dataset(
+        id="d", name="d",
+        examples=[Example(input_text=f"x{i}", expected_text="") for i in range(5)],
+    )
+
+
+def test_cancel_set_upfront_stops_after_first_example():
+    # With cancel pre-set, the loop checks AFTER the first example's on_cell, so exactly one cell
+    # runs before the candidate returns early. Single candidate → runs inline (no pool), so the
+    # count is deterministic.
+    import threading
+
+    dataset = _five_example_dataset()
+    candidates = [Candidate(id="mock_good", label="Mock · good", provider_id="mock_good")]
+    cancel = threading.Event()
+    cancel.set()
+    seen: list = []
+    rows = run_matrix_concurrent(
+        dataset, candidates, Rubric(kind="none"), on_cell=seen.append, cancel=cancel
+    )
+    assert len(seen) == 1
+    assert len(rows) == 1
+
+
+def test_cancel_none_runs_full_matrix():
+    dataset = _five_example_dataset()
+    candidates = [Candidate(id="mock_good", label="Mock · good", provider_id="mock_good")]
+    rows = run_matrix_concurrent(dataset, candidates, Rubric(kind="none"), cancel=None)
+    assert len(rows) == 5  # unchanged from today
+
+
 def test_cloud_candidates_overlap_local_candidates_serialize(monkeypatch):
     import time
 
