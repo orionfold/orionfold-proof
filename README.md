@@ -39,7 +39,7 @@ Reproduce it yourself: `pip install orionfold-proof`, then unlock the Advisor pa
 license from [orionfold.com/proof](https://orionfold.com/proof/) and run the bundled
 governance bench. The receipt is the proof.
 
-![The Orionfold Proof cockpit: decision band, leaderboard, failure cases, and receipt exports on one screen](https://raw.githubusercontent.com/orionfold/orionfold-proof/main/samples/screenshots/design-system-populated.png)
+![The Orionfold Proof cockpit (Arena layout): a compact top app bar, an always-on telemetry rail showing host CPU / GPU / memory and the last result, and the Prove canvas with the dataset, decision recipes, and candidate picker on one screen](https://raw.githubusercontent.com/orionfold/orionfold-proof/main/samples/screenshots/rail-prove-result.png)
 
 ---
 
@@ -62,7 +62,7 @@ your machine, in one command.
 **Keyless out of the box:** pick the bundled sample dataset, run two deterministic mock
 candidates, see the leaderboard, inspect failure cases (including a surfaced provider
 error), and export a Proof Receipt in Markdown, HTML, and JSON — each stamped with a config
-hash, timestamp, and schema version (currently v3).
+hash, timestamp, and schema version (currently v12).
 
 **Real providers when you configure them:** the same loop runs against local and cloud
 models — Ollama and LM Studio (local), plus OpenAI, OpenRouter, Google Gemini, and
