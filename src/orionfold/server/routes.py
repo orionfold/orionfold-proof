@@ -846,6 +846,7 @@ def create_run_stream(request: Request, body: RunRequest) -> StreamingResponse:
                     "example_index": row.example_index,
                     "passed": row.passed,
                     "error": row.error is not None,
+                    "cost": row.estimated_cost_usd + row.judge_cost_usd,
                 }
             )
         worker.join()

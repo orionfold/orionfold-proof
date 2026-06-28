@@ -320,6 +320,22 @@ def test_run_stream_emits_start_progress_and_report(client):
     assert client.get(f"/api/runs/{run_id}").status_code == 200
 
 
+def test_progress_frame_includes_cost(client):
+    # Each progress frame carries the cell's incurred cost (candidate + judge) so the FE can total
+    # spend honestly if the run is stopped midway. Mock providers are free → cost is 0.0, but the
+    # KEY must always be present and numeric.
+    body = {
+        "dataset_id": "investment-memo-summarization",
+        "candidate_ids": ["mock_good", "mock_bad"],
+        "brief": {"task_name": "t", "decision_question": "q", "success_criteria": ""},
+    }
+    events = _parse_sse(client.post("/api/runs/stream", json=body).text)
+    progress = [e for e in events if e["type"] == "progress"]
+    assert progress, "expected at least one progress frame"
+    assert all("cost" in e for e in progress)
+    assert all(isinstance(e["cost"], (int, float)) for e in progress)
+
+
 def test_run_stream_rejects_unknown_dataset(client):
     resp = client.post(
         "/api/runs/stream",
