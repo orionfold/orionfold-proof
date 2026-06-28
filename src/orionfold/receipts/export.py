@@ -48,8 +48,14 @@ from orionfold.scoring.review import review_report
 # labels + a "Rerun it" provenance footer that mirror the orionfold.com receipts vocabulary (shared
 # familiarity hooks across the cockpit and the website, each kept to its own genre). Markdown/JSON
 # bodies are unchanged except the version number. Bump = the rendered HTML drifted, nothing else.
+# v13: throughput honesty (proof-tokps-diluted-not-warm-decode) — the single `tok/s` column splits
+# into `warm tok/s` (decode-only, from the provider's own decode timing — Ollama's eval_duration)
+# and `e2e tok/s` (the prior end-to-end number, incl. cold model load + prompt-eval). A footnote
+# disambiguates them; the warm column shows "—" for any candidate with no decode timing (every
+# cloud provider). `LeaderboardEntry` gains `warm_tokens_per_second` (presentation only, never in
+# config_hash). Markdown + HTML tables gain one column each; the JSON dict gains one key.
 # Bump on any schema change so downstream consumers can detect drift.
-RECEIPT_VERSION = 12
+RECEIPT_VERSION = 13
 
 
 def _verdict(top: LeaderboardEntry) -> str:
@@ -109,6 +115,17 @@ def _cost_per_quality_label(v: float | None) -> str:
 def _tok_per_sec_label(v: float | None) -> str:
     """Display rule for the throughput cell (tok/s), shared by MD and HTML."""
     return "—" if v is None else f"{v:.1f}"
+
+
+# Disambiguates the two throughput columns so a "—" in the warm column never reads as a real value.
+# The MD variant is italic prose; the HTML variant (same words) is wrapped in <p class="muted"> by
+# the caller (reusing the existing muted class — no new CSS, so the palette guard stays green).
+_THROUGHPUT_FOOTNOTE_TEXT = (
+    "warm tok/s = decode-only throughput (excludes cold model load + prompt-eval); "
+    "e2e tok/s = end-to-end throughput (the whole call). Warm is reported only when the "
+    "provider exposes decode timing (local Ollama); cloud rows show “—”."
+)
+_THROUGHPUT_FOOTNOTE = f"_{_THROUGHPUT_FOOTNOTE_TEXT}_"
 
 
 def _rubric_label(rubric: dict) -> str:
@@ -434,8 +451,8 @@ def to_markdown(report: ProofReport) -> str:
         "",
         "## Leaderboard",
         "",
-        "| Candidate | Provider | Privacy | Pass rate | $ / quality | Avg score | Avg latency | tok/s | Est. cost | Failures |",
-        "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+        "| Candidate | Provider | Privacy | Pass rate | $ / quality | Avg score | Avg latency | warm tok/s | e2e tok/s | Est. cost | Failures |",
+        "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
     ]
     for e in data["leaderboard"]:
         marker = " ⭐" if e["recommended"] else ""
@@ -444,9 +461,12 @@ def to_markdown(report: ProofReport) -> str:
             f"{_md_cell(e['privacy'])} | "
             f"{e['pass_rate']:.0%} ({e['pass_count']}/{e['total']}) | "
             f"{_cost_per_quality_label(e['cost_per_quality'])} | {e['avg_score']:.2f} | "
-            f"{e['avg_latency_ms']}ms | {_tok_per_sec_label(e['tokens_per_second'])} | "
+            f"{e['avg_latency_ms']}ms | "
+            f"{_tok_per_sec_label(e.get('warm_tokens_per_second'))} | "
+            f"{_tok_per_sec_label(e['tokens_per_second'])} | "
             f"${e['total_estimated_cost_usd']:.2f} | {_failures_label(e)} |"
         )
+    lines += ["", _THROUGHPUT_FOOTNOTE]
 
     c = data["cost"]
     lines += [
@@ -792,6 +812,7 @@ def to_html(report: ProofReport, theme: str | None = None) -> str:
         f"<td>{html.escape(_cost_per_quality_label(e['cost_per_quality']))}</td>"
         f"<td>{e['avg_score']:.2f}</td>"
         f"<td>{e['avg_latency_ms']}ms</td>"
+        f"<td>{html.escape(_tok_per_sec_label(e.get('warm_tokens_per_second')))}</td>"
         f"<td>{html.escape(_tok_per_sec_label(e['tokens_per_second']))}</td>"
         f"<td>${e['total_estimated_cost_usd']:.2f}</td>"
         f"<td>{html.escape(_failures_label(e))}</td>"
@@ -862,10 +883,11 @@ def to_html(report: ProofReport, theme: str | None = None) -> str:
     <thead><tr>
       <th>Candidate</th><th>Provider</th><th>Privacy</th><th>Pass rate</th>
       <th>$ / quality</th>
-      <th>Avg score</th><th>Avg latency</th><th>tok/s</th><th>Est. cost</th><th>Failures</th>
+      <th>Avg score</th><th>Avg latency</th><th>warm tok/s</th><th>e2e tok/s</th><th>Est. cost</th><th>Failures</th>
     </tr></thead>
     <tbody>{rows}</tbody>
   </table>
+  <p class="muted">{html.escape(_THROUGHPUT_FOOTNOTE_TEXT)}</p>
   <h2>Cost ledger</h2>
   {_ledger_html(data['cost'])}
   <p class="muted">Run cost: candidate ${data['cost']['candidate']:.4f} · judge ${data['cost']['judge']:.4f} · total ${data['cost']['total']:.4f}</p>

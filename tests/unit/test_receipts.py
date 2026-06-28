@@ -212,7 +212,7 @@ def test_receipt_records_prompt_variants_and_text():
                          cost_summary=RunCostSummary(candidate_cost_usd=0, judge_cost_usd=0, total_cost_usd=0))
 
     data = export.build_receipt(report)
-    assert data["receipt_version"] == 12
+    assert data["receipt_version"] == 13
     assert data["prompt_variants"] == [
         {"name": "Baseline", "system_prompt": "Be neutral."},
         {"name": "Concise", "system_prompt": "Be terse."},
@@ -334,6 +334,34 @@ def test_bench_receipt_surfaces_tokens_per_second_column():
     assert "tok/s" in md and "tok/s" in html_doc
 
 
+def test_receipt_splits_warm_and_e2e_throughput_columns():
+    # Honesty fix (proof-tokps-diluted-not-warm-decode): the single tok/s column becomes two —
+    # warm-decode (decode-only, the honest local-speed number) and end-to-end (incl. cold load).
+    # A footnote disambiguates them so the warm "—" on a cloud row is never read as a real value.
+    report = _bench_report()
+    # Inject a warm value on the recommended entry (mock runs carry none by construction).
+    report.leaderboard[0].warm_tokens_per_second = 59.0
+    md = export.to_markdown(report)
+    html_doc = export.to_html(report)
+    for text in (md, html_doc):
+        assert "warm tok/s" in text
+        assert "e2e tok/s" in text
+        assert "59.0" in text  # the warm value renders
+    # The disambiguating footnote appears in both renderings.
+    assert "decode-only" in md and "decode-only" in html_doc
+
+
+def test_receipt_warm_throughput_is_em_dash_when_absent():
+    # A candidate with no decode timing (warm_tokens_per_second is None) shows "—" in the warm
+    # column — never a fabricated number, never a 0 that reads as "slow".
+    report = _bench_report()
+    assert report.leaderboard[0].warm_tokens_per_second is None  # mock run → no warm timing
+    md = export.to_markdown(report)
+    # The warm column cell is the em dash (the e2e column still carries the real rollup).
+    assert "warm tok/s" in md
+    assert "—" in md
+
+
 def test_bench_failure_case_shows_failed_gates():
     # mock_bad returns a generic answer with no Citations line → the citation gate fails, and the
     # receipt names the failed gate rather than a numeric score.
@@ -404,8 +432,8 @@ def _format_fn_report():
                        cost_summary=RunCostSummary(candidate_cost_usd=0, judge_cost_usd=0, total_cost_usd=0))
 
 
-def test_receipt_version_is_12():
-    assert export.RECEIPT_VERSION == 12
+def test_receipt_version_is_13():
+    assert export.RECEIPT_VERSION == 13
 
 
 # ---------------------------------------------------------------------------

@@ -169,8 +169,12 @@ export const leaderboardEntrySchema = z.object({
   error_count: z.number(),
   recommended: z.boolean(),
   cost_per_quality: z.number().nullable().optional(),
-  // Throughput (Σoutput_tokens / Σlatency_s); null when no measured latency. Presentation only.
+  // END-TO-END throughput (Σoutput_tokens / Σlatency_s, incl. cold load + prompt-eval); null when
+  // no measured latency. Presentation only.
   tokens_per_second: z.number().nullable().optional(),
+  // WARM-DECODE throughput (decode-only, from the provider's own decode timing — Ollama
+  // eval_duration); null for cloud/untimed candidates. Presentation only. Mirrors the Pydantic field.
+  warm_tokens_per_second: z.number().nullable().optional(),
 });
 export type LeaderboardEntry = z.infer<typeof leaderboardEntrySchema>;
 

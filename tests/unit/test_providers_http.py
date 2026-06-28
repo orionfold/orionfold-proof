@@ -71,6 +71,64 @@ def test_ollama_parses_message_and_token_counts(monkeypatch):
     assert result.raw_metadata == {"provider": "ollama", "model": "llama3.2"}
 
 
+def test_ollama_captures_eval_duration_as_warm_decode_ms(monkeypatch):
+    # Honesty fix (proof-tokps-diluted-not-warm-decode): Ollama returns eval_count + eval_duration
+    # (ns) — the pure warm-decode time, excluding cold model load + prompt-eval. Capture it so the
+    # receipt can report true warm throughput, not the ~3×-diluted end-to-end number.
+    _stub_post(
+        monkeypatch,
+        json_body={
+            "message": {"role": "assistant", "content": "Revenue grew 22%."},
+            "prompt_eval_count": 11,
+            "eval_count": 7,
+            "load_duration": 4_000_000_000,  # 4s cold load — must NOT leak into warm_decode_ms
+            "prompt_eval_duration": 500_000_000,  # 0.5s prompt-eval — also excluded
+            "eval_duration": 350_000_000,  # 0.35s pure decode → 350ms
+            "done": True,
+        },
+    )
+    result = OllamaProvider().generate(_example(), _candidate("ollama", "llama3.2"))
+    assert result.warm_decode_ms == 350  # eval_duration(ns) / 1e6, decode-only
+
+
+def test_ollama_warm_decode_ms_none_when_timing_absent(monkeypatch):
+    # A response without eval_duration (or with a zero/garbage value) yields None — never a fake
+    # zero that would later divide into a bogus throughput.
+    _stub_post(
+        monkeypatch,
+        json_body={
+            "message": {"role": "assistant", "content": "ok"},
+            "prompt_eval_count": 1,
+            "eval_count": 1,
+            "done": True,
+        },
+    )
+    result = OllamaProvider().generate(_example(), _candidate("ollama", "llama3.2"))
+    assert result.warm_decode_ms is None
+
+
+def test_cloud_provider_has_no_warm_decode_ms(monkeypatch):
+    # Cloud providers report no decode-only timing — warm_decode_ms stays None so the receipt's
+    # warm column honestly shows "—" rather than a number that means something different.
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test-not-real")
+    _stub_post(
+        monkeypatch,
+        json_body={
+            "choices": [{"message": {"role": "assistant", "content": "ok"}}],
+            "usage": {"prompt_tokens": 10, "completion_tokens": 5},
+        },
+    )
+    provider = OpenAICompatibleProvider(
+        id="openai",
+        label="OpenAI",
+        base_url="https://api.openai.com/v1",
+        default_model="gpt-4o-mini",
+        key_name="OPENAI_API_KEY",
+    )
+    result = provider.generate(_example(), _candidate("openai", "gpt-4o-mini"))
+    assert result.warm_decode_ms is None
+
+
 def test_ollama_sends_deterministic_options(monkeypatch):
     """Local runs must be reproducible: the provider pins temperature 0 and disables thinking
     (think=false) so a thinking-capable model emits clean, parseable output. Without this a proof

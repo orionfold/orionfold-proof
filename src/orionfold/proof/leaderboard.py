@@ -46,8 +46,20 @@ def build_leaderboard(
         # only — NOT a ranking key (latency stays the tiebreaker) and never in config_hash.
         total_latency_ms = sum(r.latency_ms for r in rows)
         total_output_tokens = sum(r.output_tokens for r in rows)
+        # END-TO-END: wall-clock latency, so it includes cold model load + prompt-eval (the honest
+        # "how long did the whole call take" number, but a ~3× under-statement of decode speed).
         tokens_per_second = (
             total_output_tokens / (total_latency_ms / 1000.0) if total_latency_ms > 0 else None
+        )
+        # WARM-DECODE: pooled over ONLY the rows that report decode-only timing (Ollama's
+        # eval_duration → ResultRow.warm_decode_ms). A cold/untimed row is excluded from BOTH the
+        # numerator and denominator, so it can't dilute the warm number. None when no row is timed
+        # (every cloud candidate) — never a fake 0 that would read as "slow".
+        warm_rows = [r for r in rows if r.warm_decode_ms is not None]
+        total_warm_ms = sum(r.warm_decode_ms or 0 for r in warm_rows)
+        warm_output_tokens = sum(r.output_tokens for r in warm_rows)
+        warm_tokens_per_second = (
+            warm_output_tokens / (total_warm_ms / 1000.0) if total_warm_ms > 0 else None
         )
         entries.append(
             LeaderboardEntry(
@@ -67,6 +79,7 @@ def build_leaderboard(
                 error_count=error_count,
                 cost_per_quality=cost_per_quality,
                 tokens_per_second=tokens_per_second,
+                warm_tokens_per_second=warm_tokens_per_second,
             )
         )
 

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from orionfold.domain.models import Candidate, ResultRow
 from orionfold.proof.leaderboard import build_leaderboard
 
@@ -175,11 +177,13 @@ def test_leaderboard_is_none_safe_for_unscored_rows():
 # ─── Throughput (tokens_per_second) — presentation-only generalization metric ─────────
 
 
-def _row_tok(cid: str, idx: int, *, latency: int, out_tokens: int) -> ResultRow:
+def _row_tok(cid: str, idx: int, *, latency: int, out_tokens: int,
+             warm_ms: int | None = None) -> ResultRow:
     return ResultRow(
         candidate_id=cid, example_index=idx, input_text="in", expected_text="exp",
         output_text="out", score=1.0, passed=True, latency_ms=latency,
         estimated_cost_usd=0.0, output_tokens=out_tokens, privacy="local",
+        warm_decode_ms=warm_ms,
     )
 
 
@@ -204,3 +208,38 @@ def test_tokens_per_second_does_not_change_ranking():
     slow_strong = [_row("slow", 0, score=1.0, passed=True, latency=999)]
     board = build_leaderboard([_cand("fast"), _cand("slow")], fast_weak + slow_strong)
     assert board[0].candidate_id == "slow"  # higher pass rate wins regardless of tok/s
+
+
+# ─── Warm-decode throughput (warm_tokens_per_second) — the honest local-speed number ──────
+
+
+def test_warm_tokens_per_second_rolls_up_decode_only():
+    # Decode-only: Σoutput_tokens / Σ(warm_decode_s). (100 + 300) / ((1000 + 1000)/1000) = 200,
+    # computed from warm_decode_ms — NOT the end-to-end latency_ms (which here is much larger).
+    rows = [_row_tok("a", 0, latency=5000, out_tokens=100, warm_ms=1000),
+            _row_tok("a", 1, latency=2000, out_tokens=300, warm_ms=1000)]
+    entry = build_leaderboard([_cand("a")], rows)[0]
+    assert entry.warm_tokens_per_second == 200.0
+    # e2e number is the diluted one and stays distinct: 400 / ((5000+2000)/1000) ≈ 57.14
+    assert entry.tokens_per_second == pytest.approx(400 / 7.0)
+
+
+def test_warm_tokens_per_second_none_when_no_warm_timing():
+    # Cloud-only candidate: no row carries warm_decode_ms → warm number is honestly absent (None),
+    # while the end-to-end tokens_per_second is still reported.
+    rows = [_row_tok("a", 0, latency=1000, out_tokens=100)]
+    entry = build_leaderboard([_cand("a")], rows)[0]
+    assert entry.warm_tokens_per_second is None
+    assert entry.tokens_per_second == 100.0
+
+
+def test_warm_tokens_per_second_pools_only_warm_rows():
+    # Mixed candidate (e.g. a cold first example with no timing, then warm rows): the warm rollup
+    # uses ONLY the rows that have decode timing — the untimed row poisons neither numerator nor
+    # denominator. Here only the warm row counts: 200 tokens / (1000ms) = 200 tok/s.
+    rows = [_row_tok("a", 0, latency=9000, out_tokens=999, warm_ms=None),  # untimed — excluded
+            _row_tok("a", 1, latency=1500, out_tokens=200, warm_ms=1000)]
+    entry = build_leaderboard([_cand("a")], rows)[0]
+    assert entry.warm_tokens_per_second == 200.0
+    # e2e still pools BOTH rows (the whole run's wall-clock): 1199 / 10.5
+    assert entry.tokens_per_second == pytest.approx(1199 / 10.5)

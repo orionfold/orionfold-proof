@@ -252,6 +252,7 @@ def build_result(
     output_tokens: int,
     privacy: Privacy,
     actual_cost_usd: float | None = None,
+    warm_decode_ms: int | None = None,
 ) -> ProviderResult:
     """Assemble the uniform :class:`ProviderResult` every real provider returns.
 
@@ -274,4 +275,5 @@ def build_result(
         estimated_cost_usd=cost,
         privacy=privacy,
         raw_metadata={"provider": provider_id, "model": model},
+        warm_decode_ms=warm_decode_ms,
     )

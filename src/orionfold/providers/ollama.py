@@ -58,6 +58,11 @@ class OllamaProvider:
         text = message.get("content", "")
         if not isinstance(text, str):
             raise ProviderError(f"{self.id}: unexpected response shape")
+        # Pure warm-decode time: Ollama's eval_duration (ns) is the token-generation phase ONLY —
+        # it excludes load_duration (cold model load) and prompt_eval_duration. Capturing it lets
+        # the receipt report honest warm throughput instead of the ~3×-diluted end-to-end latency.
+        eval_duration_ns = int(data.get("eval_duration", 0) or 0)
+        warm_decode_ms = round(eval_duration_ns / 1e6) if eval_duration_ns > 0 else None
         return build_result(
             provider_id=self.id,
             model=model,
@@ -66,4 +71,5 @@ class OllamaProvider:
             input_tokens=int(data.get("prompt_eval_count", 0) or 0),
             output_tokens=int(data.get("eval_count", 0) or 0),
             privacy=self.privacy,
+            warm_decode_ms=warm_decode_ms,
         )

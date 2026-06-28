@@ -53,13 +53,14 @@ test("score bar uses the traffic-light status token for the pass rate, never the
 });
 
 test("$/quality cell renders Free / em-dash / value", () => {
-  // Give every row a tok/s value so the only em-dash on screen is the null $/quality cell.
+  // Give every row BOTH throughput values so the only em-dash on screen is the null $/quality cell.
+  const tok = { tokens_per_second: 10, warm_tokens_per_second: 10 };
   render(
     <Leaderboard
       entries={[
-        entry({ candidate_id: "free", cost_per_quality: 0, tokens_per_second: 10 }),
-        entry({ candidate_id: "none", cost_per_quality: null, tokens_per_second: 10 }),
-        entry({ candidate_id: "paid", cost_per_quality: 0.004, tokens_per_second: 10 }),
+        entry({ candidate_id: "free", cost_per_quality: 0, ...tok }),
+        entry({ candidate_id: "none", cost_per_quality: null, ...tok }),
+        entry({ candidate_id: "paid", cost_per_quality: 0.004, ...tok }),
       ]}
     />,
   );
@@ -68,17 +69,35 @@ test("$/quality cell renders Free / em-dash / value", () => {
   expect(screen.getByText("$0.0040")).toBeInTheDocument();
 });
 
-test("tok/s cell renders the throughput value or an em-dash when unmeasured", () => {
+test("throughput splits into warm + e2e columns; each cell is its value or an em-dash", () => {
+  // Honesty fix (proof-tokps-diluted-not-warm-decode): a local row carries warm-decode AND
+  // end-to-end; a cloud row has no decode timing → warm shows "—" while e2e still renders.
   render(
     <Leaderboard
       entries={[
-        entry({ candidate_id: "fast", cost_per_quality: 0.01, tokens_per_second: 72.4 }),
-        entry({ candidate_id: "nolat", cost_per_quality: 0.01, tokens_per_second: null }),
+        entry({
+          candidate_id: "local",
+          warm_tokens_per_second: 59.0,
+          tokens_per_second: 19.7,
+        }),
+        entry({
+          candidate_id: "cloud",
+          privacy: "cloud",
+          warm_tokens_per_second: null,
+          tokens_per_second: 72.4,
+        }),
       ]}
     />,
   );
+  // Both throughput columns are present with their distinct headers.
+  expect(screen.getByText("warm tok/s")).toBeInTheDocument();
+  expect(screen.getByText("e2e tok/s")).toBeInTheDocument();
+  // The local row's warm + e2e values both render; the cloud row's e2e renders.
+  expect(screen.getByText("59.0")).toBeInTheDocument();
+  expect(screen.getByText("19.7")).toBeInTheDocument();
   expect(screen.getByText("72.4")).toBeInTheDocument();
-  expect(screen.getByText("—")).toBeInTheDocument(); // the unmeasured throughput cell
+  // The cloud row's warm cell is an em-dash (no decode timing).
+  expect(screen.getByText("—")).toBeInTheDocument();
 });
 
 // ── WS-F F2/F3: sortable + mono-microcap headers ───────────────────────────────────────────────

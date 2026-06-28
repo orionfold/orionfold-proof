@@ -178,6 +178,9 @@ class ProviderResult(BaseModel):
     privacy: Privacy = "local"
     raw_metadata: dict[str, Any] = Field(default_factory=dict)
     error: str | None = None
+    # Pure warm-decode time (ms), excluding cold model load + prompt-eval. Set only by providers
+    # that report decode-only timing (Ollama's eval_duration); None for cloud (no such signal).
+    warm_decode_ms: int | None = None
 
 
 class ResultRow(BaseModel):
@@ -198,6 +201,9 @@ class ResultRow(BaseModel):
     estimated_cost_usd: float
     input_tokens: int = 0
     output_tokens: int = 0
+    # Pure warm-decode time (ms) for this cell, when the provider reports it (Ollama eval_duration).
+    # None for cloud/untimed cells. A RESULT, not config → never enters config_hash.
+    warm_decode_ms: int | None = None
     privacy: Privacy
     error: str | None = None
     judge_cost_usd: float = 0.0  # cost of the judge call for this cell (0 for non-judge)
@@ -226,7 +232,8 @@ class LeaderboardEntry(BaseModel):
     error_count: int = 0
     recommended: bool = False
     cost_per_quality: float | None = None  # $ per quality point (cost/avg_score); None if avg_score==0. Presentation only — never affects ranking.
-    tokens_per_second: float | None = None  # Σoutput_tokens / Σlatency_s; None when no measured latency. Presentation only — never a ranking key, never in config_hash (the 32GB-Mac-vs-128GB-GB10 generalization metric).
+    tokens_per_second: float | None = None  # END-TO-END throughput: Σoutput_tokens / Σlatency_s (incl. cold load + prompt-eval). None when no measured latency. Presentation only — never a ranking key, never in config_hash (the 32GB-Mac-vs-128GB-GB10 generalization metric).
+    warm_tokens_per_second: float | None = None  # WARM-DECODE throughput: Σoutput_tokens / Σwarm_decode_s, pooled over only the rows that report decode-only timing (Ollama eval_duration). None for cloud/untimed candidates. Presentation only — never a ranking key, never in config_hash.
 
 
 class HostProfile(BaseModel):
