@@ -6,6 +6,8 @@ for [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.2.3] — 2026-06-28
+
 ### Added
 
 - **Transient-failure retry for provider calls.** A single 429 / 502·503·504 / dropped connection
