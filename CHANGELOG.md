@@ -6,6 +6,8 @@ for [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.2.0] — 2026-06-27
+
 ### Added
 
 - **Host telemetry — Proof now shows the hardware a proof ran on.** A best-effort, cross-platform
@@ -20,7 +22,7 @@ for [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   touches provider threads or `config_hash`.
 - **Apple-Silicon GPU utilization (opt-in).** A Settings toggle (default off, consent-gated
   `sudo -n powermetrics`) surfaces real GPU residency during a run.
-- **Arena-shape cockpit redesign (in progress).** A compact top app bar (Prove · Datasets ·
+- **Arena-shape cockpit redesign.** A compact top app bar (Prove · Datasets ·
   Receipts · Settings, with iconography) + a full-width, always-on horizontal telemetry rail +
   full-width canvas, replacing the old three-column grid. The rail is a standing instrument cluster
   on every screen: host CPU / GPU / memory trends (this-run-vs-last, SVG sparklines), warm runtime,
