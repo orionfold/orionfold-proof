@@ -88,6 +88,32 @@ describe("sparklinePath — SVG geometry", () => {
     expect(p.formingPoint).not.toBeNull();
     expect(p.formingPoint!.x).toBeGreaterThan(0);
   });
+
+  test("returns a closed area path that drops from the line to the baseline", () => {
+    const p = sparklinePath([0, 100], { w: 60, h: 16, max: 100 });
+    expect(p.area).not.toBeNull();
+    // The area closes back to the baseline (y≈h) and ends with a Z (closed fill region).
+    expect(p.area!).toMatch(/Z$/);
+    // It visits the baseline y (h, here 16) — the fill anchors the line to the x-axis.
+    expect(p.area!).toMatch(/ 16(\.0)?(?: |Z)/);
+  });
+
+  test("area is null when there's nothing to draw", () => {
+    expect(sparklinePath([], { w: 60, h: 16 }).area).toBeNull();
+  });
+
+  test("a single point still fills (a baseline rectangle, not an invisible dot)", () => {
+    const p = sparklinePath([50], { w: 60, h: 16, max: 100 });
+    expect(p.area).not.toBeNull();
+    expect(p.area!).toMatch(/Z$/);
+  });
+
+  test("null gaps split the area into separate closed regions (no fill under missing data)", () => {
+    const p = sparklinePath([10, null, 30], { w: 60, h: 16, max: 30 });
+    // Two contiguous runs → two closed sub-areas (two Z's, two M's).
+    expect((p.area!.match(/Z/g) ?? []).length).toBeGreaterThanOrEqual(2);
+    expect((p.area!.match(/M /g) ?? []).length).toBeGreaterThanOrEqual(2);
+  });
 });
 
 describe("trendFromSeries — seed a dimmed trend from a persisted per-bucket series", () => {

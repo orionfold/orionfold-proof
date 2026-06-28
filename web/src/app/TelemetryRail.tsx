@@ -292,9 +292,14 @@ function Sparkline({ trend, max, active }: { trend: Trend; max?: number; active:
   const values = trend.forming != null ? [...trend.finalized, trend.forming] : trend.finalized;
   const geo = sparklinePath(values, { w, h, max, forming: trend.forming != null });
   if (!geo.line) return null;
-  // Cyan-neutral instrument line; the forming dot uses --color-ok (a live, healthy pulse).
+  // Cyan-neutral instrument line over a light fill that anchors it to the baseline; the forming dot
+  // uses --color-ok (a live, healthy pulse). The area fill makes a sparse 2-point trace read as a
+  // small mound rising from the x-axis instead of a line floating at an unclear elevation.
   return (
     <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} aria-hidden className="mt-0.5">
+      {geo.area && (
+        <path d={geo.area} fill="var(--color-accent)" stroke="none" opacity={active ? 0.16 : 0.08} />
+      )}
       <path d={geo.line} fill="none" stroke="var(--color-accent)" strokeWidth="1.25" strokeLinejoin="round" strokeLinecap="round" opacity={active ? 0.9 : 0.4} />
       {geo.formingPoint && (
         <circle cx={geo.formingPoint.x} cy={geo.formingPoint.y} r="1.6" fill="var(--color-ok)" />

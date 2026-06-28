@@ -61,6 +61,11 @@ export interface SparkGeometry {
   // SVG path `d` for the trend line. Null when there's nothing to draw. Uses M…L… with the pen
   // lifted (a fresh M) across null gaps so no line is drawn through missing data.
   line: string | null;
+  // SVG path `d` for the filled AREA under the line — each contiguous run is closed down to the
+  // baseline (y=h) and back, so a light shade fills from the trend to the x-axis. This anchors the
+  // line (a short 2-point trace would otherwise float at an unclear elevation). Null when empty;
+  // a single point fills as a thin baseline rectangle so it's still visible.
+  area: string | null;
   // The live edge point (the forming bucket), so the caller can render it dimmed. Null at rest.
   formingPoint: { x: number; y: number } | null;
 }
@@ -74,7 +79,7 @@ export function sparklinePath(
   opts: { w: number; h: number; max?: number; forming?: boolean },
 ): SparkGeometry {
   const present = values.filter((v): v is number => v != null);
-  if (present.length === 0) return { line: null, formingPoint: null };
+  if (present.length === 0) return { line: null, area: null, formingPoint: null };
 
   const { w, h } = opts;
   const max = opts.max ?? Math.max(1e-9, ...present);
@@ -84,18 +89,43 @@ export function sparklinePath(
   // Inset the top by 1px so a max-height point isn't clipped at the very edge.
   const y = (v: number) => h - (Math.min(v, max) / max) * (h - 1);
 
+  // Baseline (x-axis) y, inset 0.5px so a 1px fill edge isn't clipped at the very bottom.
+  const base = h - 0.5;
+  // A single point gives the area a hair of width so it fills as a thin baseline rectangle rather
+  // than a zero-area sliver (an invisible vertical line).
+  const HALF = 0.75;
+
   let line = "";
+  let area = "";
+  // A contiguous run of present samples (split by null gaps). Each run becomes one closed area:
+  // baseline → up to the trace → along the trace → down to the baseline → Z.
+  let run: { x: number; y: number }[] = [];
+  const flushRun = () => {
+    if (run.length === 0) return;
+    const x0 = run.length === 1 ? run[0].x - HALF : run[0].x;
+    const x1 = run.length === 1 ? run[0].x + HALF : run[run.length - 1].x;
+    const seg =
+      `M ${x0.toFixed(1)} ${base.toFixed(1)} ` + // start on the baseline at the run's left edge
+      run.map((p) => `L ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(" ") +
+      ` L ${x1.toFixed(1)} ${base.toFixed(1)} Z`; // drop back to the baseline and close
+    area += (area ? " " : "") + seg;
+    run = [];
+  };
+
   let penDown = false;
   for (let i = 0; i < n; i++) {
     const v = values[i];
     if (v == null) {
       penDown = false; // lift the pen across the gap
+      flushRun(); // close the area for the run that just ended
       continue;
     }
     const cmd = penDown ? "L" : "M";
     line += `${line ? " " : ""}${cmd} ${x(i).toFixed(1)} ${y(v).toFixed(1)}`;
+    run.push({ x: x(i), y: y(v) });
     penDown = true;
   }
+  flushRun(); // close the final run
 
   let formingPoint: SparkGeometry["formingPoint"] = null;
   if (opts.forming) {
@@ -103,5 +133,5 @@ export function sparklinePath(
     if (last != null) formingPoint = { x: x(n - 1), y: y(last) };
   }
 
-  return { line: line || null, formingPoint };
+  return { line: line || null, area: area || null, formingPoint };
 }
