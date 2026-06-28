@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  CheckCircle2,
   Database,
   FlaskConical,
   Monitor,
@@ -9,17 +10,20 @@ import {
   SlidersHorizontal,
   Sun,
   Trash2,
+  TriangleAlert,
   type LucideIcon,
 } from "lucide-react";
 
 import {
   clearAllData,
+  getGpuSetupStatus,
   getSettings,
   removeSampleData,
   seedSampleData,
   setPowermetricsOptin,
   setSandbox,
   setThresholds,
+  type GpuSetupStatus,
   type Thresholds,
 } from "../../lib/api";
 import { useTheme, type ThemeChoice } from "../../lib/theme";
@@ -66,6 +70,17 @@ export function SettingsView() {
   const on = settings.data?.sandbox_enabled ?? false;
   const gpuOn = settings.data?.powermetrics_gpu_optin ?? false;
 
+  // Reachability for the "GPU ready / needs setup" badge. Only poll while the opt-in is on (the
+  // badge is hidden otherwise) — a light 30s cadence; the probe is a one-shot, harmless GPU read.
+  const gpuSetup = useQuery({
+    queryKey: ["gpu-setup"],
+    queryFn: getGpuSetupStatus,
+    enabled: gpuOn,
+    refetchInterval: gpuOn ? 30_000 : false,
+    refetchIntervalInBackground: false,
+    staleTime: 30_000,
+  });
+
   return (
     <ViewShell
       title="Settings"
@@ -103,20 +118,23 @@ export function SettingsView() {
             disabled={settings.isLoading || sandbox.isPending}
             onToggle={() => sandbox.mutate(!on)}
           />
-          <Toggle
-            label="GPU metrics"
-            description={
-              <>
-                Sample Apple Silicon GPU utilization during a run via powermetrics, which needs
-                passwordless <code>sudo</code> (run <code>sudo powermetrics</code> once in a
-                terminal, or configure sudoers). Without it, GPU stays "unavailable" — this toggle
-                never prompts for a password. Off by default. Everything stays on this machine.
-              </>
-            }
-            checked={gpuOn}
-            disabled={settings.isLoading || gpuTelemetry.isPending}
-            onToggle={() => gpuTelemetry.mutate(!gpuOn)}
-          />
+          <div className="flex flex-col gap-2">
+            <Toggle
+              label="GPU metrics"
+              description={
+                <>
+                  Sample Apple Silicon GPU utilization during a run via powermetrics, which needs
+                  passwordless <code>sudo</code>. Run <code>orionfold gpu enable</code> once to set
+                  it up; this toggle never prompts for a password. Off by default. Everything stays
+                  on this machine.
+                </>
+              }
+              checked={gpuOn}
+              disabled={settings.isLoading || gpuTelemetry.isPending}
+              onToggle={() => gpuTelemetry.mutate(!gpuOn)}
+            />
+            {gpuOn && gpuSetup.data && <GpuSetupBadge status={gpuSetup.data} />}
+          </div>
         </SettingCard>
 
         <SettingCard
@@ -210,6 +228,29 @@ function SettingCard({
       </div>
       <div className="flex flex-col gap-5 border-t border-(--color-panel-line) pt-4">{children}</div>
     </section>
+  );
+}
+
+// A calm reachability line under the GPU toggle (shown only when the opt-in is on). It distinguishes
+// "ready" (the probe succeeds — sudoers primed or NVIDIA) from "needs setup" (opt-in on but the
+// privileged read can't run yet), naming the one command that fixes it. Closes the silent-"unavailable"
+// gap where flipping the toggle alone looked like it should work.
+function GpuSetupBadge({ status }: { status: GpuSetupStatus }) {
+  if (status.reachable) {
+    return (
+      <p className="flex items-center gap-1.5 text-xs text-(--color-ok)">
+        <CheckCircle2 aria-hidden className="h-3.5 w-3.5 shrink-0" />
+        GPU ready
+      </p>
+    );
+  }
+  return (
+    <p className="flex items-center gap-1.5 text-xs text-(--color-ink-faint)">
+      <TriangleAlert aria-hidden className="h-3.5 w-3.5 shrink-0 text-(--color-warn)" />
+      <span>
+        Needs setup — run <code>orionfold gpu enable</code> in a terminal.
+      </span>
+    </p>
   );
 }
 

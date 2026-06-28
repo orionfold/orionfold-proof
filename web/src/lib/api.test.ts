@@ -7,6 +7,7 @@ import {
   extractResultSchema,
   getCostSummary,
   getGpuIdle,
+  getGpuSetupStatus,
   getLatestRun,
   getSettings,
   previewDataset,
@@ -164,6 +165,21 @@ describe("gpu-idle client (rail at-rest GPU read)", () => {
     mockResponse({ gpu_util: null });
     const r = await getGpuIdle();
     expect(r.gpu_util).toBeNull();
+  });
+});
+
+describe("gpu-setup client (Settings ready / needs-setup badge)", () => {
+  it("getGpuSetupStatus requests /api/telemetry/gpu-setup and returns the flags", async () => {
+    const spy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(
+        new Response(JSON.stringify({ supported: true, opt_in: true, reachable: false }), {
+          status: 200,
+        }),
+      );
+    const r = await getGpuSetupStatus();
+    expect(spy).toHaveBeenCalledWith("/api/telemetry/gpu-setup");
+    expect(r).toEqual({ supported: true, opt_in: true, reachable: false });
   });
 });
 

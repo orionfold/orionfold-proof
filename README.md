@@ -169,6 +169,25 @@ Other knobs: `ORIONFOLD_ENV_FILE` (point at a non-default env file) and `ORIONFO
 > (e.g. OpenRouter's namespaced ids) shows `$0.00` — costs are labeled **estimated**, never
 > authoritative.
 
+## GPU telemetry (optional, macOS)
+
+The cockpit can show real GPU utilization during a run. On Linux with an NVIDIA card this works
+out of the box (the unprivileged `nvidia-smi` query). On Apple Silicon, macOS exposes GPU
+residency only through `powermetrics`, which needs root — and it never shows a GUI password
+prompt, so the GPU cell stays `unavailable` until you set it up once:
+
+```bash
+orionfold gpu enable    # installs a powermetrics-only passwordless-sudo rule (prompts once)
+orionfold gpu status    # opt-in / sudoers rule / live reachability
+orionfold gpu disable   # removes the rule and turns sampling off
+```
+
+`enable` writes a sudoers drop-in scoped **strictly to `/usr/bin/powermetrics`** (validated with
+`visudo`, rolled back automatically if validation fails) and flips the Settings opt-in. Nothing
+else is granted, it's removable anytime with `disable`, and GPU telemetry is presentation-only —
+it's recorded as hardware context but **never enters `config_hash`**, so a receipt reproduces
+identically with or without it. Settings shows a live **GPU ready / Needs setup** badge.
+
 ## How development is structured
 
 Work proceeds through operator-approved gates (see `CLAUDE.md` → *Release gates*):

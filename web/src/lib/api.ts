@@ -471,6 +471,20 @@ export function getGpuIdle(): Promise<GpuIdle> {
   return getJson("/api/telemetry/gpu-idle", gpuIdleSchema);
 }
 
+export const gpuSetupStatusSchema = z.object({
+  supported: z.boolean(),
+  opt_in: z.boolean(),
+  reachable: z.boolean(),
+});
+export type GpuSetupStatus = z.infer<typeof gpuSetupStatusSchema>;
+
+// Whether GPU telemetry is set up — Settings renders a "ready / needs setup" badge from this. The
+// probe only succeeds once the `orionfold gpu enable` sudoers rule is installed (or on an NVIDIA
+// host). Read-only, best-effort.
+export function getGpuSetupStatus(): Promise<GpuSetupStatus> {
+  return getJson("/api/telemetry/gpu-setup", gpuSetupStatusSchema);
+}
+
 // Subscribe to the live telemetry SSE stream (active only during a run). `onSample` fires per
 // frame; `onClose` fires when the stream ends (the server closes it when no run is sampling) so the
 // caller can clear stale gauges. Returns an unsubscribe fn. Malformed frames are ignored.

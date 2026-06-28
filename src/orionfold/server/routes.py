@@ -67,6 +67,7 @@ from orionfold.providers.registry import (
 )
 from orionfold.receipts import export
 from orionfold.telemetry import RunSampler, detect_host_profile
+from orionfold.telemetry import gpu_setup
 from orionfold.telemetry.sampler import _nvidia_gpu_util, _powermetrics_gpu_util
 from orionfold.sample_data import seed_sample_data
 from orionfold.storage.db import apply_migrations, connect
@@ -489,6 +490,40 @@ def telemetry_gpu_idle(request: Request) -> GpuIdle:
     if not optin:
         return GpuIdle(gpu_util=None)
     return GpuIdle(gpu_util=_powermetrics_gpu_util())
+
+
+class GpuSetupStatus(BaseModel):
+    """Whether GPU telemetry is set up — drives the Settings "ready / needs setup" badge."""
+
+    supported: bool  # this host can report GPU util (macOS+powermetrics, or any NVIDIA host)
+    opt_in: bool  # the persisted powermetrics opt-in toggle
+    reachable: bool  # a single GPU read currently succeeds (NVIDIA, or primed passwordless sudo)
+
+
+@router.get("/telemetry/gpu-setup")
+def telemetry_gpu_setup(request: Request) -> GpuSetupStatus:
+    """Report GPU-telemetry setup state so the cockpit can guide onboarding without a terminal.
+
+    Read-only and mutates nothing. The NVIDIA query is unprivileged and always tried first; on a Mac,
+    ``reachable`` runs the same fixed one-shot powermetrics probe the sampler uses (it only succeeds
+    when the operator has installed the ``orionfold gpu enable`` sudoers rule). The privileged probe
+    is gated behind the opt-in — same as ``telemetry_gpu_idle`` — so it never shells out without
+    consent; with the opt-in off it reports ``reachable=False`` (the Settings badge only renders while
+    the opt-in is on, so nothing user-facing is lost). Carries no secrets.
+    """
+    conn = _conn(request)
+    try:
+        opt_in = get_powermetrics_optin(conn)
+    finally:
+        conn.close()
+
+    nvidia_ok = _nvidia_gpu_util() is not None
+    if nvidia_ok:
+        return GpuSetupStatus(supported=True, opt_in=opt_in, reachable=True)
+
+    supported = gpu_setup.is_macos() and gpu_setup.powermetrics_present()
+    reachable = gpu_setup.probe_powermetrics() if (supported and opt_in) else False
+    return GpuSetupStatus(supported=supported, opt_in=opt_in, reachable=reachable)
 
 
 @router.get("/telemetry/stream")

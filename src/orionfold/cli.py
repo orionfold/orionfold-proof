@@ -35,6 +35,7 @@ from orionfold.proof import execute_run, track_record
 from orionfold.providers.registry import UnknownCandidateError
 from orionfold.receipts import build_field_note, export
 from orionfold.storage.db import apply_migrations, connect, default_db_path
+from orionfold.storage.settings import get_powermetrics_optin, set_powermetrics_optin
 from orionfold.storage.repository import (
     BenchBindingError,
     DuplicateDatasetError,
@@ -582,6 +583,77 @@ def _recommended_label(report: ProofReport) -> str:
         if e.recommended:
             return e.label
     return "no clear winner"
+
+
+gpu_app = typer.Typer(
+    no_args_is_help=True,
+    help="Enable, check, or disable Apple-Silicon GPU telemetry (macOS).",
+)
+app.add_typer(gpu_app, name="gpu")
+
+
+@gpu_app.command("enable")
+def gpu_enable() -> None:
+    """Set up passwordless GPU telemetry by installing a powermetrics-only sudoers rule.
+
+    macOS never shows a GUI permission prompt for the sampler (the live read is non-interactive
+    ``sudo -n``), so GPU utilization stays "unavailable" until a NOPASSWD rule exists. This writes a
+    drop-in scoped strictly to ``/usr/bin/powermetrics`` (validated with ``visudo``), prompting for
+    your password once. Undo anytime with ``orionfold gpu disable``.
+    """
+    from orionfold.telemetry import gpu_setup
+
+    if not gpu_setup.is_macos():
+        typer.echo("GPU telemetry setup is macOS-only (Linux/NVIDIA needs no sudo).", err=True)
+        raise typer.Exit(code=2)
+    if not gpu_setup.powermetrics_present():
+        typer.echo(f"powermetrics not found at {gpu_setup.POWERMETRICS_BIN}.", err=True)
+        raise typer.Exit(code=2)
+
+    typer.echo(f"Installing sudoers rule (scope: {gpu_setup.POWERMETRICS_BIN}) — sudo may prompt once.")
+    try:
+        gpu_setup.install_sudoers()
+    except gpu_setup.GpuSetupError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+
+    with _with_conn() as conn:
+        set_powermetrics_optin(conn, True)
+
+    reachable = gpu_setup.probe_powermetrics()
+    typer.echo("✓ GPU telemetry enabled.")
+    if reachable:
+        typer.echo("  The cockpit GPU cell now shows live idle %.")
+    else:
+        typer.echo("  Rule installed, but the probe did not succeed yet — try `orionfold gpu status`.")
+
+
+@gpu_app.command("status")
+def gpu_status() -> None:
+    """Show whether GPU telemetry is set up: the opt-in, the sudoers rule, and live reachability."""
+    from orionfold.telemetry import gpu_setup
+
+    with _with_conn() as conn:
+        opt_in = get_powermetrics_optin(conn)
+    rule = gpu_setup.sudoers_rule_present()
+    reachable = gpu_setup.probe_powermetrics()
+
+    typer.echo(f"Opt-in:               {'on' if opt_in else 'off'}")
+    typer.echo(f"Sudoers rule:         {'present' if rule else 'absent'}")
+    typer.echo(f"powermetrics reachable: {'yes' if reachable else 'no'}")
+    if opt_in and not reachable:
+        typer.echo("Needs setup — run `orionfold gpu enable` to install passwordless access.")
+
+
+@gpu_app.command("disable")
+def gpu_disable() -> None:
+    """Turn GPU telemetry off and remove the powermetrics sudoers rule (idempotent)."""
+    from orionfold.telemetry import gpu_setup
+
+    gpu_setup.remove_sudoers()
+    with _with_conn() as conn:
+        set_powermetrics_optin(conn, False)
+    typer.echo("✓ GPU telemetry disabled.")
 
 
 if __name__ == "__main__":

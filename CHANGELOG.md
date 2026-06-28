@@ -75,6 +75,15 @@ for [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   visible and no run is active. The rail sparklines now fill to the baseline (a light shaded area
   under the trend line) so a sparse trace reads as a mound rising from the x-axis, not a line
   floating at an unclear elevation. Presentation-only — telemetry stays out of `config_hash`.
+- **Turnkey GPU telemetry setup — `orionfold gpu enable | status | disable`.** Enabling
+  Apple-Silicon GPU sampling no longer means hand-editing sudoers and fighting `visudo`. The new CLI
+  group installs a NOPASSWD drop-in scoped strictly to `/usr/bin/powermetrics` (written via
+  `tee` + `chmod 0440` + `visudo -cf`, with automatic rollback if validation fails so a broken
+  sudoers file is never left on disk), flips the opt-in, and confirms reachability; `status` reports
+  opt-in / rule-present / reachable, and `disable` removes the rule. Settings now shows a live
+  "✓ GPU ready" / "⚠ Needs setup — run `orionfold gpu enable`" badge under the GPU toggle (fed by a
+  read-only `GET /api/telemetry/gpu-setup` probe), closing the gap where flipping the toggle alone
+  silently read "unavailable". Presentation-only — telemetry stays out of `config_hash`.
 
 ### Fixed
 

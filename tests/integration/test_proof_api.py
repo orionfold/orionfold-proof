@@ -153,6 +153,66 @@ def test_gpu_idle_prefers_nvidia_unprivileged_read_when_present(client, monkeypa
     assert nvidia_calls["n"] == 1
 
 
+def test_gpu_setup_reports_supported_optin_and_reachable(client, monkeypatch):
+    import orionfold.server.routes as routes
+
+    # Fake a supported macOS host with the rule primed; probe deterministic (never escalates).
+    monkeypatch.setattr(routes.gpu_setup, "is_macos", lambda: True)
+    monkeypatch.setattr(routes.gpu_setup, "powermetrics_present", lambda: True)
+    monkeypatch.setattr(routes.gpu_setup, "probe_powermetrics", lambda: True)
+    monkeypatch.setattr(routes, "_nvidia_gpu_util", lambda: None)
+    client.put("/api/settings", json={"powermetrics_gpu_optin": True})
+
+    resp = client.get("/api/telemetry/gpu-setup")
+    assert resp.status_code == 200
+    assert resp.json() == {"supported": True, "opt_in": True, "reachable": True}
+
+
+def test_gpu_setup_not_reachable_when_sudo_unprimed(client, monkeypatch):
+    import orionfold.server.routes as routes
+
+    monkeypatch.setattr(routes.gpu_setup, "is_macos", lambda: True)
+    monkeypatch.setattr(routes.gpu_setup, "powermetrics_present", lambda: True)
+    monkeypatch.setattr(routes.gpu_setup, "probe_powermetrics", lambda: False)
+    monkeypatch.setattr(routes, "_nvidia_gpu_util", lambda: None)
+    client.put("/api/settings", json={"powermetrics_gpu_optin": True})
+
+    resp = client.get("/api/telemetry/gpu-setup")
+    assert resp.json() == {"supported": True, "opt_in": True, "reachable": False}
+
+
+def test_gpu_setup_never_probes_powermetrics_when_optin_is_off(client, monkeypatch):
+    import orionfold.server.routes as routes
+
+    # Opt-in off (the default) → the privileged probe must NOT shell out; reachable is False.
+    monkeypatch.setattr(routes.gpu_setup, "is_macos", lambda: True)
+    monkeypatch.setattr(routes.gpu_setup, "powermetrics_present", lambda: True)
+    monkeypatch.setattr(routes, "_nvidia_gpu_util", lambda: None)
+    monkeypatch.setattr(
+        routes.gpu_setup,
+        "probe_powermetrics",
+        lambda: pytest.fail("must not probe without opt-in"),
+    )
+
+    resp = client.get("/api/telemetry/gpu-setup")
+    assert resp.json() == {"supported": True, "opt_in": False, "reachable": False}
+
+
+def test_gpu_setup_supported_via_nvidia_unprivileged(client, monkeypatch):
+    import orionfold.server.routes as routes
+
+    # A non-macOS host with an NVIDIA GPU is supported (reachable via the unprivileged query).
+    monkeypatch.setattr(routes.gpu_setup, "is_macos", lambda: False)
+    monkeypatch.setattr(routes.gpu_setup, "powermetrics_present", lambda: False)
+    monkeypatch.setattr(routes, "_nvidia_gpu_util", lambda: 33.0)
+    monkeypatch.setattr(
+        routes.gpu_setup, "probe_powermetrics", lambda: pytest.fail("must not shell out for NVIDIA")
+    )
+
+    resp = client.get("/api/telemetry/gpu-setup")
+    assert resp.json() == {"supported": True, "opt_in": False, "reachable": True}
+
+
 def test_html_receipt_can_be_served_inline_for_preview(client):
     run_id = client.post(
         "/api/runs",
