@@ -298,6 +298,11 @@ export const telemetrySummarySchema = z.object({
   process_rss_gb_max: z.number().nullable(),
   gpu_util_mean: z.number().nullable(),
   gpu_util_max: z.number().nullable(),
+  // Per-bucket peak trend series for the rail's dimmed last-run sparkline. Default [] so pre-series
+  // stored runs (and the receipt's TelemetrySummary, which omits them) parse unchanged.
+  cpu_series: z.array(z.number()).default([]),
+  gpu_series: z.array(z.number()).default([]),
+  mem_series: z.array(z.number()).default([]),
 });
 export type TelemetrySummary = z.infer<typeof telemetrySummarySchema>;
 
@@ -456,6 +461,16 @@ export function getHostProfile(): Promise<HostProfile> {
   return getJson("/api/telemetry/host", hostProfileSchema);
 }
 
+export const gpuIdleSchema = z.object({ gpu_util: z.number().nullable() });
+export type GpuIdle = z.infer<typeof gpuIdleSchema>;
+
+// A single at-rest GPU utilization read for the rail. Server-gated behind the powermetrics opt-in
+// (returns gpu_util:null when off or unavailable); the FE only polls it when opt-in is on, the tab
+// is visible, and no run is active. Read-only, best-effort.
+export function getGpuIdle(): Promise<GpuIdle> {
+  return getJson("/api/telemetry/gpu-idle", gpuIdleSchema);
+}
+
 // Subscribe to the live telemetry SSE stream (active only during a run). `onSample` fires per
 // frame; `onClose` fires when the stream ends (the server closes it when no run is sampling) so the
 // caller can clear stale gauges. Returns an unsubscribe fn. Malformed frames are ignored.
@@ -538,6 +553,13 @@ export async function setProviderKey(
 // and reopen the run in the cockpit without a second fetch.
 export function getRuns(): Promise<ProofReport[]> {
   return getJson("/api/runs", z.array(proofReportSchema));
+}
+
+// The newest stored run, or null when there are none — the telemetry rail's at-rest hydrate for
+// "Last result"/"Last receipt" + the dimmed last-run sparkline. Read-only; mirrors the cost-summary
+// pattern (refetched when a run finishes). Server returns `null` (not 404) on an empty store.
+export function getLatestRun(): Promise<ProofReport | null> {
+  return getJson("/api/runs/latest", proofReportSchema.nullable());
 }
 
 // Cross-run standings, one group per (dataset, rubric kind). Pass a datasetId to narrow to one

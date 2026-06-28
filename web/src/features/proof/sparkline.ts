@@ -48,6 +48,15 @@ export function pushSample(trend: Trend, value: number | null, opts?: { bucket?:
   return { finalized, forming: null, count: 0 };
 }
 
+// Seed a Trend from a persisted per-bucket series (the stored last-run record). The series is
+// already bucketed (peak-over-window, from the backend `_bucket_peaks` mirror of `pushSample`), so
+// it loads straight as finalized bars with no forming edge — it renders dimmed (the run is over).
+// FIFO-clamped to SLOTS so a long run's tail matches the live ring. Pure.
+export function trendFromSeries(series: number[]): Trend {
+  const finalized = series.length > SLOTS ? series.slice(series.length - SLOTS) : [...series];
+  return { finalized, forming: null, count: 0 };
+}
+
 export interface SparkGeometry {
   // SVG path `d` for the trend line. Null when there's nothing to draw. Uses M…L… with the pen
   // lifted (a fresh M) across null gaps so no line is drawn through missing data.

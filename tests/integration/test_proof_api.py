@@ -76,6 +76,83 @@ def test_full_loop_run_leaderboard_failure_and_receipts(client):
         assert "attachment" in resp.headers["content-disposition"]
 
 
+def test_latest_run_is_null_before_any_run_then_returns_newest(client):
+    # No runs yet → the at-rest rail hydrate endpoint returns null (honest "—"), not an error.
+    empty = client.get("/api/runs/latest")
+    assert empty.status_code == 200
+    assert empty.json() is None
+
+    body = {
+        "dataset_id": "investment-memo-summarization",
+        "candidate_ids": ["mock_good", "mock_bad"],
+        "brief": {
+            "task_name": "Memo summarization",
+            "decision_question": "Which model to trust?",
+            "success_criteria": "",
+        },
+    }
+    client.post("/api/runs", json=body)
+    client.post("/api/runs", json=body)
+
+    latest = client.get("/api/runs/latest")
+    assert latest.status_code == 200
+    # /runs/latest is the head of list_runs (newest-first, drafts dropped) — the rail's at-rest
+    # receipt. Assert it agrees with /runs[0] rather than positing sub-second ordering the
+    # whole-second created_at can't provide.
+    listing = client.get("/api/runs").json()
+    assert latest.json()["run"]["id"] == listing[0]["run"]["id"]
+
+
+def test_gpu_idle_returns_null_and_never_shells_out_when_optin_is_off(client, monkeypatch):
+    # The privileged powermetrics read MUST NOT fire without the operator's opt-in. Default is off.
+    import orionfold.server.routes as routes
+
+    called = {"powermetrics": False}
+
+    def _spy_powermetrics():
+        called["powermetrics"] = True
+        return 42.0
+
+    monkeypatch.setattr(routes, "_powermetrics_gpu_util", _spy_powermetrics)
+    monkeypatch.setattr(routes, "_nvidia_gpu_util", lambda: None)
+
+    resp = client.get("/api/telemetry/gpu-idle")
+    assert resp.status_code == 200
+    assert resp.json() == {"gpu_util": None}
+    assert called["powermetrics"] is False  # no privileged shell-out without consent
+
+
+def test_gpu_idle_reads_the_gpu_when_optin_is_on(client, monkeypatch):
+    import orionfold.server.routes as routes
+
+    # Turn the opt-in on, then a single read returns the parsed idle %.
+    client.put("/api/settings", json={"powermetrics_gpu_optin": True})
+    monkeypatch.setattr(routes, "_nvidia_gpu_util", lambda: None)
+    monkeypatch.setattr(routes, "_powermetrics_gpu_util", lambda: 20.7)
+
+    resp = client.get("/api/telemetry/gpu-idle")
+    assert resp.status_code == 200
+    assert resp.json() == {"gpu_util": 20.7}
+
+
+def test_gpu_idle_prefers_nvidia_unprivileged_read_when_present(client, monkeypatch):
+    import orionfold.server.routes as routes
+
+    # NVIDIA's query is unprivileged → always tried first, even with the opt-in off.
+    nvidia_calls = {"n": 0}
+
+    def _nv():
+        nvidia_calls["n"] += 1
+        return 33.0
+
+    monkeypatch.setattr(routes, "_nvidia_gpu_util", _nv)
+    monkeypatch.setattr(routes, "_powermetrics_gpu_util", lambda: pytest.fail("must not shell out"))
+
+    resp = client.get("/api/telemetry/gpu-idle")
+    assert resp.json() == {"gpu_util": 33.0}
+    assert nvidia_calls["n"] == 1
+
+
 def test_html_receipt_can_be_served_inline_for_preview(client):
     run_id = client.post(
         "/api/runs",

@@ -6,6 +6,8 @@ import {
   datasetSchema,
   extractResultSchema,
   getCostSummary,
+  getGpuIdle,
+  getLatestRun,
   getSettings,
   previewDataset,
   proofReportSchema,
@@ -128,6 +130,40 @@ describe("cost summary client", () => {
     expect(spy).toHaveBeenCalledWith("/api/cost-summary?window=today");
     expect(r.eval_cost_usd).toBe(0.34);
     expect(r.judge_cost_usd).toBe(0.02);
+  });
+});
+
+describe("latest-run client (rail at-rest hydrate)", () => {
+  it("getLatestRun requests /api/runs/latest and validates the report", async () => {
+    const spy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(new Response(JSON.stringify(SAMPLE_REPORT), { status: 200 }));
+    const r = await getLatestRun();
+    expect(spy).toHaveBeenCalledWith("/api/runs/latest");
+    expect(r?.run.id).toBe(SAMPLE_REPORT.run.id);
+  });
+
+  it("getLatestRun returns null when there are no stored runs", async () => {
+    mockResponse(null);
+    const r = await getLatestRun();
+    expect(r).toBeNull();
+  });
+});
+
+describe("gpu-idle client (rail at-rest GPU read)", () => {
+  it("getGpuIdle requests /api/telemetry/gpu-idle and returns the reading", async () => {
+    const spy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(new Response(JSON.stringify({ gpu_util: 20.7 }), { status: 200 }));
+    const r = await getGpuIdle();
+    expect(spy).toHaveBeenCalledWith("/api/telemetry/gpu-idle");
+    expect(r.gpu_util).toBe(20.7);
+  });
+
+  it("getGpuIdle parses a null reading (opt-in off / unavailable)", async () => {
+    mockResponse({ gpu_util: null });
+    const r = await getGpuIdle();
+    expect(r.gpu_util).toBeNull();
   });
 });
 

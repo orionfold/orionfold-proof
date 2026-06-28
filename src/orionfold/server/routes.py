@@ -67,6 +67,7 @@ from orionfold.providers.registry import (
 )
 from orionfold.receipts import export
 from orionfold.telemetry import RunSampler, detect_host_profile
+from orionfold.telemetry.sampler import _nvidia_gpu_util, _powermetrics_gpu_util
 from orionfold.sample_data import seed_sample_data
 from orionfold.storage.db import apply_migrations, connect
 from orionfold.storage.repository import (
@@ -463,6 +464,33 @@ def telemetry_host() -> HostProfile:
     return _labeled_host_profile()
 
 
+class GpuIdle(BaseModel):
+    gpu_util: float | None = None
+
+
+@router.get("/telemetry/gpu-idle")
+def telemetry_gpu_idle(request: Request) -> GpuIdle:
+    """A single at-rest GPU utilization read for the rail (so the GPU cell shows idle %, not blank).
+
+    The unprivileged NVIDIA query is always tried first. The macOS powermetrics path is privileged
+    (sudo) and is gated SERVER-SIDE behind the operator's opt-in — this endpoint refuses to shell
+    out unless ``powermetrics_gpu_optin`` is set, regardless of who calls it (the FE's throttle is a
+    courtesy; this is the guarantee). Best-effort: any failure returns ``gpu_util=None`` (the cell
+    shows "at rest"/"unavailable", never an error). One-shot, no standing thread.
+    """
+    nv = _nvidia_gpu_util()
+    if nv is not None:
+        return GpuIdle(gpu_util=nv)
+    conn = _conn(request)
+    try:
+        optin = get_powermetrics_optin(conn)
+    finally:
+        conn.close()
+    if not optin:
+        return GpuIdle(gpu_util=None)
+    return GpuIdle(gpu_util=_powermetrics_gpu_util())
+
+
 @router.get("/telemetry/stream")
 async def telemetry_stream() -> StreamingResponse:
     """Emit the latest live sample ~every 500ms while a run is active; closes when idle.
@@ -808,6 +836,23 @@ def get_runs(request: Request) -> list[ProofReport]:
     conn = _conn(request)
     try:
         return list_runs(conn)
+    finally:
+        conn.close()
+
+
+@router.get("/runs/latest")
+def get_latest_run(request: Request) -> ProofReport | None:
+    """The newest stored run, or null when there are none — the rail's at-rest hydrate.
+
+    Read-only, mirrors ``/cost-summary``: a finished run is the only thing that moves it, so the
+    rail refetches on a run's end. ``list_runs`` is newest-first and already drops un-picked quick
+    drafts, so the first element is the latest receipt. Declared before ``/runs/{run_id}`` so the
+    literal path wins over the parameterized one.
+    """
+    conn = _conn(request)
+    try:
+        runs = list_runs(conn)
+        return runs[0] if runs else None
     finally:
         conn.close()
 

@@ -161,6 +161,27 @@ def _sample_once(gpu_opt_in: bool) -> dict:
     }
 
 
+_TREND_BUCKET = 2  # samples per sealed bar; matches the FE sparkline's pushSample({bucket:2}).
+
+
+def _bucket_peaks(values: list[float | None], bucket: int) -> list[float]:
+    """Peak-over-window reduction matching the FE sparkline (``pushSample``), for the STORED series.
+
+    Seals one bar (the window's max) every ``bucket`` samples; nulls contribute nothing to a
+    window's peak, and an all-null window yields no bar. Unlike the live FE — which keeps a
+    forming bucket open — the persisted series also seals the trailing partial window so the last
+    samples survive in the record. Pure: a plain reduction over the metric column, unit-tested
+    against the FE's bucket semantics.
+    """
+    bucket = max(1, bucket)
+    peaks: list[float] = []
+    for i in range(0, len(values), bucket):
+        window = [v for v in values[i : i + bucket] if v is not None]
+        if window:
+            peaks.append(max(window))
+    return peaks
+
+
 class RunSampler:
     """Background sampler for one run. ``start()`` then ``stop() -> TelemetrySummary``.
 
@@ -213,4 +234,8 @@ class RunSampler:
             process_rss_gb_max=max(rss) if rss else None,
             gpu_util_mean=round(sum(gpu) / len(gpu), 1) if gpu else None,
             gpu_util_max=max(gpu) if gpu else None,
+            # Per-bucket peak series for the rail's dimmed last-run sparkline (persisted record).
+            cpu_series=_bucket_peaks([s.get("cpu_util") for s in samples], _TREND_BUCKET),
+            gpu_series=_bucket_peaks([s.get("gpu_util") for s in samples], _TREND_BUCKET),
+            mem_series=_bucket_peaks([s.get("mem_used_gb") for s in samples], _TREND_BUCKET),
         )

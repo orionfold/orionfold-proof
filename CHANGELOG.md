@@ -64,6 +64,15 @@ for [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   same width as every other view — Appearance · Runtime (the Sandbox + GPU toggles) · Default
   scoring thresholds · Data management (Seed / Remove / Clear) — each an icon-led card, so the
   width carries density instead of stretched single-toggle rows. Layout only; every control kept.
+- **Telemetry rail hydrates at rest.** The always-on rail no longer reads empty until a run fires
+  this session — it now fills from history on load. "Last result" / "Last receipt" hydrate from the
+  newest stored run via a read-only `GET /api/runs/latest` (the run open in the cockpit still wins
+  when present); the dimmed "last run" CPU / GPU / memory sparklines redraw from a persisted
+  per-bucket trend series carried on the stored run (additive, hash-inert — no migration); and the
+  GPU cell shows a real idle % at rest via a single throttled `GET /api/telemetry/gpu-idle` read,
+  gated server-side behind the existing opt-in (NVIDIA tried unprivileged first; the macOS
+  powermetrics read never fires without consent), polled at most every 30s and only while the tab is
+  visible and no run is active. Presentation-only — telemetry stays out of `config_hash`.
 
 ### Fixed
 

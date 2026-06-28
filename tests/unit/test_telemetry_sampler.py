@@ -1,6 +1,7 @@
 from orionfold.domain.models import TelemetrySummary
 from orionfold.telemetry.sampler import (
     RunSampler,
+    _bucket_peaks,
     _parse_gpu_util,
     _runtime_rss_gb,
     _sample_once,
@@ -121,6 +122,47 @@ def test_rollup_of_fixed_samples_computes_means_and_maxes():
     assert summary.mem_used_gb_max == 22.0
     assert summary.process_rss_gb_max == 8.4
     assert summary.gpu_util_max is None  # all None → stays None, never 0
+
+
+def test_bucket_peaks_seals_a_peak_every_bucket_samples():
+    # Mirrors the FE pushSample({bucket:2}) peak-over-window: every 2 samples seal to their max.
+    assert _bucket_peaks([5.0, 9.0, 4.0, 1.0], 2) == [9.0, 4.0]
+
+
+def test_bucket_peaks_seals_a_trailing_partial_window():
+    # Unlike the live FE (which keeps a forming bucket), the STORED series seals the trailing
+    # partial window too so the last samples aren't lost from the persisted record.
+    assert _bucket_peaks([5.0, 9.0, 4.0], 2) == [9.0, 4.0]
+
+
+def test_bucket_peaks_ignores_nulls_within_a_window_and_drops_all_null_windows():
+    # null contributes nothing to a window's peak; a window with only nulls produces no bar.
+    assert _bucket_peaks([7.0, None, 3.0, None], 2) == [7.0, 3.0]
+    assert _bucket_peaks([None, None], 2) == []
+
+
+def test_bucket_peaks_empty_is_empty():
+    assert _bucket_peaks([], 2) == []
+
+
+def test_rollup_persists_per_bucket_trend_series():
+    samples = [
+        {"cpu_util": 40.0, "mem_used_gb": 20.0, "process_rss_gb": 8.0, "gpu_util": 30.0},
+        {"cpu_util": 60.0, "mem_used_gb": 22.0, "process_rss_gb": 8.4, "gpu_util": 50.0},
+        {"cpu_util": 55.0, "mem_used_gb": 21.0, "process_rss_gb": 8.2, "gpu_util": 45.0},
+    ]
+    summary = RunSampler._rollup(samples, sampled=True)
+    # bucket=2 over 3 samples: [max(40,60)=60, trailing max(55)=55].
+    assert summary.cpu_series == [60.0, 55.0]
+    assert summary.mem_series == [22.0, 21.0]
+    assert summary.gpu_series == [50.0, 45.0]
+
+
+def test_rollup_series_are_empty_when_unsampled():
+    summary = RunSampler._rollup([], sampled=False)
+    assert summary.cpu_series == []
+    assert summary.gpu_series == []
+    assert summary.mem_series == []
 
 
 def test_rollup_of_no_samples_is_unsampled():

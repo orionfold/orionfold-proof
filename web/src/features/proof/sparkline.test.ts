@@ -1,6 +1,13 @@
 import { describe, expect, test } from "vitest";
 
-import { SLOTS, emptyTrend, pushSample, sparklinePath, type Trend } from "./sparkline";
+import {
+  SLOTS,
+  emptyTrend,
+  pushSample,
+  sparklinePath,
+  trendFromSeries,
+  type Trend,
+} from "./sparkline";
 
 // Push a list of samples through the accumulator, returning the final trend.
 function feed(values: (number | null)[], bucket = 1): Trend {
@@ -80,5 +87,25 @@ describe("sparklinePath — SVG geometry", () => {
     const p = sparklinePath([10, 20], { w: 60, h: 16, max: 20, forming: true });
     expect(p.formingPoint).not.toBeNull();
     expect(p.formingPoint!.x).toBeGreaterThan(0);
+  });
+});
+
+describe("trendFromSeries — seed a dimmed trend from a persisted per-bucket series", () => {
+  test("loads the stored peaks as finalized bars with no forming edge", () => {
+    const t = trendFromSeries([20, 45, 70, 30]);
+    expect(t.finalized).toEqual([20, 45, 70, 30]);
+    expect(t.forming).toBeNull();
+    expect(t.count).toBe(0);
+  });
+
+  test("an empty series yields an empty trend (nothing to draw)", () => {
+    const t = trendFromSeries([]);
+    expect(t.finalized).toEqual([]);
+    expect(t.forming).toBeNull();
+  });
+
+  test("respects the FIFO ring — never more than SLOTS bars", () => {
+    const t = trendFromSeries(Array.from({ length: SLOTS + 5 }, (_, i) => i));
+    expect(t.finalized).toHaveLength(SLOTS);
   });
 });

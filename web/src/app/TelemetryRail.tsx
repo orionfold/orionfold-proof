@@ -15,7 +15,10 @@ import {
 
 import {
   getCostSummary,
+  getGpuIdle,
   getHostProfile,
+  getLatestRun,
+  getSettings,
   subscribeTelemetry,
   type CostRollup,
   type ProofReport,
@@ -23,7 +26,13 @@ import {
 } from "../lib/api";
 import { type RunProgress } from "../features/proof/useRunProgress";
 import { type ReceiptsMode } from "../features/proof/ReceiptsView";
-import { emptyTrend, pushSample, sparklinePath, type Trend } from "../features/proof/sparkline";
+import {
+  emptyTrend,
+  pushSample,
+  sparklinePath,
+  trendFromSeries,
+  type Trend,
+} from "../features/proof/sparkline";
 
 // The three live host trends shown as sparklines. Bundled so they reset/accumulate together.
 interface Trends {
@@ -72,6 +81,31 @@ export function TelemetryRail({
     queryFn: () => getCostSummary("all"),
   });
 
+  // The latest STORED run — the rail's at-rest hydrate for Last result/receipt when nothing is open
+  // in the cockpit this session. Like the cost rollups, a finished run is the only thing that moves
+  // it, so it refetches on the runActive→false transition below.
+  const latestRun = useQuery({ queryKey: ["latest-run"], queryFn: getLatestRun });
+
+  // Settings — only the GPU opt-in matters here: it gates whether we poll the privileged at-rest
+  // GPU read at all. (The server gates it too; this is the courtesy front so we never even ask.)
+  const settings = useQuery({ queryKey: ["settings"], queryFn: getSettings, staleTime: Infinity });
+  const gpuOptIn = settings.data?.powermetrics_gpu_optin === true;
+
+  // At-rest GPU idle reading. Enabled ONLY when the operator opted in AND no run is active (the live
+  // SSE owns the GPU cell during a run). Throttled to ~30s and paused while the tab is hidden, so the
+  // privileged powermetrics shell-out stays calm. The server also refuses to shell out without the
+  // opt-in, so this is throttle + courtesy, not the guarantee. `refetchOnWindowFocus` refreshes the
+  // reading when the operator returns to the tab.
+  const GPU_IDLE_POLL_MS = 30_000;
+  const gpuIdle = useQuery({
+    queryKey: ["gpu-idle"],
+    queryFn: getGpuIdle,
+    enabled: gpuOptIn && !runActive,
+    refetchInterval: gpuOptIn && !runActive ? GPU_IDLE_POLL_MS : false,
+    refetchIntervalInBackground: false, // don't poll a hidden tab — pauses the privileged read
+    staleTime: GPU_IDLE_POLL_MS,
+  });
+
   const [sample, setSample] = useState<TelemetrySample | null>(null);
   // Per-metric trends (CPU / GPU / memory), accumulated across a run's samples (peak-over-bucket →
   // SVG sparkline). Refs so the SSE callback always sees the latest without re-subscribing;
@@ -84,14 +118,17 @@ export function TelemetryRail({
 
   const refetchCostToday = costToday.refetch;
   const refetchCostAll = costAll.refetch;
+  const refetchLatestRun = latestRun.refetch;
   useEffect(() => {
     if (!runActive) {
       // Run ended (or never started): drop the live sample so readouts return to "at rest", but
       // LEAVE the trends frozen as the last-run record. The Sparkline renders them dimmed.
       setSample(null);
-      // A finished run is now stored — refresh the cost rollups so the rail reflects the new spend.
+      // A finished run is now stored — refresh the cost rollups + latest-run so the rail reflects
+      // the new spend and the freshly-stored receipt.
       void refetchCostToday();
       void refetchCostAll();
+      void refetchLatestRun();
       return;
     }
     // A new run starts: clear the prior run's trends so the fresh line draws from empty.
@@ -111,11 +148,41 @@ export function TelemetryRail({
       unsubscribe();
       setSample(null);
     };
-  }, [runActive, refetchCostToday, refetchCostAll]);
+  }, [runActive, refetchCostToday, refetchCostAll, refetchLatestRun]);
+
+  // Seed the dimmed "last run" sparkline from the latest STORED run's persisted trend series, so a
+  // fresh page/server still shows a historical trace (not a blank line). Only at rest, and only
+  // before this session has captured a live run (a live or just-finished run's in-session trends
+  // take precedence — they're the freshest record). Keyed on the fetched telemetry so it re-seeds
+  // when the latest run changes (e.g. after a run finishes and the refetch above resolves).
+  const latestTelemetry = latestRun.data?.telemetry;
+  useEffect(() => {
+    if (runActive) return; // a live run owns the trends
+    if (trendsRef.current.cpu.finalized.length > 0) return; // this session already has a record
+    if (!latestTelemetry) return;
+    const seeded: Trends = {
+      cpu: trendFromSeries(latestTelemetry.cpu_series),
+      gpu: trendFromSeries(latestTelemetry.gpu_series),
+      mem: trendFromSeries(latestTelemetry.mem_series),
+    };
+    trendsRef.current = seeded;
+    setTrends(seeded);
+  }, [latestTelemetry, runActive]);
 
   const live = sample != null;
   const cpu = live ? `${Math.round(sample!.cpu_util)}%` : profile ? "at rest" : "—";
-  const gpu = sample?.gpu_util != null ? `${Math.round(sample.gpu_util)}%` : "unavailable";
+  // GPU readout precedence: a live run sample → the at-rest idle poll → a label. With the opt-in on
+  // (so we're polling) an absent/null reading reads "at rest" like CPU; with the opt-in off the
+  // privileged read is genuinely not available → "unavailable".
+  const gpuIdleVal = gpuIdle.data?.gpu_util ?? null;
+  const gpu =
+    sample?.gpu_util != null
+      ? `${Math.round(sample.gpu_util)}%`
+      : gpuIdleVal != null
+        ? `${Math.round(gpuIdleVal)}%`
+        : gpuOptIn
+          ? "at rest"
+          : "unavailable";
   const mem =
     sample?.mem_used_gb != null
       ? `${sample.mem_used_gb} GB`
@@ -123,10 +190,12 @@ export function TelemetryRail({
         ? `${profile.memory_gb} GB`
         : "—";
 
-  // Last proof result, derived from the in-memory report (the run currently/last shown in the
-  // cockpit). The recommended leaderboard entry is the headline; its pooled pass count is the
-  // one-glance metric. A dedicated "latest stored receipt" fetch lands with the Receipts bento.
-  const winner = lastReport?.leaderboard.find((e) => e.recommended) ?? lastReport?.leaderboard[0];
+  // Last proof result. The in-memory report (the run currently/last open in the cockpit this
+  // session) wins; at rest, with nothing open, we fall back to the latest STORED run so the cell
+  // shows the real last receipt instead of "—". The recommended leaderboard entry is the headline;
+  // its pooled pass count is the one-glance metric.
+  const atRestReport = lastReport ?? latestRun.data ?? null;
+  const winner = atRestReport?.leaderboard.find((e) => e.recommended) ?? atRestReport?.leaderboard[0];
   const lastResult = winner
     ? `${winner.pass_count}/${winner.total}`
     : runActive

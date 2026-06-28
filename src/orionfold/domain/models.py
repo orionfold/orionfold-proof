@@ -262,6 +262,13 @@ class TelemetrySummary(BaseModel):
     gpu_util_mean: float | None = None  # None on Mac without the powermetrics opt-in
     gpu_util_max: float | None = None
     warmup_ms: int | None = None  # first-call latency incl. cold load (not pure decode)
+    # Per-bucket peak-over-window trend series (peak every 2 samples, matching the live FE
+    # sparkline). Lets the rail redraw the dimmed "last run" sparkline after a server restart.
+    # Additive + default-empty → old stored reports deserialize unchanged; still ∉ config_hash
+    # (telemetry is presentation-only, like the rest of this model and the Hardware stanza).
+    cpu_series: list[float] = Field(default_factory=list)
+    gpu_series: list[float] = Field(default_factory=list)
+    mem_series: list[float] = Field(default_factory=list)
 
 
 class ProofBrief(BaseModel):
