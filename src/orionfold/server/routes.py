@@ -810,6 +810,10 @@ def create_run_stream(request: Request, body: RunRequest) -> StreamingResponse:
         cell_queue: queue.Queue[ResultRow | None] = queue.Queue()
         produced: dict[str, list[ResultRow]] = {}
         failure: list[BaseException] = []
+        # Cooperative cancel: set when the client disconnects (the Stop button aborts the SSE fetch).
+        # The worker checks it between examples and stops starting new ones; the report is then never
+        # built or saved — a stopped run is DISCARDED, never persisted as a finished proof.
+        cancel = threading.Event()
 
         # Live hardware telemetry for this run. Best-effort + isolated (reads only OS stats), so it
         # can never perturb run output or config_hash. Registered globally so /telemetry/stream can
@@ -822,7 +826,7 @@ def create_run_stream(request: Request, body: RunRequest) -> StreamingResponse:
         def produce() -> None:
             try:
                 produced["rows"] = run_matrix_concurrent(
-                    dataset, candidates, rubric, on_cell=cell_queue.put
+                    dataset, candidates, rubric, on_cell=cell_queue.put, cancel=cancel
                 )
             except BaseException as exc:  # surface to the consumer; never swallow silently
                 failure.append(exc)
@@ -832,59 +836,80 @@ def create_run_stream(request: Request, body: RunRequest) -> StreamingResponse:
         worker = threading.Thread(target=produce, name="proof-run-stream", daemon=True)
         worker.start()
 
-        done = 0
-        while True:
-            row = cell_queue.get()
-            if row is None:
-                break
-            done += 1
-            yield _sse(
-                {
-                    "type": "progress",
-                    "done": done,
-                    "candidate_id": row.candidate_id,
-                    "example_index": row.example_index,
-                    "passed": row.passed,
-                    "error": row.error is not None,
-                    "cost": row.estimated_cost_usd + row.judge_cost_usd,
-                }
-            )
-        worker.join()
-        # Stop sampling once generation is done; always clear the global ref so a failed run never
-        # strands it and the next run starts clean.
+        # Everything below runs inside a try so that a client disconnect (Starlette throws
+        # GeneratorExit into this generator at the next yield) diverts straight to the finally —
+        # BEFORE the report is built or save_report runs. The finally signals cancel, drains the
+        # worker, and always tears down the sampler (no stranded global, no leaked sampler thread).
         try:
+            done = 0
+            while True:
+                row = cell_queue.get()
+                if row is None:
+                    break
+                done += 1
+                yield _sse(
+                    {
+                        "type": "progress",
+                        "done": done,
+                        "candidate_id": row.candidate_id,
+                        "example_index": row.example_index,
+                        "passed": row.passed,
+                        "error": row.error is not None,
+                        "cost": row.estimated_cost_usd + row.judge_cost_usd,
+                    }
+                )
+            worker.join()
             telemetry = sampler.stop()
-        finally:
             _CURRENT_SAMPLER = None
-        if failure:
-            raise failure[0]
-        rows = produced["rows"]
-        now = datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
-        run = ProofRun(
-            id=f"run_{uuid.uuid4().hex[:12]}",
-            brief=body.brief,
-            dataset_id=dataset.id,
-            dataset_name=dataset.name,
-            rubric=rubric,
-            candidates=candidates,
-            config_hash=config_hash(dataset, candidates, rubric),
-            created_at=now,
-            mode=body.mode,
-        )
-        report = ProofReport(
-            run=run,
-            leaderboard=build_leaderboard(candidates, rows),
-            results=rows,
-            cost_summary=build_cost_summary(rows),
-            host=_labeled_host_profile(),
-            telemetry=telemetry,
-        )
-        write = connect(db_path)
-        try:
-            save_report(write, report)
+            if failure:
+                raise failure[0]
+            rows = produced["rows"]
+            now = datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+            run = ProofRun(
+                id=f"run_{uuid.uuid4().hex[:12]}",
+                brief=body.brief,
+                dataset_id=dataset.id,
+                dataset_name=dataset.name,
+                rubric=rubric,
+                candidates=candidates,
+                config_hash=config_hash(dataset, candidates, rubric),
+                created_at=now,
+                mode=body.mode,
+            )
+            report = ProofReport(
+                run=run,
+                leaderboard=build_leaderboard(candidates, rows),
+                results=rows,
+                cost_summary=build_cost_summary(rows),
+                host=_labeled_host_profile(),
+                telemetry=telemetry,
+            )
+            write = connect(db_path)
+            try:
+                save_report(write, report)
+            finally:
+                write.close()
+            yield _sse({"type": "report", "report": report.model_dump(mode="json")})
         finally:
-            write.close()
-        yield _sse({"type": "report", "report": report.model_dump(mode="json")})
+            # Reached on normal completion, error, OR client disconnect (GeneratorExit). Tell the
+            # worker to stop starting examples, let it drain to its sentinel, and roll up + clear the
+            # sampler exactly like end-of-run so the gauges never strand "live".
+            cancel.set()
+            if _CURRENT_SAMPLER is sampler:
+                try:
+                    sampler.stop()  # idempotent; rolls up + joins the sampler thread
+                except Exception:
+                    pass
+                _CURRENT_SAMPLER = None
+            if worker.is_alive():
+                # Drain the queue so the worker's blocking cell_queue.put() can't wedge, then join.
+                while True:
+                    try:
+                        if cell_queue.get_nowait() is None:
+                            break
+                    except queue.Empty:
+                        break
+                worker.join(timeout=10.0)
 
     return StreamingResponse(
         events(),

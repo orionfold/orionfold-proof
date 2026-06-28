@@ -336,6 +336,63 @@ def test_progress_frame_includes_cost(client):
     assert all(isinstance(e["cost"], (int, float)) for e in progress)
 
 
+def test_client_disconnect_cancels_run_and_skips_save(client, monkeypatch):
+    # When the consumer abandons the stream early (a client disconnect throws GeneratorExit into the
+    # streaming generator at its paused yield), the run is DISCARDED: save_report is never called,
+    # and the live sampler is always torn down (no stranded global). This is the Stop-button server
+    # contract.
+    #
+    # Starlette's in-process TestClient buffers the whole response, so it can't inject a mid-stream
+    # disconnect. Drive the generator directly instead — pull one frame, then .close() it — which
+    # raises GeneratorExit at exactly the yield a real disconnect would, deterministically.
+    import time
+
+    import orionfold.server.routes as routes
+    from orionfold.domain.models import ProviderResult
+    from orionfold.proof import engine
+    from orionfold.server.routes import RunRequest, create_run_stream
+
+    saved: list = []
+    monkeypatch.setattr(routes, "save_report", lambda *a, **k: saved.append(a))
+
+    class _SlowProvider:
+        privacy = "cloud"  # cloud → runs in the pool, no local lock
+
+        def generate(self, example, candidate):
+            time.sleep(0.05)
+            return ProviderResult(output_text="ok", privacy=self.privacy, latency_ms=1)
+
+    monkeypatch.setattr(engine, "get_provider", lambda _pid: _SlowProvider())
+
+    class _FakeRequest:
+        # create_run_stream only reaches request.app.state.db_path (and _conn) before the generator.
+        def __init__(self, app):
+            self.app = app
+
+    body = RunRequest(
+        dataset_id="investment-memo-summarization",
+        candidate_ids=["mock_good", "mock_bad"],
+        brief={"task_name": "t", "decision_question": "q", "success_criteria": ""},
+        rubric={"kind": "none"},  # skip scoring so the slow output isn't graded
+    )
+    resp = create_run_stream(_FakeRequest(client.app), body)
+    # Starlette wraps the sync events() generator into an async body_iterator; drive it the same way
+    # the ASGI server would, then aclose() it to inject GeneratorExit at the paused yield.
+    import asyncio
+
+    async def pull_one_then_disconnect():
+        agen = resp.body_iterator
+        first = await agen.__anext__()  # the start frame
+        assert '"type": "start"' in first
+        await agen.aclose()  # client disconnect → GeneratorExit into the generator → its finally runs
+
+    asyncio.run(pull_one_then_disconnect())
+
+    # The finally must have run on close: sampler cleared, nothing persisted.
+    assert routes._CURRENT_SAMPLER is None
+    assert saved == [], "a stopped run must not be saved"
+
+
 def test_run_stream_rejects_unknown_dataset(client):
     resp = client.post(
         "/api/runs/stream",
