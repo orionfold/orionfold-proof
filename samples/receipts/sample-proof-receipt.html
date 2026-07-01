@@ -159,18 +159,19 @@
     <dt>Rubric</dt><dd>keypoint ≥ 0.8</dd>
     <dt>Scored by</dt><dd>Keypoint coverage</dd>
     <dt>Generated</dt><dd>2026-06-19T12:00:00Z</dd>
-    <dt>Receipt schema</dt><dd>v13</dd>
+    <dt>Receipt schema</dt><dd>v14</dd>
   </dl>
   <h2>Leaderboard</h2>
   <table>
     <thead><tr>
       <th>Candidate</th><th>Provider</th><th>Privacy</th><th>Pass rate</th>
       <th>$ / quality</th>
-      <th>Avg score</th><th>Avg latency</th><th>warm tok/s</th><th>e2e tok/s</th><th>Est. cost</th><th>Failures</th>
+      <th>Avg score</th><th>Avg latency</th><th>warm tok/s</th><th>e2e tok/s</th><th>Sampling</th><th>Est. cost</th><th>Failures</th>
     </tr></thead>
-    <tbody><tr class="rec-row"><td>Mock · good ⭐</td><td>mock_good</td><td>local</td><td>100% (5/5)</td><td>Free</td><td>1.00</td><td>57ms</td><td>—</td><td>315.8</td><td>$0.00</td><td>0</td></tr><tr><td>Mock · bad</td><td>mock_bad</td><td>local</td><td>0% (0/5)</td><td>—</td><td>0.00</td><td>126ms</td><td>—</td><td>57.1</td><td>$0.00</td><td>5</td></tr></tbody>
+    <tbody><tr class="rec-row"><td>Mock · good ⭐</td><td>mock_good</td><td>local</td><td>100% (5/5)</td><td>Free</td><td>1.00</td><td>57ms</td><td>—</td><td>315.8</td><td>—</td><td>$0.00</td><td>0</td></tr><tr><td>Mock · bad</td><td>mock_bad</td><td>local</td><td>0% (0/5)</td><td>—</td><td>0.00</td><td>126ms</td><td>—</td><td>57.1</td><td>—</td><td>$0.00</td><td>5</td></tr></tbody>
   </table>
   <p class="muted">warm tok/s = decode-only throughput (excludes cold model load + prompt-eval); e2e tok/s = end-to-end throughput (the whole call). Warm is reported only when the provider exposes decode timing (local Ollama); cloud rows show “—”.</p>
+  <p class="muted">Sampling: “deterministic” = temperature pinned to 0, so a re-run reproduces the output (local Ollama); “sampled” = the provider’s default sampling was used (cloud providers), so the output is not guaranteed to reproduce exactly. The receipt discloses this rather than implying every run is byte-reproducible.</p>
   <h2>Cost ledger</h2>
   <div class='ledger'><div class='cell'><span>Eval</span><strong>$0.0000</strong></div><div class='cell'><span>Judge</span><strong>$0.0000</strong></div><div class='cell'><span>Total</span><strong>$0.0000</strong></div></div>
   <p class="muted">Run cost: candidate $0.0000 · judge $0.0000 · total $0.0000</p>
@@ -182,7 +183,7 @@
     <p class="label">Rerun it</p>
     <dl>
       <dt>Run id</dt><dd><code>run_sampledemo01</code></dd>
-      <dt>Config hash</dt><dd><code>0ddcbfb693ea</code></dd>
+      <dt>Config hash</dt><dd><code>f36165f4fce3</code></dd>
       <dt>Rerun</dt><dd><code>POST /api/runs {&quot;dataset_id&quot;: &quot;investment-memo-summarization&quot;, &quot;candidate_ids&quot;: [&quot;mock_good&quot;, &quot;mock_bad&quot;]}</code></dd>
     </dl>
   </section>

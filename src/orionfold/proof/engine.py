@@ -170,6 +170,7 @@ def score_cell(
         input_tokens=result.input_tokens,
         output_tokens=result.output_tokens,
         warm_decode_ms=result.warm_decode_ms,
+        sampling=result.sampling,
         judge_cost_usd=judge_cost,
         judge_latency_ms=judge_latency,
         bench_detail=bench_detail,

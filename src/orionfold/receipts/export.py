@@ -55,7 +55,14 @@ from orionfold.scoring.review import review_report
 # cloud provider). `LeaderboardEntry` gains `warm_tokens_per_second` (presentation only, never in
 # config_hash). Markdown + HTML tables gain one column each; the JSON dict gains one key.
 # Bump on any schema change so downstream consumers can detect drift.
-RECEIPT_VERSION = 13
+# v14: sampling disclosure (cloud-provider-determinism-audit) — each candidate discloses the
+# sampling it was actually generated with, so the receipt's "repeatable" promise is honest across
+# providers. Ollama pins temperature 0 → "deterministic (temp 0)"; the cloud providers set nothing
+# → "provider default (sampled)" (we disclose the absence, never fabricate a temperature). Rendered
+# as a per-candidate line in the Markdown + HTML leaderboard blocks; `LeaderboardEntry` gains a
+# `sampling` dict in the JSON (presentation/disclosure only, never in config_hash). No behavior
+# change — the providers already sent (or omitted) these params; v14 only stops being silent.
+RECEIPT_VERSION = 14
 
 
 def _verdict(top: LeaderboardEntry) -> str:
@@ -115,6 +122,35 @@ def _cost_per_quality_label(v: float | None) -> str:
 def _tok_per_sec_label(v: float | None) -> str:
     """Display rule for the throughput cell (tok/s), shared by MD and HTML."""
     return "—" if v is None else f"{v:.1f}"
+
+
+def _sampling_label(s: dict | None) -> str:
+    """Display rule for the Sampling cell, shared by MD and HTML.
+
+    Honest disclosure (cloud-provider-determinism-audit): ``deterministic`` when the provider
+    pinned temperature 0 (a re-run reproduces the text), ``sampled`` when it inherited the API's
+    default (non-deterministic — we disclose the absence, never invent a temperature). ``—`` when
+    no descriptor was recorded (every cell errored, or a mock cell).
+    """
+    if not s:
+        return "—"
+    mode = s.get("mode")
+    if mode == "deterministic":
+        return "deterministic"
+    if mode == "provider_default":
+        return "sampled"
+    return "—"
+
+
+# Disambiguates the Sampling column so "sampled" isn't read as an implementation detail. Same MD
+# (italic prose) / HTML (<p class="muted">) treatment as the throughput footnote — no new CSS.
+_SAMPLING_FOOTNOTE_TEXT = (
+    "Sampling: “deterministic” = temperature pinned to 0, so a re-run reproduces the output "
+    "(local Ollama); “sampled” = the provider’s default sampling was used (cloud providers), so "
+    "the output is not guaranteed to reproduce exactly. The receipt discloses this rather than "
+    "implying every run is byte-reproducible."
+)
+_SAMPLING_FOOTNOTE = f"_{_SAMPLING_FOOTNOTE_TEXT}_"
 
 
 # Disambiguates the two throughput columns so a "—" in the warm column never reads as a real value.
@@ -451,8 +487,8 @@ def to_markdown(report: ProofReport) -> str:
         "",
         "## Leaderboard",
         "",
-        "| Candidate | Provider | Privacy | Pass rate | $ / quality | Avg score | Avg latency | warm tok/s | e2e tok/s | Est. cost | Failures |",
-        "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+        "| Candidate | Provider | Privacy | Pass rate | $ / quality | Avg score | Avg latency | warm tok/s | e2e tok/s | Sampling | Est. cost | Failures |",
+        "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
     ]
     for e in data["leaderboard"]:
         marker = " ⭐" if e["recommended"] else ""
@@ -464,9 +500,10 @@ def to_markdown(report: ProofReport) -> str:
             f"{e['avg_latency_ms']}ms | "
             f"{_tok_per_sec_label(e.get('warm_tokens_per_second'))} | "
             f"{_tok_per_sec_label(e['tokens_per_second'])} | "
+            f"{_sampling_label(e.get('sampling'))} | "
             f"${e['total_estimated_cost_usd']:.2f} | {_failures_label(e)} |"
         )
-    lines += ["", _THROUGHPUT_FOOTNOTE]
+    lines += ["", _THROUGHPUT_FOOTNOTE, "", _SAMPLING_FOOTNOTE]
 
     c = data["cost"]
     lines += [
@@ -814,6 +851,7 @@ def to_html(report: ProofReport, theme: str | None = None) -> str:
         f"<td>{e['avg_latency_ms']}ms</td>"
         f"<td>{html.escape(_tok_per_sec_label(e.get('warm_tokens_per_second')))}</td>"
         f"<td>{html.escape(_tok_per_sec_label(e['tokens_per_second']))}</td>"
+        f"<td>{html.escape(_sampling_label(e.get('sampling')))}</td>"
         f"<td>${e['total_estimated_cost_usd']:.2f}</td>"
         f"<td>{html.escape(_failures_label(e))}</td>"
         "</tr>"
@@ -883,11 +921,12 @@ def to_html(report: ProofReport, theme: str | None = None) -> str:
     <thead><tr>
       <th>Candidate</th><th>Provider</th><th>Privacy</th><th>Pass rate</th>
       <th>$ / quality</th>
-      <th>Avg score</th><th>Avg latency</th><th>warm tok/s</th><th>e2e tok/s</th><th>Est. cost</th><th>Failures</th>
+      <th>Avg score</th><th>Avg latency</th><th>warm tok/s</th><th>e2e tok/s</th><th>Sampling</th><th>Est. cost</th><th>Failures</th>
     </tr></thead>
     <tbody>{rows}</tbody>
   </table>
   <p class="muted">{html.escape(_THROUGHPUT_FOOTNOTE_TEXT)}</p>
+  <p class="muted">{html.escape(_SAMPLING_FOOTNOTE_TEXT)}</p>
   <h2>Cost ledger</h2>
   {_ledger_html(data['cost'])}
   <p class="muted">Run cost: candidate ${data['cost']['candidate']:.4f} · judge ${data['cost']['judge']:.4f} · total ${data['cost']['total']:.4f}</p>

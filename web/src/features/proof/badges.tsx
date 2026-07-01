@@ -1,5 +1,14 @@
 import type { ReactNode } from "react";
-import { Cloud, CircleX, FlaskConical, Lock, TriangleAlert, type LucideIcon } from "lucide-react";
+import {
+  Cloud,
+  CircleX,
+  Dices,
+  FlaskConical,
+  Lock,
+  Repeat2,
+  TriangleAlert,
+  type LucideIcon,
+} from "lucide-react";
 
 import type { Candidate, LeaderboardEntry } from "../../lib/api";
 
@@ -48,6 +57,51 @@ export function ProviderTag({
       // interactive. Border/bg + text are all owned by the per-kind `cls` (Cloud/Local share the
       // neutral surface; Mock carries the warn tint), so the kinds never collide on a property.
       className={`inline-flex items-center gap-1 rounded border px-2 py-0.5 text-[11px] font-medium ${cls}`}
+    >
+      <Icon aria-hidden className="h-3 w-3 shrink-0" />
+      {label}
+    </span>
+  );
+}
+
+// Sampling disclosure (cloud-provider-determinism-audit) — HOW a candidate was sampled, so the
+// receipt's "repeatable" promise is honest. This is CATEGORICAL IDENTITY/disclosure (like the
+// Cloud/Local tags), not a control or a status, so it wears the same neutral surface + receipt-stub
+// shape — never the cyan accent (a control) or green ok (PASS). The two modes read apart via icon +
+// label, never hue alone: "deterministic" (temperature pinned to 0 → reproducible) vs "sampled"
+// (provider defaults → not guaranteed to reproduce). Absent descriptor (mock/errored) renders null.
+const SAMPLING_STYLE: Record<
+  "deterministic" | "provider_default",
+  { label: string; title: string; Icon: LucideIcon }
+> = {
+  deterministic: {
+    label: "Deterministic",
+    title: "Temperature pinned to 0 — a re-run reproduces this output (local Ollama).",
+    Icon: Repeat2,
+  },
+  provider_default: {
+    label: "Sampled",
+    title:
+      "Provider default sampling was used — the output is not guaranteed to reproduce exactly (cloud providers).",
+    Icon: Dices,
+  },
+};
+
+export function SamplingTag({
+  sampling,
+}: {
+  sampling: LeaderboardEntry["sampling"];
+}) {
+  if (!sampling) return null;
+  const style = SAMPLING_STYLE[sampling.mode as "deterministic" | "provider_default"];
+  if (!style) return null;
+  const { label, title, Icon } = style;
+  return (
+    <span
+      title={title}
+      // Same neutral receipt-stub shape as the identity tags (rounded, not a pill; neutral surface):
+      // disclosure is neither a control nor a PASS, so no accent/ok token appears here.
+      className={`inline-flex items-center gap-1 rounded border px-2 py-0.5 text-[11px] font-medium ${NEUTRAL_SURFACE} text-(--color-ink-muted)`}
     >
       <Icon aria-hidden className="h-3 w-3 shrink-0" />
       {label}

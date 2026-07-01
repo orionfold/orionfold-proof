@@ -10,6 +10,7 @@ from __future__ import annotations
 from orionfold.config.keys import resolve
 from orionfold.domain.models import Candidate, Example, Privacy, ProviderResult
 from orionfold.providers.http import (
+    DETERMINISTIC_SAMPLING,
     ProviderError,
     build_result,
     max_output_tokens,
@@ -72,4 +73,5 @@ class OllamaProvider:
             output_tokens=int(data.get("eval_count", 0) or 0),
             privacy=self.privacy,
             warm_decode_ms=warm_decode_ms,
+            sampling=DETERMINISTIC_SAMPLING,  # pins temperature 0 above → disclose it
         )

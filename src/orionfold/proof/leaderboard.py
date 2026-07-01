@@ -61,6 +61,10 @@ def build_leaderboard(
         warm_tokens_per_second = (
             warm_output_tokens / (total_warm_ms / 1000.0) if total_warm_ms > 0 else None
         )
+        # Sampling disclosure (cloud-provider-determinism-audit): every cell of a candidate shares
+        # the same descriptor (a provider constant), so the first non-null row carries it. None when
+        # every row errored (no descriptor was ever recorded) — the receipt then omits the line.
+        sampling = next((r.sampling for r in rows if r.sampling is not None), None)
         entries.append(
             LeaderboardEntry(
                 candidate_id=cand.id,
@@ -80,6 +84,7 @@ def build_leaderboard(
                 cost_per_quality=cost_per_quality,
                 tokens_per_second=tokens_per_second,
                 warm_tokens_per_second=warm_tokens_per_second,
+                sampling=sampling,
             )
         )
 

@@ -10,18 +10,20 @@ _2 candidate(s) × 5 example(s) · rubric keypoint ≥ 0.8_
 - **Rubric:** keypoint ≥ 0.8
 - **Scored by:** Keypoint coverage
 - **Run id:** `run_sampledemo01`
-- **Config hash:** `0ddcbfb693ea`
+- **Config hash:** `f36165f4fce3`
 - **Generated:** 2026-06-19T12:00:00Z
-- **Receipt schema:** v13
+- **Receipt schema:** v14
 
 ## Leaderboard
 
-| Candidate | Provider | Privacy | Pass rate | $ / quality | Avg score | Avg latency | warm tok/s | e2e tok/s | Est. cost | Failures |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Mock · good ⭐ | mock_good | local | 100% (5/5) | Free | 1.00 | 57ms | — | 315.8 | $0.00 | 0 |
-| Mock · bad | mock_bad | local | 0% (0/5) | — | 0.00 | 126ms | — | 57.1 | $0.00 | 5 |
+| Candidate | Provider | Privacy | Pass rate | $ / quality | Avg score | Avg latency | warm tok/s | e2e tok/s | Sampling | Est. cost | Failures |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Mock · good ⭐ | mock_good | local | 100% (5/5) | Free | 1.00 | 57ms | — | 315.8 | — | $0.00 | 0 |
+| Mock · bad | mock_bad | local | 0% (0/5) | — | 0.00 | 126ms | — | 57.1 | — | $0.00 | 5 |
 
 _warm tok/s = decode-only throughput (excludes cold model load + prompt-eval); e2e tok/s = end-to-end throughput (the whole call). Warm is reported only when the provider exposes decode timing (local Ollama); cloud rows show “—”._
+
+_Sampling: “deterministic” = temperature pinned to 0, so a re-run reproduces the output (local Ollama); “sampled” = the provider’s default sampling was used (cloud providers), so the output is not guaranteed to reproduce exactly. The receipt discloses this rather than implying every run is byte-reproducible._
 
 _Run cost: candidate $0.0000 · judge $0.0000 · total $0.0000_
 
@@ -51,6 +53,6 @@ _Run cost: candidate $0.0000 · judge $0.0000 · total $0.0000_
 ## Repro
 
 - **Run id:** `run_sampledemo01`
-- **Config hash:** `0ddcbfb693ea` (identical inputs reproduce this hash)
+- **Config hash:** `f36165f4fce3` (identical inputs reproduce this hash)
 - **Generated:** 2026-06-19T12:00:00Z
 - **Rerun:** `POST /api/runs {"dataset_id": "investment-memo-summarization", "candidate_ids": ["mock_good", "mock_bad"]}`

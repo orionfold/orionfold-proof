@@ -1,7 +1,7 @@
 {
-  "receipt_version": 13,
+  "receipt_version": 14,
   "run_id": "run_sampledemo01",
-  "config_hash": "0ddcbfb693ea",
+  "config_hash": "f36165f4fce3",
   "created_at": "2026-06-19T12:00:00Z",
   "brief": {
     "task_name": "Investment memo summarization",
@@ -50,7 +50,8 @@
       "recommended": true,
       "cost_per_quality": 0.0,
       "tokens_per_second": 315.7894736842106,
-      "warm_tokens_per_second": null
+      "warm_tokens_per_second": null,
+      "sampling": null
     },
     {
       "candidate_id": "mock_bad",
@@ -70,7 +71,8 @@
       "recommended": false,
       "cost_per_quality": null,
       "tokens_per_second": 57.142857142857146,
-      "warm_tokens_per_second": null
+      "warm_tokens_per_second": null,
+      "sampling": null
     }
   ],
   "prompt_variants": [],
@@ -88,6 +90,7 @@
       "input_tokens": 30,
       "output_tokens": 9,
       "warm_decode_ms": null,
+      "sampling": null,
       "privacy": "local",
       "error": null,
       "judge_cost_usd": 0.0,
@@ -107,6 +110,7 @@
       "input_tokens": 34,
       "output_tokens": 9,
       "warm_decode_ms": null,
+      "sampling": null,
       "privacy": "local",
       "error": null,
       "judge_cost_usd": 0.0,
@@ -126,6 +130,7 @@
       "input_tokens": 0,
       "output_tokens": 0,
       "warm_decode_ms": null,
+      "sampling": null,
       "privacy": "local",
       "error": "RuntimeError: mock_bad: simulated provider failure",
       "judge_cost_usd": 0.0,
@@ -145,6 +150,7 @@
       "input_tokens": 28,
       "output_tokens": 9,
       "warm_decode_ms": null,
+      "sampling": null,
       "privacy": "local",
       "error": null,
       "judge_cost_usd": 0.0,
@@ -164,6 +170,7 @@
       "input_tokens": 34,
       "output_tokens": 9,
       "warm_decode_ms": null,
+      "sampling": null,
       "privacy": "local",
       "error": null,
       "judge_cost_usd": 0.0,
@@ -176,7 +183,7 @@
   "telemetry": null,
   "repro": {
     "run_id": "run_sampledemo01",
-    "config_hash": "0ddcbfb693ea",
+    "config_hash": "f36165f4fce3",
     "created_at": "2026-06-19T12:00:00Z",
     "dataset_id": "investment-memo-summarization",
     "candidate_ids": [

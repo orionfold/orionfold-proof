@@ -53,8 +53,13 @@ test("score bar uses the traffic-light status token for the pass rate, never the
 });
 
 test("$/quality cell renders Free / em-dash / value", () => {
-  // Give every row BOTH throughput values so the only em-dash on screen is the null $/quality cell.
-  const tok = { tokens_per_second: 10, warm_tokens_per_second: 10 };
+  // Give every row BOTH throughput values AND a sampling descriptor so the only em-dash on screen
+  // is the null $/quality cell (the throughput + sampling columns otherwise also render "—").
+  const tok = {
+    tokens_per_second: 10,
+    warm_tokens_per_second: 10,
+    sampling: { temperature: 0, mode: "deterministic" as const },
+  };
   render(
     <Leaderboard
       entries={[
@@ -79,12 +84,14 @@ test("throughput splits into warm + e2e columns; each cell is its value or an em
           candidate_id: "local",
           warm_tokens_per_second: 59.0,
           tokens_per_second: 19.7,
+          sampling: { temperature: 0, mode: "deterministic" },
         }),
         entry({
           candidate_id: "cloud",
           privacy: "cloud",
           warm_tokens_per_second: null,
           tokens_per_second: 72.4,
+          sampling: { temperature: null, mode: "provider_default" },
         }),
       ]}
     />,
@@ -96,8 +103,54 @@ test("throughput splits into warm + e2e columns; each cell is its value or an em
   expect(screen.getByText("59.0")).toBeInTheDocument();
   expect(screen.getByText("19.7")).toBeInTheDocument();
   expect(screen.getByText("72.4")).toBeInTheDocument();
-  // The cloud row's warm cell is an em-dash (no decode timing).
+  // The cloud row's warm cell is the only em-dash (no decode timing); sampling cells are filled.
   expect(screen.getByText("—")).toBeInTheDocument();
+});
+
+test("sampling column discloses Deterministic / Sampled / em-dash per candidate", () => {
+  // Honesty (cloud-provider-determinism-audit): a pinned local model reads "Deterministic"; a
+  // cloud model on provider defaults reads "Sampled"; a candidate with no descriptor shows "—".
+  // Fill throughput on every row so the ONLY em-dash on screen is the mock row's sampling cell.
+  const tok = { tokens_per_second: 10, warm_tokens_per_second: 10 };
+  render(
+    <Leaderboard
+      entries={[
+        entry({
+          candidate_id: "local",
+          ...tok,
+          sampling: { temperature: 0, mode: "deterministic" },
+        }),
+        entry({
+          candidate_id: "cloud",
+          privacy: "cloud",
+          provider_id: "anthropic",
+          ...tok,
+          sampling: { temperature: null, mode: "provider_default" },
+        }),
+        entry({ candidate_id: "mock", ...tok, sampling: null }),
+      ]}
+    />,
+  );
+  // The column header is present, and each mode renders its distinct label.
+  expect(screen.getByText("Sampling")).toBeInTheDocument();
+  expect(screen.getByText("Deterministic")).toBeInTheDocument();
+  expect(screen.getByText("Sampled")).toBeInTheDocument();
+  // The descriptor-less (mock) row shows an em-dash rather than a fabricated mode.
+  expect(screen.getByText("—")).toBeInTheDocument();
+});
+
+test("sampling chip never uses the accent or ok token (disclosure ≠ control/PASS)", () => {
+  const { container } = render(
+    <Leaderboard
+      entries={[entry({ sampling: { temperature: 0, mode: "deterministic" } })]}
+    />,
+  );
+  const chip = screen.getByText("Deterministic").closest("span")!;
+  expect(chip.className).not.toContain("--color-accent");
+  expect(chip.className).not.toContain("--color-ok");
+  // It wears the neutral identity surface, matching the Cloud/Local tags.
+  expect(chip.className).toContain("--color-panel-line");
+  expect(container).toBeTruthy();
 });
 
 // ── WS-F F2/F3: sortable + mono-microcap headers ───────────────────────────────────────────────

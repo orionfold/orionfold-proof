@@ -12,6 +12,7 @@ from __future__ import annotations
 from orionfold.config.keys import resolve_key
 from orionfold.domain.models import Candidate, Example, Privacy, ProviderResult
 from orionfold.providers.http import (
+    PROVIDER_DEFAULT_SAMPLING,
     ProviderError,
     build_result,
     max_output_tokens,
@@ -70,4 +71,5 @@ class AnthropicProvider:
             input_tokens=int(usage.get("input_tokens", 0) or 0),
             output_tokens=int(usage.get("output_tokens", 0) or 0),
             privacy=self.privacy,
+            sampling=PROVIDER_DEFAULT_SAMPLING,  # no temperature sent → provider default (sampled)
         )

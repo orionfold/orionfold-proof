@@ -129,6 +129,50 @@ def test_cloud_provider_has_no_warm_decode_ms(monkeypatch):
     assert result.warm_decode_ms is None
 
 
+def test_ollama_discloses_deterministic_sampling(monkeypatch):
+    # Honesty (cloud-provider-determinism-audit): Ollama pins temperature 0, so it discloses a
+    # deterministic descriptor the receipt can surface — the disclosure counterpart to the
+    # temperature=0 it already sends. Secret-free: {temperature, mode} only.
+    _stub_post(
+        monkeypatch,
+        json_body={"message": {"content": "ok"}, "prompt_eval_count": 1, "eval_count": 1},
+    )
+    result = OllamaProvider().generate(_example(), _candidate("ollama", "llama3.2"))
+    assert result.sampling == {"temperature": 0.0, "mode": "deterministic"}
+
+
+@pytest.mark.parametrize(
+    "make_provider, cand, key_name",
+    [
+        (lambda: AnthropicProvider(), ("anthropic", "claude-haiku-4-5"), "ANTHROPIC_API_KEY"),
+        (lambda: GeminiProvider(), ("gemini", "gemini-2.5-flash"), "GEMINI_API_KEY"),
+        (
+            lambda: OpenAICompatibleProvider(
+                id="openai", label="OpenAI", base_url="https://api.openai.com/v1",
+                default_model="gpt-4o-mini", key_name="OPENAI_API_KEY",
+            ),
+            ("openai", "gpt-4o-mini"),
+            "OPENAI_API_KEY",
+        ),
+    ],
+)
+def test_cloud_provider_discloses_provider_default_sampling(monkeypatch, make_provider, cand, key_name):
+    # The three cloud providers set no sampling params → they inherit each API's server-side
+    # default. We do NOT fabricate a temperature we didn't send; the descriptor is an honest
+    # {temperature: None, mode: "provider_default"} so the receipt reads "sampled", not "temp=1.0".
+    monkeypatch.setenv(key_name, "fake-key-for-test")
+    _stub_post(
+        monkeypatch,
+        json_body={
+            "content": [{"type": "text", "text": "ok"}], "usage": {"input_tokens": 1, "output_tokens": 1},
+            "choices": [{"message": {"content": "ok"}}],
+            "candidates": [{"content": {"parts": [{"text": "ok"}]}}], "usageMetadata": {},
+        },
+    )
+    result = make_provider().generate(_example(), _candidate(*cand))
+    assert result.sampling == {"temperature": None, "mode": "provider_default"}
+
+
 def test_ollama_sends_deterministic_options(monkeypatch):
     """Local runs must be reproducible: the provider pins temperature 0 and disables thinking
     (think=false) so a thinking-capable model emits clean, parseable output. Without this a proof

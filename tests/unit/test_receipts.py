@@ -1,5 +1,7 @@
 """Receipts must carry provenance, state a clear recommendation, and leak no secrets."""
 
+import json
+
 import pytest
 
 from orionfold.data import load_dataset
@@ -212,7 +214,7 @@ def test_receipt_records_prompt_variants_and_text():
                          cost_summary=RunCostSummary(candidate_cost_usd=0, judge_cost_usd=0, total_cost_usd=0))
 
     data = export.build_receipt(report)
-    assert data["receipt_version"] == 13
+    assert data["receipt_version"] == 14
     assert data["prompt_variants"] == [
         {"name": "Baseline", "system_prompt": "Be neutral."},
         {"name": "Concise", "system_prompt": "Be terse."},
@@ -362,6 +364,38 @@ def test_receipt_warm_throughput_is_em_dash_when_absent():
     assert "—" in md
 
 
+def test_receipt_discloses_sampling_per_candidate():
+    # Honesty (cloud-provider-determinism-audit): the receipt discloses HOW each candidate was
+    # sampled so its "repeatable" promise is honest. A pinned local model reads "deterministic";
+    # a cloud model on provider defaults reads "sampled" — the receipt never implies a sampled run
+    # reproduces byte-for-byte. Render across md + html; JSON carries the raw descriptor.
+    report = _bench_report()
+    report.leaderboard[0].sampling = {"temperature": 0.0, "mode": "deterministic"}
+    report.leaderboard[1].sampling = {"temperature": None, "mode": "provider_default"}
+    md = export.to_markdown(report)
+    html_doc = export.to_html(report)
+    for text in (md, html_doc):
+        assert "Sampling" in text  # the column header
+        assert "deterministic" in text  # the pinned local row
+        assert "sampled" in text  # the cloud/provider-default row
+    # The disambiguating footnote appears (so "sampled" isn't misread).
+    assert "temperature pinned to 0" in md and "temperature pinned to 0" in html_doc
+    # JSON carries the raw descriptor untouched (downstream consumers get the structured value).
+    parsed = json.loads(export.to_json(report))
+    modes = {e.get("sampling", {}).get("mode") if e.get("sampling") else None
+             for e in parsed["leaderboard"]}
+    assert "deterministic" in modes and "provider_default" in modes
+
+
+def test_receipt_sampling_is_em_dash_when_absent():
+    # A mock run records no sampling descriptor → the cell is "—", never a fabricated mode.
+    report = _bench_report()
+    assert report.leaderboard[0].sampling is None  # mock run → no descriptor
+    md = export.to_markdown(report)
+    assert "Sampling" in md
+    assert "—" in md
+
+
 def test_bench_failure_case_shows_failed_gates():
     # mock_bad returns a generic answer with no Citations line → the citation gate fails, and the
     # receipt names the failed gate rather than a numeric score.
@@ -432,8 +466,8 @@ def _format_fn_report():
                        cost_summary=RunCostSummary(candidate_cost_usd=0, judge_cost_usd=0, total_cost_usd=0))
 
 
-def test_receipt_version_is_13():
-    assert export.RECEIPT_VERSION == 13
+def test_receipt_version_is_14():
+    assert export.RECEIPT_VERSION == 14
 
 
 # ---------------------------------------------------------------------------

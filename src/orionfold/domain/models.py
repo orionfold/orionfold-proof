@@ -181,6 +181,11 @@ class ProviderResult(BaseModel):
     # Pure warm-decode time (ms), excluding cold model load + prompt-eval. Set only by providers
     # that report decode-only timing (Ollama's eval_duration); None for cloud (no such signal).
     warm_decode_ms: int | None = None
+    # Effective sampling the provider actually sent, secret-free: {"temperature": float|None,
+    # "mode": "deterministic"|"provider_default"}. Ollama pins temp 0 (deterministic); cloud
+    # providers set nothing (provider_default). A RESULT/disclosure, not config → never in
+    # config_hash. None for mock/errored cells.
+    sampling: dict[str, Any] | None = None
 
 
 class ResultRow(BaseModel):
@@ -204,6 +209,9 @@ class ResultRow(BaseModel):
     # Pure warm-decode time (ms) for this cell, when the provider reports it (Ollama eval_duration).
     # None for cloud/untimed cells. A RESULT, not config → never enters config_hash.
     warm_decode_ms: int | None = None
+    # Effective sampling this cell was generated with (secret-free {temperature, mode}); see
+    # ProviderResult.sampling. A RESULT/disclosure, not config → never enters config_hash.
+    sampling: dict[str, Any] | None = None
     privacy: Privacy
     error: str | None = None
     judge_cost_usd: float = 0.0  # cost of the judge call for this cell (0 for non-judge)
@@ -234,6 +242,7 @@ class LeaderboardEntry(BaseModel):
     cost_per_quality: float | None = None  # $ per quality point (cost/avg_score); None if avg_score==0. Presentation only — never affects ranking.
     tokens_per_second: float | None = None  # END-TO-END throughput: Σoutput_tokens / Σlatency_s (incl. cold load + prompt-eval). None when no measured latency. Presentation only — never a ranking key, never in config_hash (the 32GB-Mac-vs-128GB-GB10 generalization metric).
     warm_tokens_per_second: float | None = None  # WARM-DECODE throughput: Σoutput_tokens / Σwarm_decode_s, pooled over only the rows that report decode-only timing (Ollama eval_duration). None for cloud/untimed candidates. Presentation only — never a ranking key, never in config_hash.
+    sampling: dict[str, Any] | None = None  # Effective sampling this candidate was generated with (secret-free {temperature, mode}), taken from its result rows: Ollama {temp 0, deterministic}, cloud {temp None, provider_default}. Disclosure only — never a ranking key, never in config_hash. None when every row errored.
 
 
 class HostProfile(BaseModel):

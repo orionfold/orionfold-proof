@@ -175,6 +175,13 @@ export const leaderboardEntrySchema = z.object({
   // WARM-DECODE throughput (decode-only, from the provider's own decode timing — Ollama
   // eval_duration); null for cloud/untimed candidates. Presentation only. Mirrors the Pydantic field.
   warm_tokens_per_second: z.number().nullable().optional(),
+  // Effective sampling this candidate was generated with (secret-free): mode "deterministic"
+  // (Ollama pins temperature 0 → reproducible) or "provider_default" (cloud defaults → sampled).
+  // Disclosure only — never a ranking key, never in config_hash. Mirrors the Pydantic field.
+  sampling: z
+    .object({ temperature: z.number().nullable(), mode: z.string() })
+    .nullable()
+    .optional(),
 });
 export type LeaderboardEntry = z.infer<typeof leaderboardEntrySchema>;
 

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { BadgeCheck } from "lucide-react";
 
 import type { LeaderboardEntry } from "../../lib/api";
-import { ProviderTag } from "./badges";
+import { ProviderTag, SamplingTag } from "./badges";
 import { formatCostPerQuality, medalFor, passRateTone, type PassRateTone } from "./leaderboardFormat";
 import {
   ariaSortFor,
@@ -100,6 +100,10 @@ export function Leaderboard({ entries }: { entries: LeaderboardEntry[] }) {
                   load + prompt-eval. Cloud rows have no decode timing → warm shows "—". */}
               <th className={HEADER_CLS} title="Decode-only throughput (excludes cold model load + prompt-eval). Reported only when the provider exposes decode timing (local Ollama).">warm tok/s</th>
               <th className={HEADER_CLS} title="End-to-end throughput (the whole call, incl. cold model load + prompt-eval).">e2e tok/s</th>
+              {/* Sampling disclosure (cloud-provider-determinism-audit): HOW the candidate was
+                  sampled — "Deterministic" (temp pinned 0, reproducible) vs "Sampled" (provider
+                  defaults). Disclosure, never a ranking key → plain, non-sortable. */}
+              <th className={HEADER_CLS} title="How this candidate was sampled: Deterministic (temperature pinned to 0, reproducible) or Sampled (provider default sampling, not guaranteed to reproduce).">Sampling</th>
               <SortableHeader column="total_estimated_cost_usd" label="Est. cost" sort={sort} onSort={onSort} />
               <SortableHeader column="failure_count" label="Failures" sort={sort} onSort={onSort} />
             </tr>
@@ -149,6 +153,13 @@ export function Leaderboard({ entries }: { entries: LeaderboardEntry[] }) {
                 </td>
                 <td className="p-3 tabular-nums">
                   {e.tokens_per_second != null ? e.tokens_per_second.toFixed(1) : "—"}
+                </td>
+                <td className="p-3">
+                  {e.sampling ? (
+                    <SamplingTag sampling={e.sampling} />
+                  ) : (
+                    <span className="text-(--color-ink-faint)">—</span>
+                  )}
                 </td>
                 <td className="p-3">${e.total_estimated_cost_usd.toFixed(2)}</td>
                 <td className="p-3">

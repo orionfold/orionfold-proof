@@ -160,6 +160,15 @@ def system_prompt_for(candidate: Candidate) -> str:
     return candidate.system_prompt or TASK_SYSTEM_PROMPT
 
 
+# Sampling disclosure (cloud-provider-determinism-audit). A cloud provider sets no sampling
+# params, so it inherits the API's server-side default — non-deterministic, and we honestly
+# don't know the exact temperature. Disclose that as {temperature: None, mode: "provider_default"}
+# rather than fabricating a number we never sent. The shared constant keeps the three cloud
+# providers in one place; Ollama discloses its own {temperature: 0.0, mode: "deterministic"}.
+PROVIDER_DEFAULT_SAMPLING: dict[str, Any] = {"temperature": None, "mode": "provider_default"}
+DETERMINISTIC_SAMPLING: dict[str, Any] = {"temperature": 0.0, "mode": "deterministic"}
+
+
 # Output cap per completion. The default leaves room for a short answer; reasoning models
 # (qwen3, deepseek-r1, gpt-oss, …) spend the budget *thinking* and can return empty content at
 # a low cap, so it's env-overridable with ORIONFOLD_MAX_TOKENS (raise it for those models).
@@ -253,6 +262,7 @@ def build_result(
     privacy: Privacy,
     actual_cost_usd: float | None = None,
     warm_decode_ms: int | None = None,
+    sampling: dict[str, Any] | None = None,
 ) -> ProviderResult:
     """Assemble the uniform :class:`ProviderResult` every real provider returns.
 
@@ -276,4 +286,5 @@ def build_result(
         privacy=privacy,
         raw_metadata={"provider": provider_id, "model": model},
         warm_decode_ms=warm_decode_ms,
+        sampling=sampling,
     )
