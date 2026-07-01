@@ -6,6 +6,19 @@ for [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.2.5] — 2026-07-01
+
+### Added
+
+- **The receipt now discloses how each candidate was sampled.** A new **Sampling** column
+  (cockpit leaderboard + exported receipt) labels each candidate **Deterministic** — temperature
+  pinned to 0, so a re-run reproduces the output (local Ollama) — or **Sampled** — the provider's
+  default sampling was used, so the output is not guaranteed to reproduce exactly (cloud
+  providers). Previously the receipt was silent about cloud sampling, implying a repeatability it
+  couldn't back for cloud rows. Disclosure only: no sampling behavior changed, and the descriptor
+  (`{temperature, mode}`) is secret-free and excluded from the run's `config_hash`. Receipt schema
+  bump (v13 → v14).
+
 ## [0.2.4] — 2026-07-01
 
 ### Added

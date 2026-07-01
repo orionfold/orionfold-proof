@@ -1,7 +1,7 @@
 {
   "receipt_version": 14,
   "run_id": "run_sampledemo01",
-  "config_hash": "f36165f4fce3",
+  "config_hash": "c685884e1fe1",
   "created_at": "2026-06-19T12:00:00Z",
   "brief": {
     "task_name": "Investment memo summarization",
@@ -183,7 +183,7 @@
   "telemetry": null,
   "repro": {
     "run_id": "run_sampledemo01",
-    "config_hash": "f36165f4fce3",
+    "config_hash": "c685884e1fe1",
     "created_at": "2026-06-19T12:00:00Z",
     "dataset_id": "investment-memo-summarization",
     "candidate_ids": [
