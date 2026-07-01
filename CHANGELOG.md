@@ -6,6 +6,25 @@ for [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.2.4] — 2026-07-01
+
+### Added
+
+- **Stop a proof run midway.** A **Stop** button on the live run cancels an in-flight run
+  cooperatively — the engine stops between examples in `run_matrix_concurrent`, the run stream
+  tears down its sampler, and the cockpit shows a calm **Run stopped** panel instead of a raw
+  error. Cancelling on client disconnect is handled the same way (the server cancels the run and
+  always tears down the sampler), and a deliberate stop no longer surfaces a bare `AbortError` in
+  the setup form. Per-cell cost is included in each run-stream progress frame so a stopped run
+  still reports what it spent.
+
+### Changed
+
+- **Throughput split into warm-decode + end-to-end tok/s.** The receipt now reports two
+  throughput columns — **warm-decode tok/s** (steady-state generation speed, excluding cold-start
+  and queueing) and **end-to-end tok/s** (wall-clock throughput including setup) — instead of a
+  single diluted figure that undersold fast models. Receipt schema bump.
+
 ## [0.2.3] — 2026-06-28
 
 ### Added
