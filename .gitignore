@@ -83,3 +83,5 @@ _packs/
 /docs/superpowers
 /.claude/skills
 /.claude/agents
+/.claude/handoff-profile.yaml
+/_STATUS.json
